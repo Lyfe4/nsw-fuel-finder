@@ -84,37 +84,56 @@ describe('parseNearbyQuery', () => {
   it('refuses an unknown fuel code and lists the valid ones', () => {
     const message = badRequest(() => parseNearbyQuery(params({ ...sydney, fuel: 'DIESEL' })));
     expect(message).toMatch(/Unknown fuel type "DIESEL"/);
-    expect(message).toMatch(/E10, U91/);
+    expect(message).toMatch(/U91, E10, P98/);
+  });
+
+  it('refuses EV, which FuelCheck lists but almost never prices', () => {
+    expect(badRequest(() => parseNearbyQuery(params({ ...sydney, fuel: 'EV' })))).toMatch(
+      /Unknown fuel type "EV"/,
+    );
   });
 });
 
 describe('parseLocationQuery', () => {
-  it.each(['2000', '2250', '1235'])('accepts NSW postcode %s', (query) => {
-    expect(parseLocationQuery(params({ query, fuel: 'E10' }))).toEqual({
-      location: query,
+  const location = (query: string) => parseLocationQuery(params({ query, fuel: 'E10' }));
+
+  it.each(['2000', '2250', '2600', '1235'])('reads %s as a postcode', (query) => {
+    expect(location(query)).toEqual({
+      kind: 'postcode',
+      postcode: query,
+      radiusKm: 5,
       fuelType: 'E10',
     });
   });
 
-  it.each(['Woy Woy', 'Kurri Kurri', "O'Connell", 'St. Ives', 'Wagga Wagga', 'Bellingen'])(
-    'accepts suburb "%s"',
+  it.each(['Woy Woy', 'Kurri Kurri', "O'Connell", 'St. Ives', 'Wagga Wagga', 'Mt Druitt'])(
+    'reads "%s" as a suburb',
     (query) => {
-      expect(parseLocationQuery(params({ query, fuel: 'E10' })).location).toBe(query);
+      expect(location(query)).toMatchObject({ kind: 'suburb', suburb: query, postcode: null });
     },
   );
 
+  it.each([
+    ['Kingswood 2747', 'Kingswood', '2747'],
+    ['Kingswood NSW 2747', 'Kingswood', '2747'],
+    ['Griffith ACT 2603', 'Griffith', '2603'],
+    ['Griffith ACT', 'Griffith', null],
+  ])('reads "%s" as suburb %s with postcode %s', (query, suburb, postcode) => {
+    expect(location(query)).toMatchObject({ kind: 'suburb', suburb, postcode });
+  });
+
   it('accepts accented letters', () => {
-    expect(parseLocationQuery(params({ query: 'Gundagai Café', fuel: 'E10' })).location).toBe(
-      'Gundagai Café',
-    );
+    expect(location('Gundagai Café')).toMatchObject({ suburb: 'Gundagai Café' });
   });
 
   it('normalises a curly apostrophe and collapses whitespace', () => {
-    expect(parseLocationQuery(params({ query: '  O’Connell   ', fuel: 'E10' })).location).toBe(
-      "O'Connell",
-    );
-    expect(parseLocationQuery(params({ query: 'Woy    Woy', fuel: 'E10' })).location).toBe(
-      'Woy Woy',
+    expect(location('  O’Connell   ')).toMatchObject({ suburb: "O'Connell" });
+    expect(location('Woy    Woy')).toMatchObject({ suburb: 'Woy Woy' });
+  });
+
+  it('takes an optional radius, clamped like nearby', () => {
+    expect(parseLocationQuery(params({ query: '2250', fuel: 'E10', radius: '90' })).radiusKm).toBe(
+      25,
     );
   });
 
@@ -126,7 +145,7 @@ describe('parseLocationQuery', () => {
     ['a leading digit', '2nd Avenue'],
     ['too long', 'a'.repeat(51)],
   ])('refuses %s', (_, query) => {
-    expect(badRequest(() => parseLocationQuery(params({ query, fuel: 'E10' })))).toBe(
+    expect(badRequest(() => location(query))).toBe(
       'Enter a NSW suburb name or a four-digit postcode.',
     );
   });

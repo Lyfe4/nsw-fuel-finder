@@ -23,18 +23,18 @@ export default defineConfig({
     globals: false,
     // Process CSS Modules in tests so `styles.foo` is a real class name.
     css: true,
-    // The function's tests run here too. They declare `@vitest-environment
+    // The Netlify functions' tests run here too. They declare `@vitest-environment
     // node` at the top of the file, so they get Node's real `fetch`,
     // `Request` and `Response` rather than jsdom's.
     include: [
       'src/**/*.{test,spec}.{ts,tsx}',
       'shared/**/*.{test,spec}.ts',
-      'netlify/functions/**/*.{test,spec}.ts',
+      'netlify/**/*.{test,spec}.ts',
     ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
-      include: ['src/**/*.{ts,tsx}', 'shared/**/*.ts', 'netlify/functions/**/*.ts'],
+      include: ['src/**/*.{ts,tsx}', 'shared/**/*.ts', 'netlify/**/*.ts'],
       exclude: ['**/*.{test,spec}.{ts,tsx}', '**/__fixtures__/**', 'src/main.tsx'],
     },
   },

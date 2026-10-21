@@ -22,6 +22,10 @@
 # the function's node_modules dependencies next to it, which is why
 # `netlify dev` on Windows needs Developer Mode - see docs/decisions.md.
 
+# Two functions. `snapshot` is scheduled (every 30 minutes; the cron is in its
+# source, where Netlify reads it) and is the only code that calls API.NSW. It
+# writes prices to Netlify Blobs. `api` reads them and has no public schedule.
+#
 # The browser only ever talks to /api/*. The function behind it has a fixed
 # set of routes (see netlify/functions/api/router.ts) and is not an open proxy.
 # status 200 makes this a rewrite: the address bar and the CDN cache key stay

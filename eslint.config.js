@@ -120,10 +120,12 @@ export default tseslint.config(
     },
   },
 
-  // --- The Netlify function runs on Node, not in a browser --------------------
+  // --- The Netlify functions run on Node, not in a browser -------------------
   {
-    files: ['netlify/functions/**/*.ts'],
+    files: ['netlify/**/*.ts'],
     languageOptions: { globals: globals.node },
+    // console.info is the function log: one line per scheduled run.
+    rules: { 'no-console': ['error', { allow: ['info', 'warn', 'error'] }] },
   },
 
   // --- Tests -------------------------------------------------------------------

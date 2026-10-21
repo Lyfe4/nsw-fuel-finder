@@ -1,25 +1,32 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fakeUpstream, jsonResponse, PATHS } from './__fixtures__/fakeUpstream';
-import location from './__fixtures__/location.json';
-import lovs from './__fixtures__/lovs.json';
-import nearby from './__fixtures__/nearby.json';
+import { FIXTURE_FETCHED_AT, fixtureSnapshot } from './__fixtures__/snapshot';
+import { buildPlaceIndex } from './places';
 import { createHandler } from './router';
+import { SnapshotUnavailableError } from './snapshotSource';
 
-import type { ApiErrorBody, PricesResponse, ReferenceResponse } from '../../../shared/api';
+import type { ApiErrorBody, PricesResponse } from '../../../shared/api';
 
 const ORIGIN = 'http://localhost:8888';
+const loaded = { snapshot: fixtureSnapshot, places: buildPlaceIndex(fixtureSnapshot.stations) };
 
-function setup() {
-  const upstream = fakeUpstream({
-    [PATHS.reference]: [() => jsonResponse(lovs)],
-    [PATHS.nearby]: [() => jsonResponse(nearby)],
-    [PATHS.location]: [() => jsonResponse(location)],
+function setup(options: { now?: number; unavailable?: boolean } = {}) {
+  const getSnapshot = vi.fn(() =>
+    options.unavailable
+      ? Promise.reject(new SnapshotUnavailableError('No price snapshot has been taken yet.'))
+      : Promise.resolve(loaded),
+  );
+  const handler = createHandler({
+    getSnapshot,
+    now: () => options.now ?? FIXTURE_FETCHED_AT + 60_000,
   });
-  const handler = createHandler(upstream.client());
-  const get = (path: string, init?: RequestInit) => handler(new Request(`${ORIGIN}${path}`, init));
-  return { upstream, get };
+  const get = async (path: string, init?: RequestInit) => {
+    const response = await handler(new Request(`${ORIGIN}${path}`, init));
+    const body: unknown = await response.json();
+    return { response, body };
+  };
+  return { get, getSnapshot };
 }
 
 beforeEach(() => {
@@ -31,137 +38,166 @@ afterEach(() => {
 });
 
 describe('GET /api/nearby', () => {
-  it('returns normalised prices with short cache headers', async () => {
+  // Gosford, rounded as the client sends it.
+  const gosford = 'lat=-33.42&lng=151.34';
+
+  it('returns cheapest-first prices from the snapshot, with its age', async () => {
     const { get } = setup();
-    const response = await get('/api/nearby?lat=-33.4301&lng=151.3049&fuel=P95&radius=10');
+    const { response, body } = await get(`/api/nearby?${gosford}&fuel=U91`);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
+    const prices = body as PricesResponse;
+    expect(prices).toMatchObject({
+      fuelType: 'U91',
+      fetchedAt: '2026-10-21T03:21:27.000Z',
+      stale: false,
+      origin: { latitude: -33.42, longitude: 151.34, label: null },
+    });
+    expect(prices.stations.length).toBeGreaterThan(3);
+    const cents = prices.stations.map((s) => s.priceCents);
+    expect(cents).toEqual([...cents].sort((a, b) => a - b));
+    expect(prices.stations.every((s) => s.distanceKm <= 5.8)).toBe(true);
+  });
+
+  it('only includes stations that sell the fuel', async () => {
+    const { get } = setup();
+    const { body } = await get(`/api/nearby?${gosford}&fuel=B20`);
+    expect((body as PricesResponse).stations).toEqual([]);
+  });
+
+  it('sets a one-minute cache at the browser and the edge', async () => {
+    const { get } = setup();
+    const { response } = await get(`/api/nearby?${gosford}&fuel=U91`);
     expect(response.headers.get('cache-control')).toBe('public, max-age=60');
     expect(response.headers.get('netlify-cdn-cache-control')).toBe(
-      'public, durable, s-maxage=300, stale-while-revalidate=300',
+      'public, durable, s-maxage=60, stale-while-revalidate=60',
     );
-
-    const body = (await response.json()) as PricesResponse;
-    expect(body.fuelType).toBe('P95');
-    expect(body.stations.map((s) => s.name)).toEqual([
-      '7-Eleven Erina',
-      'Ampol Gosford',
-      'BP Wyoming',
-    ]);
   });
 
-  it('forwards only the rounded position upstream', async () => {
-    const { get, upstream } = setup();
-    await get('/api/nearby?lat=-33.430123&lng=151.304987&fuel=P95');
-
-    expect(upstream.dataCalls()[0]?.body).toMatchObject({ latitude: '-33.43', longitude: '151.3' });
+  it.each([
+    [89, false],
+    [91, true],
+    [24 * 60, true],
+  ])('at %d minutes old, stale is %s - and it is still served', async (minutes, stale) => {
+    // Three missed half-hourly runs is 90 minutes.
+    const { get } = setup({ now: FIXTURE_FETCHED_AT + minutes * 60_000 });
+    const { response, body } = await get(`/api/nearby?${gosford}&fuel=U91`);
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).stale).toBe(stale);
   });
 
-  it('refuses bad input with a 400 before spending an upstream call', async () => {
-    const { get, upstream } = setup();
-    const response = await get('/api/nearby?lat=-37.81&lng=144.96&fuel=P95');
+  it('refuses bad input without loading the snapshot', async () => {
+    const { get, getSnapshot } = setup();
+    const { response, body } = await get('/api/nearby?lat=-37.81&lng=144.96&fuel=U91');
 
     expect(response.status).toBe(400);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(response.headers.get('netlify-cdn-cache-control')).toBeNull();
-    expect((await response.json()) as ApiErrorBody).toEqual({
-      error: { code: 'bad_request', message: 'That location is outside NSW.' },
-    });
-    expect(upstream.fetch).not.toHaveBeenCalled();
+    expect((body as ApiErrorBody).error.code).toBe('bad_request');
+    expect(getSnapshot).not.toHaveBeenCalled();
   });
 });
 
 describe('GET /api/location', () => {
-  it('returns prices for a suburb or postcode, with no distances', async () => {
+  it('resolves a suburb and measures from its centre', async () => {
     const { get } = setup();
-    const response = await get('/api/location?query=2065&fuel=P95');
+    const { response, body } = await get('/api/location?query=Erina&fuel=U91');
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as PricesResponse;
-    expect(body.stations.map((s) => [s.name, s.distanceKm])).toEqual([
-      ['Caltex Crows Nest', null],
-      ['BP Naremburn', null],
-    ]);
+    const prices = body as PricesResponse;
+    expect(prices.origin.label).toBe('Erina NSW 2250');
+    expect(prices.stations.some((s) => s.address.includes('ERINA'))).toBe(true);
+    // Wyoming is 4 km from Erina's centre, inside the default 5 km; West
+    // Gosford is 5.4 km away, outside it.
+    expect(prices.stations.some((s) => s.address.includes('WYOMING'))).toBe(true);
+    expect(prices.stations.some((s) => s.address.includes('WEST GOSFORD'))).toBe(false);
+  });
+
+  it('resolves a postcode', async () => {
+    const { get } = setup();
+    const { body } = await get('/api/location?query=2715&fuel=U91');
+    expect((body as PricesResponse).origin.label).toBe('2715');
+    expect((body as PricesResponse).stations.length).toBeGreaterThan(0);
+    expect((body as PricesResponse).stations.every((s) => /BALRANALD/i.test(s.address))).toBe(true);
+  });
+
+  it('finds an address that had no comma before its suburb', async () => {
+    const { get } = setup();
+    const { body } = await get('/api/location?query=balranald&fuel=U91');
+    expect((body as PricesResponse).stations.map((s) => s.address)).toContain(
+      '94 Sturt Hwy BALRANALD NSW 2715',
+    );
+  });
+
+  it('asks which one when a suburb name means two places', async () => {
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=Griffith&fuel=U91');
+
+    expect(response.status).toBe(409);
+    expect((body as ApiErrorBody).error).toEqual({
+      code: 'ambiguous_location',
+      message: 'There is more than one Griffith.',
+      candidates: ['Griffith ACT 2603', 'Griffith NSW 2680'],
+    });
+  });
+
+  // E10: the Griffith ACT station sells no U91.
+  it('accepts a candidate back as the query', async () => {
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=Griffith%20ACT%202603&fuel=E10');
+
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).origin.label).toBe('Griffith ACT 2603');
+    expect((body as PricesResponse).stations.map((s) => s.address)).toContain(
+      '77 CANBERRA AV, GRIFFITH ACT 2603',
+    );
+  });
+
+  it('does not count an EV charger as a second place', async () => {
+    // Live data has a "Kingswood NSW 2340" near Tamworth, but it is an EV
+    // charger with no fuel price, so only Penrith's Kingswood is a place.
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=Kingswood&fuel=U91');
+
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).origin.label).toBe('Kingswood NSW 2747');
+  });
+
+  it('says so when no station is listed in a place', async () => {
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=Woy%20Woy&fuel=U91');
+
+    expect(response.status).toBe(404);
+    expect((body as ApiErrorBody).error.code).toBe('location_not_found');
   });
 });
 
-describe('GET /api/reference', () => {
-  it('returns fuel types and brands with long cache headers', async () => {
+describe('routing and failures', () => {
+  it.each(['/api', '/api/', '/api/reference', '/api/nearby/extra'])('%s is a 404', async (path) => {
     const { get } = setup();
-    const response = await get('/api/reference');
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
-    expect(response.headers.get('netlify-cdn-cache-control')).toContain('s-maxage=86400');
-    const body = (await response.json()) as ReferenceResponse;
-    expect(body.fuelTypes.map((f) => f.code)).toEqual(['E10', 'P95', 'EV']);
+    expect((await get(path)).response.status).toBe(404);
   });
 
-  it('is also reachable at the function path netlify dev exposes', async () => {
+  it('is reachable at the function path netlify dev exposes', async () => {
     const { get } = setup();
-    expect((await get('/.netlify/functions/api/reference')).status).toBe(200);
+    expect(
+      (await get('/.netlify/functions/api/location?query=2715&fuel=U91')).response.status,
+    ).toBe(200);
   });
-});
-
-describe('routing', () => {
-  it.each(['/api', '/api/', '/api/prices', '/api/nearby/extra', '/api/../reference'])(
-    '%s is a 404, not a pass-through',
-    async (path) => {
-      const { get, upstream } = setup();
-      const response = await get(path);
-
-      expect(response.status).toBe(404);
-      expect(upstream.fetch).not.toHaveBeenCalled();
-    },
-  );
 
   it('refuses anything but GET with a 405 and an Allow header', async () => {
     const { get } = setup();
-    const response = await get('/api/reference', { method: 'POST', body: '{}' });
-
+    const { response } = await get('/api/nearby', { method: 'POST', body: '{}' });
     expect(response.status).toBe(405);
     expect(response.headers.get('allow')).toBe('GET');
   });
-});
 
-describe('errors', () => {
-  it('maps an upstream outage to a 503 with Retry-After and no caching', async () => {
-    const upstream = fakeUpstream({ [PATHS.nearby]: [() => jsonResponse({}, 503)] });
-    const handler = createHandler(upstream.client());
-    const response = await handler(
-      new Request(`${ORIGIN}/api/nearby?lat=-33.43&lng=151.3&fuel=E10`),
-    );
+  it('reports a missing snapshot as a 503 with Retry-After, never cached', async () => {
+    const { get } = setup({ unavailable: true });
+    const { response, body } = await get('/api/location?query=2715&fuel=U91');
 
     expect(response.status).toBe(503);
     expect(response.headers.get('retry-after')).toBe('60');
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(((await response.json()) as ApiErrorBody).error.code).toBe('upstream_unavailable');
-  });
-
-  it('maps an upstream credentials failure to a 502, not a 401', async () => {
-    const upstream = fakeUpstream({ [PATHS.token]: [() => jsonResponse({}, 401)] });
-    const handler = createHandler(upstream.client());
-    const response = await handler(new Request(`${ORIGIN}/api/reference`));
-
-    expect(response.status).toBe(502);
-    expect(((await response.json()) as ApiErrorBody).error.code).toBe('upstream_auth');
-  });
-
-  it('turns an unexpected exception into a generic 500', async () => {
-    const upstream = fakeUpstream();
-    const handler = createHandler(
-      upstream.client({
-        credentials: () => {
-          throw new Error('boom');
-        },
-      }),
-    );
-    const response = await handler(new Request(`${ORIGIN}/api/reference`));
-
-    expect(response.status).toBe(500);
-    expect((await response.json()) as ApiErrorBody).toEqual({
-      error: { code: 'internal_error', message: 'Something went wrong.' },
-    });
+    expect((body as ApiErrorBody).error.code).toBe('snapshot_unavailable');
   });
 });

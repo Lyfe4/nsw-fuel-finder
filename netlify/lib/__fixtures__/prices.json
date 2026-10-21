@@ -1,0 +1,1328 @@
+{
+  "stations": [
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Ampol Foodary",
+      "code": "2263",
+      "name": "Ampol Foodary Wyoming",
+      "address": "465 Pacific Hwy, WYOMING NSW 2250",
+      "location": {
+        "latitude": -33.409462,
+        "longitude": 151.349979
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Ampol Foodary",
+      "code": "16914",
+      "name": "Ampol Foodary Wagga Wagga",
+      "address": "56 Docker St, WAGGA WAGGA NSW 2650",
+      "location": {
+        "latitude": -35.1173827,
+        "longitude": 147.3558074
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "7-Eleven",
+      "code": "17136",
+      "name": "7-Eleven St Helens Park",
+      "address": "Corner Appin Road & Kellerman Drive St Helens Park, St Helens Park NSW 2560",
+      "location": {
+        "latitude": -34.102063,
+        "longitude": 150.802239
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "NRMA",
+      "code": "17243",
+      "name": "NRMA Fast Charger",
+      "address": "9 Murray Rose, SYDNEY OLYMPIC PARK NSW 2127",
+      "location": {
+        "latitude": -33.8458976,
+        "longitude": 151.0697681
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Ampol Foodary",
+      "code": "17249",
+      "name": "Ampol Foodary Erina",
+      "address": "155 The Entrance Rd, ERINA NSW 2250",
+      "location": {
+        "latitude": -33.4382424,
+        "longitude": 151.3793547
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "United",
+      "code": "17799",
+      "name": "United Petroleum Wyoming",
+      "address": "459 Pacific Hwy, WYOMING NSW 2250",
+      "location": {
+        "latitude": -33.4103967,
+        "longitude": 151.3477896
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Shell",
+      "code": "18101",
+      "name": "Shell Tyndale (24/7 unmanned fuel)",
+      "address": "4012 BIG RIVER WAY, TYNDALE NSW 2460",
+      "location": {
+        "latitude": -29.5616228,
+        "longitude": 153.1494197
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "BP",
+      "code": "18103",
+      "name": "BP Balranald Roadhouse",
+      "address": "94 Sturt Hwy BALRANALD NSW 2715",
+      "location": {
+        "latitude": -34.66705,
+        "longitude": 143.56526
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Ampol Foodary",
+      "code": "18323",
+      "name": "Ampol Foodary Gosford West",
+      "address": "283 MANNS RD, WEST GOSFORD NSW 2250",
+      "location": {
+        "latitude": -33.4166261,
+        "longitude": 151.3242562
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "7-Eleven",
+      "code": "18481",
+      "name": "7-Eleven Metford",
+      "address": "456, Metford Road, Metford NEW SOUTH WALES 2323",
+      "location": {
+        "latitude": -32.761177,
+        "longitude": 151.600376
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Ampol",
+      "code": "18506",
+      "name": "Ampol Griffith",
+      "address": "2-4 MACKAY AV, GRIFFITH NSW 2680",
+      "location": {
+        "latitude": -34.2908767,
+        "longitude": 146.0630818
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Mobil",
+      "code": "18515",
+      "name": "McNabb Mobil Griffith",
+      "address": "2-8 OXLEY ST, GRIFFITH NSW 2680",
+      "location": {
+        "latitude": -34.2949689,
+        "longitude": 146.0643533
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Ampol",
+      "code": "18641",
+      "name": "Ampol Cowra",
+      "address": "2 GRENFELL RD, COWRA NSW 2794",
+      "location": {
+        "latitude": -33.8351555,
+        "longitude": 148.6790614
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Metro Fuel",
+      "code": "18704",
+      "name": "Metro petroleum Griffith West",
+      "address": "33 GRIFFIN AV, GRIFFITH NSW 2680",
+      "location": {
+        "latitude": -34.28534919,
+        "longitude": 146.02786809
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "BP",
+      "code": "19016",
+      "name": "BP Erina",
+      "address": "90 THE ENTRANCE ROAD, ERINA NSW 2250",
+      "location": {
+        "latitude": -33.4384287,
+        "longitude": 151.372213
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "NRMA",
+      "code": "19186",
+      "name": "Cowra Art Gallery Car Park",
+      "address": "77 Darling St, Cowra NSW 2794",
+      "location": {
+        "latitude": -33.8344591,
+        "longitude": 148.6940855
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Tesla",
+      "code": "19200",
+      "name": "Driver Reviver Car Park",
+      "address": "2 Lachlan Valley Way, Cowra NSW 2794",
+      "location": {
+        "latitude": -33.8356839,
+        "longitude": 148.6803744
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Tesla",
+      "code": "19229",
+      "name": "Gosford Inn Motel",
+      "address": "733 Pacific Hwy, Narara NSW 2250",
+      "location": {
+        "latitude": -33.3926197,
+        "longitude": 151.3535782
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Tesla",
+      "code": "19238",
+      "name": "Griffith Visitor Information Centre",
+      "address": "1 Jondaryan Ave, Griffith NSW 2680",
+      "location": {
+        "latitude": -34.2891433,
+        "longitude": 146.050738
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Chargefox",
+      "code": "19334",
+      "name": "Mount Druitt Hub",
+      "address": "9 Ayres Grove, Mount Druitt NSW 2770",
+      "location": {
+        "latitude": -33.7673709,
+        "longitude": 150.8217792
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Independent EV",
+      "code": "19341",
+      "name": "Narara Ecovillage Coffee Cart",
+      "address": "30 Gugandi Rd, Narara NSW 2250",
+      "location": {
+        "latitude": -33.3934017,
+        "longitude": 151.3293208
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "NRMA",
+      "code": "19527",
+      "name": "Wagga Wagga Cross St Car Park",
+      "address": "Wagga Wagga NSW 2650",
+      "location": {
+        "latitude": -35.1053553,
+        "longitude": 147.373681
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Chargefox",
+      "code": "20121",
+      "name": "Royal Australian Mint",
+      "address": "62-114 Denison St, Deakin ACT 2600",
+      "location": {
+        "latitude": -35.3185351179983,
+        "longitude": 149.092857
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Exploren",
+      "code": "20441",
+      "name": "Narara Ecovillage - Boobook Rise Parking Space",
+      "address": "6 Boobook Rise, Narara NSW 2250",
+      "location": {
+        "latitude": -33.3942667,
+        "longitude": 151.3285645
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Exploren",
+      "code": "20477",
+      "name": "Stockmans Motel and Restaurant Tamworth",
+      "address": "2-24 Spains Ln, Kingswood NSW 2340",
+      "location": {
+        "latitude": -31.1647707,
+        "longitude": 150.9181072
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Exploren",
+      "code": "20501",
+      "name": "Uralla Bowling Club - Uralla",
+      "address": "52 Hill Street, Uralla, NSW  2358, AU",
+      "location": {
+        "latitude": -30.6392657,
+        "longitude": 151.498423
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "7-Eleven",
+      "code": "144",
+      "name": "7-Eleven Kingswood",
+      "address": "127 GREAT WESTERN HWY, KINGSWOOD NSW 2747",
+      "location": {
+        "latitude": -33.7598749,
+        "longitude": 150.7265029
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "BP",
+      "code": "386",
+      "name": "BP Grenfell Road",
+      "address": "11 Grenfell Road, Cowra NSW 2794",
+      "location": {
+        "latitude": -33.834367,
+        "longitude": 148.673384
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "United",
+      "code": "437",
+      "name": "United Petroleum Cowra",
+      "address": "10 Kendal Street, Cowra NSW 2794",
+      "location": {
+        "latitude": -33.833891,
+        "longitude": 148.687381
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "EG Ampol",
+      "code": "515",
+      "name": "EG Ampol Cowra",
+      "address": "13 Railway Lane, Cowra NSW 2646",
+      "location": {
+        "latitude": -33.836289,
+        "longitude": 148.692688
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Independent",
+      "code": "1032",
+      "name": "Independent Marrickville",
+      "address": "73-81 Marrickville Road, Marrickville NSW 2204",
+      "location": {
+        "latitude": -33.913163,
+        "longitude": 151.162094
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Caltex",
+      "code": "1148",
+      "name": "Caltex Karuah",
+      "address": "403 Tarean Street, Karuah NSW 2324",
+      "location": {
+        "latitude": -32.653968,
+        "longitude": 151.962911
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "7-Eleven",
+      "code": "18788",
+      "name": "7-Eleven Braddon",
+      "address": "20 MORT ST, BRADDON ACT 2612",
+      "location": {
+        "latitude": -35.2756686,
+        "longitude": 149.1312609
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "BP",
+      "code": "18810",
+      "name": "BP Kingston",
+      "address": "77 CANBERRA AV, GRIFFITH ACT 2603",
+      "location": {
+        "latitude": -35.3200313,
+        "longitude": 149.1388923
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Metro Fuel",
+      "code": "20238",
+      "name": "Metro Petroleum Cowra",
+      "address": "1 MULYAN ST, COWRA NSW 2794",
+      "location": {
+        "latitude": -33.82820744,
+        "longitude": 148.68313628
+      },
+      "state": "NSW"
+    },
+    {
+      "brandid": "",
+      "stationid": "",
+      "brand": "Independent",
+      "code": "20885",
+      "name": "Murrumbidgee Petroleum Distributors",
+      "address": "45 WE ST, BALRANALD NSW 2715",
+      "location": {
+        "latitude": -34.63769,
+        "longitude": 143.56165
+      },
+      "state": "NSW"
+    }
+  ],
+  "prices": [
+    {
+      "stationcode": 144,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 233.9,
+      "lastupdated": "20/10/2026 05:45:22"
+    },
+    {
+      "stationcode": 144,
+      "state": "NSW",
+      "fueltype": "LPG",
+      "price": 112.5,
+      "lastupdated": "18/10/2026 23:51:13"
+    },
+    {
+      "stationcode": 144,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 252.9,
+      "lastupdated": "20/10/2026 05:45:22"
+    },
+    {
+      "stationcode": 144,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 261.9,
+      "lastupdated": "20/10/2026 05:45:22"
+    },
+    {
+      "stationcode": 144,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 289.9,
+      "lastupdated": "16/10/2026 23:15:19"
+    },
+    {
+      "stationcode": 144,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 235.9,
+      "lastupdated": "20/10/2026 05:45:22"
+    },
+    {
+      "stationcode": 386,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 248.9,
+      "lastupdated": "05/10/2026 23:47:51"
+    },
+    {
+      "stationcode": 386,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 265.9,
+      "lastupdated": "05/10/2026 23:47:51"
+    },
+    {
+      "stationcode": 386,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 274.9,
+      "lastupdated": "05/10/2026 23:47:51"
+    },
+    {
+      "stationcode": 386,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 292.9,
+      "lastupdated": "08/10/2026 04:08:07"
+    },
+    {
+      "stationcode": 437,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 289.5,
+      "lastupdated": "08/10/2026 02:35:08"
+    },
+    {
+      "stationcode": 437,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 247.5,
+      "lastupdated": "08/10/2026 02:35:08"
+    },
+    {
+      "stationcode": 437,
+      "state": "NSW",
+      "fueltype": "LPG",
+      "price": 129.9,
+      "lastupdated": "13/07/2026 05:10:06"
+    },
+    {
+      "stationcode": 437,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 263.5,
+      "lastupdated": "08/10/2026 02:35:08"
+    },
+    {
+      "stationcode": 437,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 272.5,
+      "lastupdated": "08/10/2026 02:35:08"
+    },
+    {
+      "stationcode": 437,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 249.5,
+      "lastupdated": "08/10/2026 02:35:08"
+    },
+    {
+      "stationcode": 515,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 248.9,
+      "lastupdated": "05/10/2026 23:15:23"
+    },
+    {
+      "stationcode": 515,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 267.9,
+      "lastupdated": "05/10/2026 23:15:23"
+    },
+    {
+      "stationcode": 515,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 277.9,
+      "lastupdated": "05/10/2026 23:15:23"
+    },
+    {
+      "stationcode": 515,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 292.9,
+      "lastupdated": "14/10/2026 20:17:26"
+    },
+    {
+      "stationcode": 1032,
+      "state": "NSW",
+      "fueltype": "B20",
+      "price": 298.9,
+      "lastupdated": "15/09/2026 03:28:30"
+    },
+    {
+      "stationcode": 1032,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 264.9,
+      "lastupdated": "20/10/2026 06:02:19"
+    },
+    {
+      "stationcode": 1032,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 289.9,
+      "lastupdated": "17/09/2026 05:02:58"
+    },
+    {
+      "stationcode": 1032,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 234.9,
+      "lastupdated": "20/10/2026 06:02:19"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 285.9,
+      "lastupdated": "18/09/2026 07:46:40"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 242.9,
+      "lastupdated": "09/10/2026 11:03:57"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 45,
+      "lastupdated": "24/07/2020 03:21:29"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 259.9,
+      "lastupdated": "09/10/2026 11:03:57"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 269.9,
+      "lastupdated": "09/10/2026 11:03:57"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 287.9,
+      "lastupdated": "18/09/2026 07:46:40"
+    },
+    {
+      "stationcode": 1148,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 243.9,
+      "lastupdated": "09/10/2026 11:03:57"
+    },
+    {
+      "stationcode": 2263,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 233.9,
+      "lastupdated": "20/10/2026 20:12:28"
+    },
+    {
+      "stationcode": 2263,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 249.9,
+      "lastupdated": "19/10/2026 21:52:27"
+    },
+    {
+      "stationcode": 2263,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 262.9,
+      "lastupdated": "19/10/2026 09:42:26"
+    },
+    {
+      "stationcode": 2263,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 289.9,
+      "lastupdated": "21/10/2026 03:12:27"
+    },
+    {
+      "stationcode": 2263,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 237.9,
+      "lastupdated": "20/10/2026 20:12:28"
+    },
+    {
+      "stationcode": 16914,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 233.5,
+      "lastupdated": "15/10/2026 22:07:26"
+    },
+    {
+      "stationcode": 16914,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 252.5,
+      "lastupdated": "15/10/2026 22:07:26"
+    },
+    {
+      "stationcode": 16914,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 262.5,
+      "lastupdated": "15/10/2026 22:07:26"
+    },
+    {
+      "stationcode": 16914,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 284.9,
+      "lastupdated": "19/10/2026 18:27:26"
+    },
+    {
+      "stationcode": 16914,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 235.5,
+      "lastupdated": "15/10/2026 22:07:26"
+    },
+    {
+      "stationcode": 17136,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 238.9,
+      "lastupdated": "15/10/2026 21:06:15"
+    },
+    {
+      "stationcode": 17136,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 257.9,
+      "lastupdated": "15/10/2026 21:06:15"
+    },
+    {
+      "stationcode": 17136,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 266.9,
+      "lastupdated": "15/10/2026 21:06:15"
+    },
+    {
+      "stationcode": 17136,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 275.9,
+      "lastupdated": "04/10/2026 08:24:13"
+    },
+    {
+      "stationcode": 17136,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 240.9,
+      "lastupdated": "15/10/2026 21:06:15"
+    },
+    {
+      "stationcode": 17243,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "25/06/2018 00:15:01"
+    },
+    {
+      "stationcode": 17249,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 238.9,
+      "lastupdated": "19/10/2026 01:12:26"
+    },
+    {
+      "stationcode": 17249,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 257.9,
+      "lastupdated": "19/10/2026 01:12:26"
+    },
+    {
+      "stationcode": 17249,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 267.9,
+      "lastupdated": "19/10/2026 01:12:26"
+    },
+    {
+      "stationcode": 17249,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 286.9,
+      "lastupdated": "15/10/2026 23:37:25"
+    },
+    {
+      "stationcode": 17249,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 240.9,
+      "lastupdated": "19/10/2026 01:12:26"
+    },
+    {
+      "stationcode": 17799,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 285.9,
+      "lastupdated": "20/10/2026 21:05:15"
+    },
+    {
+      "stationcode": 17799,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 235.9,
+      "lastupdated": "20/10/2026 21:05:15"
+    },
+    {
+      "stationcode": 17799,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 260.9,
+      "lastupdated": "20/10/2026 21:05:15"
+    },
+    {
+      "stationcode": 17799,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 237.9,
+      "lastupdated": "20/10/2026 21:05:15"
+    },
+    {
+      "stationcode": 18101,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 283.9,
+      "lastupdated": "18/10/2026 22:32:36"
+    },
+    {
+      "stationcode": 18101,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 1,
+      "lastupdated": "31/10/2021 04:18:19"
+    },
+    {
+      "stationcode": 18101,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 266.9,
+      "lastupdated": "18/10/2026 22:32:36"
+    },
+    {
+      "stationcode": 18101,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 244.9,
+      "lastupdated": "18/10/2026 22:32:36"
+    },
+    {
+      "stationcode": 18103,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 267.9,
+      "lastupdated": "20/10/2026 00:43:33"
+    },
+    {
+      "stationcode": 18103,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 276.9,
+      "lastupdated": "20/10/2026 00:43:33"
+    },
+    {
+      "stationcode": 18103,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 270.9,
+      "lastupdated": "20/10/2026 00:43:33"
+    },
+    {
+      "stationcode": 18103,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 253.9,
+      "lastupdated": "20/10/2026 00:43:33"
+    },
+    {
+      "stationcode": 18323,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 235.9,
+      "lastupdated": "19/10/2026 23:12:27"
+    },
+    {
+      "stationcode": 18323,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 254.9,
+      "lastupdated": "19/10/2026 23:12:27"
+    },
+    {
+      "stationcode": 18323,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 264.9,
+      "lastupdated": "19/10/2026 23:12:27"
+    },
+    {
+      "stationcode": 18323,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 291.9,
+      "lastupdated": "21/10/2026 02:52:26"
+    },
+    {
+      "stationcode": 18323,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 237.9,
+      "lastupdated": "19/10/2026 23:12:27"
+    },
+    {
+      "stationcode": 18481,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 232.9,
+      "lastupdated": "13/10/2026 08:30:44"
+    },
+    {
+      "stationcode": 18481,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 251.9,
+      "lastupdated": "13/10/2026 08:30:44"
+    },
+    {
+      "stationcode": 18481,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 260.9,
+      "lastupdated": "13/10/2026 08:30:44"
+    },
+    {
+      "stationcode": 18481,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 279.9,
+      "lastupdated": "14/10/2026 05:51:15"
+    },
+    {
+      "stationcode": 18481,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 234.9,
+      "lastupdated": "13/10/2026 08:30:44"
+    },
+    {
+      "stationcode": 18506,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 283.9,
+      "lastupdated": "19/10/2026 05:16:06"
+    },
+    {
+      "stationcode": 18506,
+      "state": "NSW",
+      "fueltype": "LPG",
+      "price": 149.9,
+      "lastupdated": "10/04/2026 01:04:05"
+    },
+    {
+      "stationcode": 18506,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 263.9,
+      "lastupdated": "19/10/2026 05:16:06"
+    },
+    {
+      "stationcode": 18506,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 269.9,
+      "lastupdated": "19/10/2026 05:16:06"
+    },
+    {
+      "stationcode": 18506,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 286.9,
+      "lastupdated": "19/10/2026 05:16:06"
+    },
+    {
+      "stationcode": 18506,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 244.9,
+      "lastupdated": "19/10/2026 05:16:06"
+    },
+    {
+      "stationcode": 18515,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 252.9,
+      "lastupdated": "20/10/2026 11:04:55"
+    },
+    {
+      "stationcode": 18515,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 258.9,
+      "lastupdated": "20/10/2026 11:04:55"
+    },
+    {
+      "stationcode": 18515,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 275.9,
+      "lastupdated": "20/10/2026 11:04:55"
+    },
+    {
+      "stationcode": 18515,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 239.9,
+      "lastupdated": "20/10/2026 11:04:55"
+    },
+    {
+      "stationcode": 18641,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 248.9,
+      "lastupdated": "05/10/2026 22:19:58"
+    },
+    {
+      "stationcode": 18641,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 273.9,
+      "lastupdated": "05/10/2026 22:19:58"
+    },
+    {
+      "stationcode": 18641,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 292.9,
+      "lastupdated": "18/09/2026 00:25:50"
+    },
+    {
+      "stationcode": 18641,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 251.9,
+      "lastupdated": "05/10/2026 22:19:58"
+    },
+    {
+      "stationcode": 18704,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 269.9,
+      "lastupdated": "20/10/2026 04:51:53"
+    },
+    {
+      "stationcode": 18704,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 239.7,
+      "lastupdated": "20/10/2026 04:51:53"
+    },
+    {
+      "stationcode": 18704,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 241.7,
+      "lastupdated": "20/10/2026 04:51:53"
+    },
+    {
+      "stationcode": 18704,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 240.7,
+      "lastupdated": "20/10/2026 04:51:53"
+    },
+    {
+      "stationcode": 18788,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 245.9,
+      "lastupdated": "19/10/2026 05:54:14"
+    },
+    {
+      "stationcode": 18788,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 273.9,
+      "lastupdated": "15/10/2026 20:42:14"
+    },
+    {
+      "stationcode": 18788,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 279.9,
+      "lastupdated": "21/10/2026 01:45:23"
+    },
+    {
+      "stationcode": 18788,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 247.9,
+      "lastupdated": "15/10/2026 20:42:14"
+    },
+    {
+      "stationcode": 18810,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 237.9,
+      "lastupdated": "14/10/2026 03:16:34"
+    },
+    {
+      "stationcode": 18810,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 255.9,
+      "lastupdated": "14/10/2026 03:16:34"
+    },
+    {
+      "stationcode": 18810,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 264.9,
+      "lastupdated": "14/10/2026 03:16:34"
+    },
+    {
+      "stationcode": 18810,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 279.9,
+      "lastupdated": "14/10/2026 02:21:44"
+    },
+    {
+      "stationcode": 19016,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 238.9,
+      "lastupdated": "18/10/2026 21:23:50"
+    },
+    {
+      "stationcode": 19016,
+      "state": "NSW",
+      "fueltype": "P95",
+      "price": 255.9,
+      "lastupdated": "18/10/2026 21:23:50"
+    },
+    {
+      "stationcode": 19016,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 264.9,
+      "lastupdated": "18/10/2026 21:23:50"
+    },
+    {
+      "stationcode": 19016,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 285.9,
+      "lastupdated": "16/10/2026 01:35:55"
+    },
+    {
+      "stationcode": 19186,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:23:28"
+    },
+    {
+      "stationcode": 19200,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:23:33"
+    },
+    {
+      "stationcode": 19229,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:23:41"
+    },
+    {
+      "stationcode": 19238,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:23:44"
+    },
+    {
+      "stationcode": 19334,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:24:11"
+    },
+    {
+      "stationcode": 19341,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:24:12"
+    },
+    {
+      "stationcode": 19527,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "24/11/2022 22:24:53"
+    },
+    {
+      "stationcode": 20121,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "23/01/2024 14:10:47"
+    },
+    {
+      "stationcode": 20238,
+      "state": "NSW",
+      "fueltype": "E10",
+      "price": 246.5,
+      "lastupdated": "05/10/2026 22:21:20"
+    },
+    {
+      "stationcode": 20238,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 272.5,
+      "lastupdated": "05/10/2026 22:21:20"
+    },
+    {
+      "stationcode": 20238,
+      "state": "NSW",
+      "fueltype": "PDL",
+      "price": 289.5,
+      "lastupdated": "05/10/2026 00:28:47"
+    },
+    {
+      "stationcode": 20238,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 249.5,
+      "lastupdated": "05/10/2026 22:21:20"
+    },
+    {
+      "stationcode": 20441,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "04/02/2025 14:30:59"
+    },
+    {
+      "stationcode": 20477,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "04/02/2025 14:30:59"
+    },
+    {
+      "stationcode": 20501,
+      "state": "NSW",
+      "fueltype": "EV",
+      "price": 0,
+      "lastupdated": "04/02/2025 14:30:59"
+    },
+    {
+      "stationcode": 20885,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 275,
+      "lastupdated": "20/09/2026 22:03:29"
+    },
+    {
+      "stationcode": 20885,
+      "state": "NSW",
+      "fueltype": "P98",
+      "price": 272,
+      "lastupdated": "12/10/2026 21:03:55"
+    },
+    {
+      "stationcode": 20885,
+      "state": "NSW",
+      "fueltype": "U91",
+      "price": 252,
+      "lastupdated": "12/10/2026 21:03:55"
+    }
+  ]
+}

@@ -1,13 +1,13 @@
 import { ApiError } from './http';
 import { COORDINATE_DECIMALS } from '../../../shared/api';
 import { FUEL_TYPE_CODES, isFuelTypeCode, type FuelTypeCode } from '../../../shared/fuelTypes';
+import { roundTo } from '../../lib/geo';
 
 /**
- * A rough box around NSW, a little generous at the borders so towns like
- * Albury, Tweed Heads and Broken Hill are inside it. Lord Howe Island is left
- * out: FuelCheck lists no stations there. Not a precise boundary - its only
- * job is to refuse obviously wrong input (swapped lat/lng, 0,0, another
- * state) before it costs an upstream call.
+ * A rough box around NSW and the ACT, a little generous at the borders. Every
+ * station in the live data is inside it. Its only job is to refuse obviously
+ * wrong input (swapped lat/lng, 0,0, another state) with a clear message,
+ * rather than an empty list.
  */
 export const NSW_BOUNDS = { minLat: -37.6, maxLat: -28.1, minLng: 140.9, maxLng: 153.7 };
 
@@ -20,11 +20,10 @@ export interface NearbyQuery {
   fuelType: FuelTypeCode;
 }
 
-export interface LocationQuery {
-  /** A suburb name or a four-digit postcode. */
-  location: string;
-  fuelType: FuelTypeCode;
-}
+export type LocationQuery = (
+  | { kind: 'postcode'; postcode: string }
+  | { kind: 'suburb'; suburb: string; postcode: string | null }
+) & { radiusKm: number; fuelType: FuelTypeCode };
 
 function required(params: URLSearchParams, name: string): string {
   const value = params.get(name)?.trim();
@@ -42,11 +41,6 @@ function parseNumber(params: URLSearchParams, name: string): number {
   return value;
 }
 
-function round(value: number, decimals: number): number {
-  const factor = 10 ** decimals;
-  return Math.round(value * factor) / factor;
-}
-
 export function parseFuelType(params: URLSearchParams): FuelTypeCode {
   // Case-insensitive: "e10" from a hand-typed URL means E10.
   const value = required(params, 'fuel').toUpperCase();
@@ -59,50 +53,54 @@ export function parseFuelType(params: URLSearchParams): FuelTypeCode {
   return value;
 }
 
+/** Optional, and clamped rather than refused: 100 km is served as the largest search we allow. */
+function parseRadius(params: URLSearchParams): number {
+  if (!params.get('radius')?.trim()) return RADIUS_KM.default;
+  const raw = parseNumber(params, 'radius');
+  return Math.min(RADIUS_KM.max, Math.max(RADIUS_KM.min, Math.round(raw)));
+}
+
 export function parseNearbyQuery(params: URLSearchParams): NearbyQuery {
   const latitude = parseNumber(params, 'lat');
   const longitude = parseNumber(params, 'lng');
   const { minLat, maxLat, minLng, maxLng } = NSW_BOUNDS;
 
-  // Out-of-area coordinates are refused, not clamped: clamping would quietly
-  // search somewhere the user is not.
+  // Refused, not clamped: clamping would quietly search somewhere the user is not.
   if (latitude < minLat || latitude > maxLat || longitude < minLng || longitude > maxLng) {
     throw new ApiError('bad_request', 'That location is outside NSW.');
   }
 
-  // Radius is optional and clamped, not refused: asking for 100 km is a
-  // reasonable request that we serve as the largest search we allow.
-  let radiusKm = RADIUS_KM.default;
-  if (params.get('radius')?.trim()) {
-    const raw = parseNumber(params, 'radius');
-    radiusKm = Math.min(RADIUS_KM.max, Math.max(RADIUS_KM.min, Math.round(raw)));
-  }
-
   return {
-    latitude: round(latitude, COORDINATE_DECIMALS),
-    longitude: round(longitude, COORDINATE_DECIMALS),
-    radiusKm,
+    latitude: roundTo(latitude, COORDINATE_DECIMALS),
+    longitude: roundTo(longitude, COORDINATE_DECIMALS),
+    radiusKm: parseRadius(params),
     fuelType: parseFuelType(params),
   };
 }
 
 /*
- * A suburb is letters (any script - a user may type with accents), spaces,
- * hyphens, apostrophes and full stops: "Woy Woy", "O'Connell", "St. Ives",
- * "Kurri Kurri". A postcode is four digits; NSW's start with 1 or 2.
+ * A suburb is letters (any script), spaces, hyphens, apostrophes and full
+ * stops: "Woy Woy", "O'Connell", "St. Ives". It may be followed by a state
+ * and/or a postcode, which is how an ambiguous name is narrowed down -
+ * "Kingswood NSW 2747" is exactly what `candidates` offers. A postcode alone
+ * is four digits; NSW and ACT ones start with 1 or 2.
  */
-const SUBURB = /^[\p{L}][\p{L} .'-]{1,49}$/u;
 const POSTCODE = /^[12]\d{3}$/;
+const SUBURB = /^(\p{L}[\p{L} .'-]{1,49}?)(?:\s+(?:NSW|ACT))?(?:\s+([12]\d{3}))?$/iu;
 
 export function parseLocationQuery(params: URLSearchParams): LocationQuery {
-  const location = required(params, 'query')
-    // Phones autocorrect ' to a curly quote; upstream only knows the plain one.
+  const query = required(params, 'query')
+    // Phones autocorrect ' to a curly quote.
     .replace(/[‘’]/g, "'")
     .replace(/\s+/g, ' ');
+  const common = { radiusKm: parseRadius(params), fuelType: parseFuelType(params) };
 
-  if (!POSTCODE.test(location) && !SUBURB.test(location)) {
+  if (POSTCODE.test(query)) return { kind: 'postcode', postcode: query, ...common };
+
+  const match = SUBURB.exec(query);
+  const suburb = match?.[1]?.trim();
+  if (!match || !suburb) {
     throw new ApiError('bad_request', 'Enter a NSW suburb name or a four-digit postcode.');
   }
-
-  return { location, fuelType: parseFuelType(params) };
+  return { kind: 'suburb', suburb, postcode: match[2] ?? null, ...common };
 }

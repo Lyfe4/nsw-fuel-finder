@@ -1,38 +1,29 @@
 import { ApiError, errorResponse, json } from './http';
-import { normalisePrices, normaliseReference } from './normalise';
+import { resolvePlace } from './places';
+import { searchNearby, searchPlace } from './search';
+import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
 import { parseLocationQuery, parseNearbyQuery } from './validate';
+import { STALE_AFTER_MS } from '../../lib/snapshot/format';
 
-import type { FuelApiClient } from './upstream';
+import type { PricesResponse, SearchOrigin, StationPrice } from '../../../shared/api';
 
 /*
- * CACHING. The free API.NSW plan is 2,500 calls a month, so the CDN is what
- * keeps this site inside quota, not a nicety.
+ * CACHING. Answers come from a snapshot that changes every 30 minutes and cost
+ * no upstream calls, so the CDN is now about speed and function invocations,
+ * not quota. A minute at the edge (plus a minute of stale-while-revalidate)
+ * means a new snapshot is visible within about two minutes of being written,
+ * and a burst of identical requests runs the function about once a minute.
  *
- * - `Cache-Control` is for the browser. Kept short, because a browser cache
- *   cannot be purged.
- * - `Netlify-CDN-Cache-Control` is for Netlify's edge only and is stripped
- *   before the response leaves it. `durable` puts the response in Netlify's
- *   shared cache, so one edge node's miss fills it for every other node,
- *   instead of each node spending its own upstream call.
- *
- * Reference data (fuel types, brands) changes a few times a year: a day at
- * the CDN. Prices: retailers report changes as they make them and a station
- * changes price a few times a day at most, so five minutes is fresh enough
- * to be useful and stale-while-revalidate keeps it fast at expiry.
+ * `Netlify-CDN-Cache-Control` is for Netlify's edge only and is stripped
+ * before the response leaves it; `durable` shares one edge node's miss with
+ * the rest. `Cache-Control` is the browser's, kept equally short.
  */
 const CACHE = {
-  reference: {
-    browser: 'public, max-age=3600',
-    cdn: 'public, durable, s-maxage=86400, stale-while-revalidate=86400',
-  },
-  prices: {
-    browser: 'public, max-age=60',
-    cdn: 'public, durable, s-maxage=300, stale-while-revalidate=300',
-  },
+  browser: 'public, max-age=60',
+  cdn: 'public, durable, s-maxage=60, stale-while-revalidate=60',
 } as const;
 
-/** The only paths this function answers. Anything else is a 404. */
-const ROUTES = ['reference', 'nearby', 'location'] as const;
+const ROUTES = ['nearby', 'location'] as const;
 type Route = (typeof ROUTES)[number];
 
 // Reached through the /api/* rewrite or, in `netlify dev`, directly.
@@ -43,37 +34,50 @@ function matchRoute(pathname: string): Route | null {
   return ROUTES.find((route) => route === name) ?? null;
 }
 
-function cached(body: unknown, cache: { browser: string; cdn: string }): Response {
-  const response = json(body, 200, cache.browser);
-  response.headers.set('Netlify-CDN-Cache-Control', cache.cdn);
+export interface HandlerDeps {
+  getSnapshot: () => Promise<LoadedSnapshot>;
+  now: () => number;
+}
+
+function respond(
+  { snapshot }: LoadedSnapshot,
+  now: number,
+  fuelType: string,
+  origin: SearchOrigin,
+  stations: StationPrice[],
+): Response {
+  const body: PricesResponse = {
+    fuelType,
+    fetchedAt: snapshot.fetchedAt,
+    stale: now - Date.parse(snapshot.fetchedAt) > STALE_AFTER_MS,
+    origin,
+    stations,
+  };
+  const response = json(body, 200, CACHE.browser);
+  response.headers.set('Netlify-CDN-Cache-Control', CACHE.cdn);
   return response;
 }
 
-async function dispatch(route: Route, params: URLSearchParams, client: FuelApiClient) {
-  switch (route) {
-    case 'reference': {
-      return cached(normaliseReference(await client.reference()), CACHE.reference);
-    }
-    case 'nearby': {
-      const query = parseNearbyQuery(params);
-      const upstream = await client.nearby(query);
-      return cached(
-        normalisePrices(upstream, query.fuelType, { includeDistance: true }),
-        CACHE.prices,
-      );
-    }
-    case 'location': {
-      const query = parseLocationQuery(params);
-      const upstream = await client.location(query);
-      return cached(
-        normalisePrices(upstream, query.fuelType, { includeDistance: false }),
-        CACHE.prices,
-      );
-    }
+async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps) {
+  // Validate before touching the snapshot: bad input is a 400 even when the
+  // snapshot is missing.
+  if (route === 'nearby') {
+    const query = parseNearbyQuery(params);
+    const loaded = await deps.getSnapshot();
+    const origin = { latitude: query.latitude, longitude: query.longitude };
+    const stations = searchNearby(loaded.snapshot.stations, origin, query.radiusKm, query.fuelType);
+    return respond(loaded, deps.now(), query.fuelType, { ...origin, label: null }, stations);
   }
+
+  const query = parseLocationQuery(params);
+  const loaded = await deps.getSnapshot();
+  const place = resolvePlace(loaded.places, query);
+  const stations = searchPlace(loaded.snapshot.stations, place, query.radiusKm, query.fuelType);
+  const origin = { latitude: place.latitude, longitude: place.longitude, label: place.label };
+  return respond(loaded, deps.now(), query.fuelType, origin, stations);
 }
 
-export function createHandler(client: FuelApiClient): (request: Request) => Promise<Response> {
+export function createHandler(deps: HandlerDeps): (request: Request) => Promise<Response> {
   return async (request) => {
     try {
       const url = new URL(request.url);
@@ -82,9 +86,14 @@ export function createHandler(client: FuelApiClient): (request: Request) => Prom
       if (request.method !== 'GET') {
         throw new ApiError('method_not_allowed', 'Only GET is supported.');
       }
-      return await dispatch(route, url.searchParams, client);
+      return await dispatch(route, url.searchParams, deps);
     } catch (error) {
       if (error instanceof ApiError) return errorResponse(error);
+      if (error instanceof SnapshotUnavailableError) {
+        return errorResponse(
+          new ApiError('snapshot_unavailable', 'Fuel prices are not available right now.'),
+        );
+      }
       console.error('Unhandled error in /api', error);
       return errorResponse(new ApiError('internal_error', 'Something went wrong.'));
     }
