@@ -1,476 +1,424 @@
 # NSW Fuel API notes
 
-Researched 2026-10-21. The primary source is the machine-readable Swagger 2.0
-spec that the API.NSW product page embeds:
+Researched 2026-10-21 from the Swagger 2.0 spec that the API.NSW product page
+embeds, then verified against live responses the same day.
 
 - Product page: https://api.nsw.gov.au/Product/Index/22
-- Spec: https://apinsw.onegov.nsw.gov.au/api/swagger/spec/22 (`info.version` 2.0.05,
-  host `api.onegov.nsw.gov.au`)
+- Spec: https://apinsw.onegov.nsw.gov.au/api/swagger/spec/22 (`info.version` 2.0.05)
 - Terms: https://api.nsw.gov.au/Home/Terms
 
-Each fact below is tagged **[spec]** (quoted from the spec), **[page]**
-(product or terms page), or **[inferred]** (from working open-source clients
-or forum posts, not documented). Anything marked **verify** has to be checked
-against a live response once we have credentials.
+Tags: **[live]** seen in a real response; **[spec]** quoted from the spec;
+**[page]** product or terms page; **[inferred]** from open-source clients or
+forum posts.
 
 ## Summary
 
-| Question            | Answer                                                                                                     |
-| ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Auth                | OAuth client credentials. `GET` token endpoint with `Basic base64(key:secret)`, ~12 h token                |
-| Base URL            | `https://api.onegov.nsw.gov.au`                                                                            |
-| Version             | **v2**, filtered to NSW in our normaliser                                                                  |
-| Endpoints we use    | `GET /FuelCheckRefData/v2/fuel/lovs`, `POST .../v2/fuel/prices/nearby`, `POST .../v2/fuel/prices/location` |
-| Free plan quota     | **2,500 calls / month** (~80 a day) **[page]**. Per-minute limits not published                            |
-| Over-quota response | Not documented (no 429 in the spec)                                                                        |
-| Attribution         | No wording required on API.NSW. We will credit "Source: NSW Government FuelCheck"                          |
-| Historical prices   | **No API endpoint.** Monthly files on data.nsw.gov.au (CC BY-SA)                                           |
+| Question          | Answer                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| Auth              | OAuth client credentials: `GET` token endpoint, `Basic base64(key:secret)`, 12 h token **[live]**       |
+| Endpoint we use   | **Only** `GET /FuelPriceCheck/v2/fuel/prices` (statewide), from a scheduled job                         |
+| Response          | 1.75 MB, 3,286 stations (2,397 sell fuel), 10,577 price rows, 0.7–1.4 s **[live]**                      |
+| Timestamps        | `lastupdated` is **UTC** **[live]**, not Sydney time                                                    |
+| Free plan quota   | 2,500 calls / month **[page]**. No rate-limit headers; an immediate repeat was not throttled **[live]** |
+| Attribution       | No wording required. We credit "Source: NSW Government FuelCheck"                                       |
+| Historical prices | No API endpoint. We record our own from launch; monthly files on data.nsw.gov.au                        |
 
-## Auth
+## Live verification (2026-10-21)
 
-**Token** **[spec]**
+Seven calls in total: 4 to verify, 3 to test the scheduled job locally.
+Logged in the session scratchpad, not in the repo:
+
+| Time (UTC) | Call                                                  | Status | Time    | Size    |
+| ---------- | ----------------------------------------------------- | ------ | ------- | ------- |
+| 03:21:06   | token                                                 | 200    | 129 ms  | 551 B   |
+| 03:21:27   | `/prices`                                             | 200    | 669 ms  | 1.75 MB |
+| 03:21:28   | `/prices` (immediate repeat)                          | 200    | 1126 ms | 1.75 MB |
+| 03:21:29   | `/lovs`                                               | 200    | 1440 ms | 715 kB  |
+| 03:38:24   | token (local `snapshot` run, empty local Blobs)       | 200    |         |         |
+| 03:38:24   | `/prices` (same run; whole run ~0.9 s)                | 200    |         |         |
+| 03:39:00   | `/prices` (second local run; token reused from Blobs) | 200    | ~1 s    |         |
+
+The six questions left open last round:
+
+1. **`lastupdated` timezone: UTC, not Sydney.** Fetched at 03:21 UTC (14:21
+   in Sydney), the newest `lastupdated` was `21/10/2026 03:17:28`, and the
+   day's 415 updates all fell between 00:00 and 03:17. That is Sydney's late
+   morning to early afternoon. Read as Sydney time, they would have been 11 hours in
+   the future. The `/lovs` `Last-Modified` header (`03:12:55 GMT`) also equals a
+   `lastupdated` value exactly. **Fixed:** `parseUpstreamTimestamp` reads UTC.
+2. **Radius and distance units:** not checked. The nearby endpoint is no
+   longer used; we compute distances ourselves.
+3. **Does `referencepoint` change location results?** Not checked, for the
+   same reason: the location endpoint is no longer used.
+4. **Fuel types:** `/lovs` lists 16. Ten have price rows. The other six are:
+   - the combined search codes `E10-U91`, `P95-P98` and `DL-PDL`;
+   - LNG, H2 and CNG, which have no prices.
+
+   EV has 902 rows, of which 900 are 0 and the other two date from 2020–21, priced
+   per kWh. **Changed:** `shared/fuelTypes.ts` now holds the 9 fuels with real
+   prices, using FuelCheck's names (E85 is "Ethanol 105").
+
+5. **`priceunits` and `lastmodifiedtimestamps`:** absent from the live `/lovs`,
+   although the spec marks both required. Unused.
+6. **Do token calls count towards the quota?** Can't be seen from the API;
+   it needs the API.NSW dashboard. With the token now kept in Blobs, it matters
+   little: about 2 token calls a day.
+
+## Auth [live]
 
 ```http
 GET https://api.onegov.nsw.gov.au/oauth/client_credential/accesstoken?grant_type=client_credentials
 Authorization: Basic base64("<API key>:<API secret>")
 ```
 
-- The token endpoint is a `GET`, not the usual OAuth `POST`.
-- Lifetime is "approximately 12 hours" **[page]**.
-- `expires_in` is a **string** of seconds, e.g. `"43199"` **[inferred: forum sample]**.
-- `issued_at` is epoch milliseconds from the issuer's clock. We never use it.
-  Expiry is computed as our clock at receipt plus `expires_in`, so clock skew
-  between Netlify and API.NSW cannot expire a token early or late.
-
-Response, values replaced:
+Response, values replaced. The keys and types are exactly as live:
 
 ```json
 {
-  "access_token": "…",
-  "expires_in": "43199",
+  "refresh_token_expires_in": "0",
+  "api_product_list": "[Fuel Check Portal Api]",
+  "api_product_list_json": ["Fuel Check Portal Api"],
+  "organization_name": "onegov",
+  "developer.email": "…",
   "token_type": "BearerToken",
   "issued_at": "1631666514337",
   "client_id": "…",
+  "access_token": "…",
   "application_name": "…",
-  "status": "approved",
-  "api_product_list_json": ["Fuel Check Portal Api"],
-  "organization_name": "onegov",
-  "refresh_token_expires_in": "0",
+  "scope": "",
+  "expires_in": "43199",
   "refresh_count": "0",
-  "scope": ""
+  "status": "approved"
 }
 ```
 
-- `token_type` is `"BearerToken"`, but the header to send is still `Authorization: Bearer <token>`.
-- Bad credentials return 401 with `{"ErrorCode":"invalid_client","Error":"Client credentials are invalid"}`.
+- `expires_in` is a string of seconds (12 hours). Expiry is computed as our clock
+  plus `expires_in`; the issuer's `issued_at` is never compared with our clock.
+- A bad key or secret returns 401 `{"ErrorCode":"invalid_client",…}` **[spec]**.
+- **"Access to the service will be denied if you enter incorrect identification
+  information on more than 3 consecutive occasions"** **[page]**. See the
+  lockout guard below.
 
-**Headers on every data call** **[spec]** (all marked required):
+Headers on the data call **[spec]**, all accepted live:
 
-| Header             | Value                                                           |
-| ------------------ | --------------------------------------------------------------- |
-| `Authorization`    | `Bearer <access_token>`                                         |
-| `apikey`           | The API key (the same key used in the Basic header)             |
-| `transactionid`    | Unique per call. We send a UUID                                 |
-| `requesttimestamp` | UTC, `dd/MM/yyyy hh:mm:ss AM/PM`, e.g. `21/10/2026 01:05:09 PM` |
-| `Content-Type`     | `application/json; charset=utf-8` (required even on GETs)       |
+| Header             | Value                             |
+| ------------------ | --------------------------------- |
+| `Authorization`    | `Bearer <access_token>`           |
+| `apikey`           | The API key                       |
+| `transactionid`    | A UUID per call                   |
+| `requesttimestamp` | UTC, `dd/MM/yyyy hh:mm:ss AM/PM`  |
+| `Content-Type`     | `application/json; charset=utf-8` |
 
-Some clients send ISO 8601 for `requesttimestamp` and report it working **[inferred]**. The
-spec's own error example ("String was not recognized as a valid DateTime")
-shows the server parses date headers, so we send the documented format.
+## `GET /FuelPriceCheck/v2/fuel/prices` [live]
 
-**Terms that matter for a proxy** **[page]**:
-
-- "Your access to the service will be denied if you enter incorrect
-  identification information on more than 3 consecutive occasions."
-- Because of that rule, the function stops calling the token endpoint for five minutes after
-  a credentials failure (see `upstream.ts`).
-
-## Endpoints
-
-### Reference data: `GET /FuelCheckRefData/v2/fuel/lovs`
-
-- Extra required header: `if-modified-since` (same format as `requesttimestamp`) **[spec]**.
-  We send `01/01/2010 12:00:00 AM` so the response always includes everything.
-  An empty response is reportedly returned when nothing changed **[inferred]**.
-- Optional query `states`, `|`-delimited (`NSW|TAS`). It defaults to NSW **[spec]**.
-- The response "can be over 2 mb" **[spec]** because it carries every station.
-  We parse only `fueltypes` and `brands` and serve those.
-
-```json
-{
-  "brands": { "items": [{ "name": "BP", "state": "NSW" }] },
-  "fueltypes": { "items": [{ "code": "E10", "name": "Ethanol 94", "state": "NSW" }] },
-  "stations": {
-    "items": [
-      {
-        "brandid": "…",
-        "stationid": "…",
-        "brand": "BP",
-        "code": "382",
-        "name": "BP Wyoming",
-        "address": "481 Pacific Highway, Wyoming NSW 2250",
-        "location": { "latitude": -33.408004, "longitude": 151.351119 },
-        "state": "NSW"
-      }
-    ]
-  },
-  "trendperiods": { "items": [{ "period": "Day", "description": "Price trend today" }] },
-  "sortfields": { "items": [{ "code": "Distance", "name": "Sort results by distance…" }] },
-  "priceunits": "shape not documented",
-  "lastmodifiedtimestamps": "shape not documented"
-}
-```
-
-### Prices nearby: `POST /FuelPriceCheck/v2/fuel/prices/nearby`
-
-"Returns current fuel prices for a single fuel type within a specified radius
-from a reference point. **If no stations exist within the radius then fuel
-prices for the closest 10 stations are returned.**" **[spec]**
-
-Request. Every field is a string, including the numbers and the boolean **[spec]**:
-
-```json
-{
-  "fueltype": "P95",
-  "brand": [],
-  "namedlocation": "",
-  "latitude": "-33.43",
-  "longitude": "151.3",
-  "radius": "5",
-  "sortby": "price",
-  "sortascending": "true"
-}
-```
-
-- Radius units are not documented. They are km in every client we found **[inferred, verify]**.
-- `brand: []` and `namedlocation: ""` mean "no filter" **[inferred]**.
-
-Response. `stations` and `prices` are separate arrays, joined on
-`stations[].code` = `prices[].stationcode`:
+"Returns all current fuel prices for all service stations" **[spec]**. The
+`states` parameter defaults to NSW; we send `states=NSW` explicitly.
+Every row in the live response has `state: "NSW"`.
 
 ```json
 {
   "stations": [
     {
-      "stationid": "1-GN9E-441",
-      "brandid": "1-GFYV-0",
-      "brand": "BP",
-      "code": 382,
-      "name": "BP Wyoming",
-      "address": "481 Pacific Highway, Wyoming NSW 2250",
-      "location": { "latitude": -33.408004, "longitude": 151.351119, "distance": 5.96 },
+      "brandid": "",
+      "stationid": "",
+      "brand": "United",
+      "code": "972",
+      "name": "United Petroleum Umina",
+      "address": "307-313 Ocean Beach Road, UMINA BEACH NSW 2257",
+      "location": { "latitude": -33.511231, "longitude": 151.318092 },
       "state": "NSW"
     }
   ],
   "prices": [
     {
-      "stationcode": 382,
-      "fueltype": "P95",
-      "price": 186.9,
-      "priceunit": "litre",
-      "description": "",
-      "lastupdated": "2019-09-29 22:48:51",
-      "state": "NSW"
+      "stationcode": 1,
+      "state": "NSW",
+      "fueltype": "DL",
+      "price": 286.9,
+      "lastupdated": "18/10/2026 01:30:32"
     }
   ]
 }
 ```
 
-### Prices by suburb or postcode: `POST /FuelPriceCheck/v2/fuel/prices/location`
+What the live data shows:
 
-All fields are required **[spec]**, including a `referencepoint`, even though a suburb search has
-no meaningful origin. We send Sydney GPO and discard the resulting distances
-**[verify that the reference point does not change which stations come back]**.
+- **It includes each station's name, brand, address and coordinates.** This is
+  what makes the snapshot possible: one call holds everything a search needs.
+- `stations[].code` is a **string**, while `prices[].stationcode` in the same
+  response is a **number**.
+- No `priceunit` or `description` (the spec's nearby example has them).
+- One price per station per fuel. No orphan prices, and every station has at
+  least one price row.
+- **889 of the 3,286 "stations" are EV chargers** (motels, NRMA fast chargers)
+  whose only rows are EV. They are dropped, leaving **2,397 fuel stations**.
+- **69 stations are in the ACT** (63 of them sell fuel), although their `state`
+  is "NSW". The address is what tells them apart.
+- **Price age** (non-EV):
+
+  | Age             | Prices |
+  | --------------- | ------ |
+  | Less than a day | 1,856  |
+  | 1–7 days        | 5,276  |
+  | 7–30 days       | 2,209  |
+  | 30–90 days      | 276    |
+  | 90–365 days     | 52     |
+  | Over a year     | 6      |
+
+  The oldest is from 2018. Stations report a price when it changes, so an old
+  timestamp can mean "unchanged" as easily as "abandoned". We pass
+  `priceUpdatedAt` through, and the UI shows age.
+
+- **Price ranges** (cents/L, min / median / max):
+
+  | Fuel | Min   | Median | Max   |
+  | ---- | ----- | ------ | ----- |
+  | U91  | 212.3 | 240.9  | 369   |
+  | E10  | 223.5 | 236.9  | 267.9 |
+  | P95  | 231.8 | 256.9  | 298.9 |
+  | P98  | 244.7 | 265.9  | 389   |
+  | DL   | 257.5 | 282.7  | 381   |
+  | PDL  | 257.3 | 283.9  | 304.9 |
+  | LPG  | 97.9  | 119.5  | 200   |
+  | E85  | 229.5 | 259.9  | 475   |
+  | B20  | 298.9 | 298.9  | 298.9 |
+
+  B20 is sold at one station.
+
+- **Frequency restriction:** an immediate second call returned 200 with
+  identical data, and no rate-limit or quota headers were present. The
+  response passes through Cloudflare (`cf-cache-status: DYNAMIC`, so it is not
+  cached). Whatever restriction the spec mentions was not visible at 2 calls
+  a second.
+
+### Addresses, and why suburb search needs care
+
+Every address ends in a state and a four-digit postcode, after tolerating:
+
+- `NEW SOUTH WALES` in place of `NSW` (1 address);
+- a trailing `, AU` (1);
+- `ACT` (69).
+
+The suburb is what follows the last comma, except in 22 fuel-station addresses
+that have no comma before it. Two examples: `94 Sturt Hwy BALRANALD NSW 2715` and
+`Wagga Wagga NSW 2650`. For those, the end of the address is matched against
+suburbs seen in other addresses.
+
+Edge cases, all handled in `netlify/lib/snapshot/address.ts` and
+`netlify/functions/api/places.ts`:
+
+| Case                        | Example                                                                                          | Handling                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Mixed case                  | `UMINA BEACH` vs `Umina Beach`                                                                   | Compared case-insensitively; all-caps shown title-cased                                                    |
+| "Mt" vs "Mount"             | Data says `Mount Druitt`; people type `Mt Druitt`                                                | `placeKey` treats them as the same                                                                         |
+| Same name, different places | Griffith NSW 2680 / Griffith ACT 2603 (303 km apart); Weston NSW 2326 / Weston ACT 2611 (355 km) | 409 `ambiguous_location` listing both; `query=Griffith ACT 2603` picks one                                 |
+| Same name, one outlier      | Emmdale Roadhouse is 149 km from Cobar, but its address is `COBAR NSW 2835`                      | Same label, so the larger group is the place                                                               |
+| Spread-out places           | White Cliffs' stations are 19 km apart                                                           | Grouped with a 40 km single-linkage threshold                                                              |
+| Wrong postcodes             | `Cowra NSW 2646` (2646 is Corowa's); 32 postcodes have stations more than 40 km apart            | A postcode is located by its largest cluster of stations                                                   |
+| **Suburb with no station**  | `Bondi Beach`, any purely residential suburb                                                     | **404 `location_not_found`**. Only the 1,101 suburbs with a fuel station are known. See "Open issue" below |
+| Partial name                | `Wagga` for Wagga Wagga                                                                          | 404. Needs autocomplete in the UI                                                                          |
+
+**Open issue: suburbs without a station.** Station addresses can only locate
+places that have a station. NSW has roughly 4,500 suburbs and localities, so
+most people typing their own suburb would get a 404. The fix is a small bundled
+gazetteer of suburb and postcode centroids (≈4,600 rows, ~150 kB). One option
+is ABS Suburbs and Localities, licensed CC BY 4.0. With it, the search finds
+the place first and then searches its surroundings. Proposed for Phase 1.
+
+## Not used
+
+- **`/lovs` (reference data).** 715 kB. Everything we need from it is either static
+  (9 fuel names, now in `shared/fuelTypes.ts`) or already in `/prices` (brand
+  names, every priced station). Its station list adds only 50 stations, none
+  of them priced.
+- **`/prices/nearby` and `/prices/location`.** Each search would cost a call;
+  the snapshot answers searches with none. Shapes and quirks are in the spec
+  and in git history (`docs/api-notes.md` as of commit `de59a16`).
+- **`/prices/new`.** Changes since the last call by this key, today.
+  - It would save bandwidth but not calls, and it adds server-side cursor state.
+  - That cursor is tied to the API key: a manual run would steal changes from
+    the scheduled one.
+- **`/prices/station/{code}`.** All fuels at one station. Not needed: the
+  snapshot already has every fuel per station.
+
+## Architecture: scheduled snapshot
+
+```
+every 30 min (cron, UTC)                         every request
+netlify/functions/snapshot  ──writes──▶  Blobs  ◀──reads──  netlify/functions/api
+  token (from Blobs, ~2 calls/day)              (30 s in-memory cache, etag revalidation)
+  GET /prices (1 call)                          /api/nearby, /api/location
+  build snapshot + today's history              zero upstream calls
+```
+
+### Call budget
+
+The budget is 2,500 calls per month. Planning for a 31-day month with 20%
+headroom leaves 2,000 for the schedule.
+
+| Interval   | Price calls/month | Token calls/month* | Total      | Fits in 2,000?           |
+| ---------- | ----------------- | ------------------ | ---------- | ------------------------ |
+| 15 min     | 2,976             | 62–93              | ~3,050     | no                       |
+| 20 min     | 2,232             | 62–93              | ~2,310     | no                       |
+| **30 min** | **1,488**         | **62–93**          | **~1,580** | **yes** (920 spare, 37%) |
+| 60 min     | 744               | 62–93              | ~830       | yes                      |
+
+\* Tokens last 12 h and are renewed 10 minutes early, which is 2 a day. The range
+allows for a third if a renewal falls badly. The 920 spare calls cover
+development, manual runs, a retry after an expired token (2 calls), and
+redeploys.
+
+### Blobs layout
+
+The store is `fuel-finder`. It is site-wide, not deploy-scoped, so the snapshot and history
+outlive deploys.
+
+| Key                     | Contents                                                                               | Size                     |
+| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
+| `snapshot/v1/latest`    | `{ version, fetchedAt, stations: [...] }`, with metadata `{ fetchedAt, stationCount }` | 875 kB (189 kB gzipped)  |
+| `history/v1/YYYY-MM-DD` | The Sydney day's `[min, max, last]` per station per fuel                               | 262 kB/day (~95 MB/year) |
+| `auth/token`            | `{ token, expiresAt }`                                                                 | tiny                     |
+| `auth/failure`          | `{ credentials (hash), failures, lastFailedAt }`                                       | tiny                     |
+| `meta/last-run`         | The last run's summary: ok/error, calls made, counts                                   | tiny                     |
+
+A snapshot station:
 
 ```json
 {
-  "fueltype": "P95",
-  "brand": [],
-  "namedlocation": "2065",
-  "referencepoint": { "latitude": "-33.8679", "longitude": "151.2073" },
-  "sortby": "price",
-  "sortascending": "true"
+  "code": "2263",
+  "name": "Ampol Foodary Wyoming",
+  "brand": "Ampol",
+  "address": "465 Pacific Hwy, WYOMING NSW 2250",
+  "suburb": "Wyoming",
+  "postcode": "2250",
+  "state": "NSW",
+  "lat": -33.4,
+  "lng": 151.35,
+  "prices": { "U91": [237.9, "2026-10-20T20:12:28Z"], "E10": [233.9, "2026-10-20T20:12:28Z"] }
 }
 ```
 
-The response reuses the v1 schema: string codes, no `state`, and a different date format:
+A history day:
 
 ```json
-{
-  "stations": [
-    {
-      "brand": "BP",
-      "code": "301",
-      "name": "BP Naremburn",
-      "address": "169 Willoughby Road, Naremburn NSW 2065",
-      "location": { "latitude": -33.820024, "longitude": 151.201159, "distance": 43.48 }
-    }
-  ],
-  "prices": [
-    {
-      "stationcode": "301",
-      "fueltype": "P95",
-      "price": 186.9,
-      "lastupdated": "26/09/2019 02:51:27"
-    }
-  ]
-}
+{ "version": 1, "day": "2026-10-21", "fuels": { "U91": { "2263": [235.9, 237.9, 237.9] } } }
 ```
 
-### Prices by station (for later): `GET /FuelPriceCheck/v2/fuel/prices/station/{stationCode}`
+### Failure behaviour
 
-- Optional `state` query param, which defaults to NSW. It exists because "stationCode is not
-  guaranteed to be unique across states" **[spec]**.
-- Returns every fuel type for that station:
-
-```json
-{ "prices": [{ "fueltype": "U91", "price": 151.9, "lastupdated": "30/09/2019 00:01:55" }] }
-```
-
-### Also available, not used yet
-
-- `GET /FuelPriceCheck/v2/fuel/prices` returns all current prices statewide. It is over 2 MB, and "there
-  may be restrictions on how often this API request can be made" **[spec]**.
-- `GET /FuelPriceCheck/v2/fuel/prices/new` returns prices changed since the last `/prices` or
-  `/prices/new` call **by this API key, today** **[spec]**. The cursor is server-side
-  state tied to the key. Two processes calling it would steal each other's
-  changes, so only a single scheduled job could use it safely.
-
-These two are the basis of the snapshot alternative in "Decisions to
-revisit" below.
-
-### Errors
-
-Data endpoints document 400, 401 and 500 **[spec]**:
-
-```json
-{
-  "errorDetails": {
-    "code": "-2146233033",
-    "message": "String was not recognized as a valid DateTime."
-  }
-}
-```
-
-- An invalid token returns `{"errorDetails":{"code":"TokenValidationError","message":"Access token is not valid."}}` **[inferred: forum]**.
-- 429 is not documented. We map it to `upstream_rate_limited` in case it appears.
-
-## Data quirks the normaliser handles
-
-| Quirk                                                                               | Handling                                                                        |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Station code is an integer (nearby) or a string (everything else)                   | Coerced to string                                                               |
-| `lastupdated` is `yyyy-MM-dd HH:mm:ss` (nearby) or `dd/MM/yyyy HH:mm:ss` (the rest) | Both parsed                                                                     |
-| `lastupdated` timezone is not documented                                            | Assumed Sydney local time, output as ISO with offset **[verify]**               |
-| v2 includes Tasmania                                                                | Rows with a `state` other than NSW dropped                                      |
-| Nearby falls back to the closest 10 stations if none are in the radius              | Passed through with `distanceKm`. The client decides how to present far results |
-| `sortby` example is `"price"` in one place and `"Price"` in another                 | We sort ourselves                                                               |
-| Price is cents per litre (`186.9`)                                                  | `priceCents`                                                                    |
-
-## v1 or v2
-
-**Decision: v2, filtered to NSW.**
-
-- v1 is NSW only. v2 is NSW plus Tasmania, with a `state` field on rows **[spec]**.
-- Nothing marks v1 as deprecated, and the product page has had no release notes since 2016.
-- v2 is the version the spec is maintained around, and it adds `priceunit`, a per-station
-  `state` parameter and the `states` filter. Filtering to NSW costs one comparison in the normaliser.
-- If v1 were withdrawn, we would have to migrate. v2 carries no such risk.
-- The location endpoint already returns the v1 shape under v2, so the normaliser handles both shapes anyway.
-
-## Rate limits and caching
-
-- **Free plan: 2,500 calls a month [page].** That is ~80 a day across every visitor.
-- Whether token calls count towards the quota is not stated. With a 12-hour token, at most a
-  few per instance per day.
-- The public sandbox key on the product page is limited to 5 calls a minute [page]. Per-minute
-  limits for a real key are not published.
-- Retailers report price changes to FuelCheck as they make them. No publish cadence is
-  documented, and a 2026 ministerial release describes reporting "in real time".
-
-How the function stays inside the quota:
-
-- Input is validated before any upstream call, so a bad request costs nothing.
-- Nearby coordinates are rounded to 2 decimals (~1 km). Neighbours produce the same URL and share
-  a CDN entry. The frontend must round the same way, or every URL is unique and misses.
-- `Netlify-CDN-Cache-Control: public, durable, …`: `durable` stores the response in Netlify's
-  shared cache, so one miss fills every edge node.
-  - Prices: `s-maxage=300, stale-while-revalidate=300`.
-  - Reference data: `s-maxage=86400`.
-- Browser `Cache-Control` is short (60 s for prices, 1 h for reference data), because a browser
-  cache cannot be purged.
-
-## Terms of use for a public portfolio site
-
-- The API.NSW terms are generic. Keep the key secret. Access is denied after 3 consecutive
-  failed identifications. Information use "may be governed by terms and conditions stipulated by
-  the authority administering the licence".
-- No attribution wording, licence, caching or redistribution rule, or logo rule is published for
-  the Fuel API itself.
-- The Premium plan mentions a "custom service licensing agreement". That suggests commercial or
-  high-volume use is negotiated case by case.
-- The **historical** dataset on data.nsw.gov.au is **CC BY-SA**. That licence covers the dataset,
-  not the live API.
-
-Plan:
-
-- Show "Source: NSW Government FuelCheck" in the footer, with a link.
-- Optionally email fuelchecknews@customerservice.nsw.gov.au to confirm a non-commercial public
-  demo is fine. The address is listed on the nsw.gov.au FuelCheck page.
-
-## Historical prices (affects Phase 4)
-
-**No API endpoint returns history.**
-
-- `/lovs` lists `trendperiods` (Day/Week/Month/Year), but the published API has no trends endpoint **[spec]**.
-- The FuelCheck web app calls an unauthenticated `/FuelCheckApp/v1/fuel/prices/trends/`
-  **[inferred]**. It is undocumented and outside the published API, so we will not use it.
-
-Options for the Phase 4 chart:
-
-1. **data.nsw.gov.au "FuelCheck" dataset**
-   (https://data.nsw.gov.au/data/dataset/fuel-check).
-   - Monthly price-history files from 2016 to September 2026, updated monthly, licensed CC BY-SA.
-   - Good for monthly trends; it can't show "today".
-2. **Record our own history.** A scheduled function snapshots prices into Netlify Blobs.
-   - It costs quota and only starts from the day it is switched on.
-3. Drop the chart, or reduce it to "price changed X hours ago" from `lastupdated`.
-
-## TypeScript types
-
-Upstream shapes, as parsed (`netlify/functions/api/schemas.ts`, written as
-Zod schemas; these are the inferred types):
-
-```ts
-interface UpstreamStation {
-  code: string; // number | string upstream, coerced
-  name: string;
-  brand: string;
-  address: string;
-  location: { latitude: number; longitude: number; distance?: number };
-  state?: string; // v2 only
-}
-
-interface UpstreamPrice {
-  stationcode: string; // number | string upstream, coerced
-  fueltype: string;
-  price: number; // cents per litre
-  lastupdated: string; // "yyyy-MM-dd HH:mm:ss" or "dd/MM/yyyy HH:mm:ss"
-  state?: string;
-}
-
-interface UpstreamPricesResponse {
-  stations: UpstreamStation[];
-  prices: UpstreamPrice[];
-}
-
-interface UpstreamReferenceResponse {
-  brands: { items: { name: string; state?: string }[] };
-  fueltypes: { items: { code: string; name: string; state?: string }[] };
-}
-
-interface TokenResponse {
-  access_token: string;
-  expires_in: number; // "43199" upstream, coerced
-}
-```
-
-Our contract with the browser (`shared/api.ts`):
-
-```ts
-interface StationPrice {
-  stationCode: string;
-  name: string;
-  brand: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  distanceKm: number | null; // null for suburb/postcode searches
-  priceCents: number;
-  priceUpdatedAt: string; // ISO 8601 with offset
-}
-
-interface PricesResponse {
-  fuelType: string;
-  stations: StationPrice[];
-}
-
-interface ReferenceResponse {
-  fuelTypes: { code: string; name: string }[];
-  brands: string[];
-}
-
-interface ApiErrorBody {
-  error: { code: ApiErrorCode; message: string };
-}
-```
+| What fails                                              | What happens                                                                                                                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/prices` errors or times out                           | The run is logged in `meta/last-run`. The previous snapshot stays                                                                                                   |
+| `/prices` returns under half the previous station count | Treated as partial and not written                                                                                                                                  |
+| Token rejected once                                     | No token call for an hour                                                                                                                                           |
+| Token rejected twice                                    | **Never again with those credentials.** We never make the third attempt that would lock the account. Reset by changing either credential or deleting `auth/failure` |
+| Data call says 401                                      | Token dropped, one retry with a fresh token                                                                                                                         |
+| No snapshot yet                                         | `/api/*` returns 503 `snapshot_unavailable` with `Retry-After: 60`                                                                                                  |
+| Snapshot older than 90 min (3 missed runs)              | Served with `stale: true`                                                                                                                                           |
+| Blobs unreadable                                        | A warm instance keeps serving its copy; a cold one returns 503                                                                                                      |
 
 ## Our routes
 
-| Route                                   | Upstream           | Errors                                         |
-| --------------------------------------- | ------------------ | ---------------------------------------------- |
-| `GET /api/reference`                    | `/lovs`            | 5xx only                                       |
-| `GET /api/nearby?lat&lng&fuel[&radius]` | `/prices/nearby`   | 400 outside NSW, bad number, unknown fuel      |
-| `GET /api/location?query&fuel`          | `/prices/location` | 400 not a suburb or a postcode starting 1 or 2 |
+| Route                                   | Returns                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `GET /api/nearby?lat&lng&fuel[&radius]` | `PricesResponse`. lat/lng rounded to 2 dp; radius 1–25 km, default 5                                         |
+| `GET /api/location?query&fuel[&radius]` | `PricesResponse` from the place's centre. `query` is a postcode, a suburb, or `Suburb [NSW\|ACT] [postcode]` |
 
-Status codes:
+`PricesResponse` (`shared/api.ts`):
 
-| Status | Meaning                                                                                                   |
-| ------ | --------------------------------------------------------------------------------------------------------- |
-| 400    | Bad input (`bad_request`)                                                                                 |
-| 404    | Unknown path                                                                                              |
-| 405    | Not GET (with an `Allow` header)                                                                          |
-| 500    | Credentials missing (`not_configured`), or an unexpected error (`internal_error`)                         |
-| 502    | Upstream rejected our credentials (`upstream_auth`), or sent something we cannot parse (`upstream_error`) |
-| 503    | Upstream down or rate limiting (with `Retry-After`)                                                       |
-| 504    | Upstream timeout (3 s per request)                                                                        |
+```ts
+{
+  fuelType: string;
+  fetchedAt: string; // snapshot time, ISO UTC: "prices as of 2:30pm"
+  stale: boolean;
+  origin: {
+    latitude: number;
+    longitude: number;
+    label: string | null;
+  }
+  stations: {
+    stationCode: string;
+    name: string;
+    brand: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    distanceKm: number; // from origin
+    priceCents: number;
+    priceUpdatedAt: string; // ISO UTC
+  }
+  []; // cheapest first, then nearest, then name
+}
+```
 
-Errors are always `Cache-Control: no-store`.
+| Status | Code                   | When                                                             |
+| ------ | ---------------------- | ---------------------------------------------------------------- |
+| 400    | `bad_request`          | Outside NSW, a bad number, an unknown fuel, or a malformed query |
+| 404    | `location_not_found`   | No station is listed in that suburb or postcode                  |
+| 404    | `not_found`            | Unknown path                                                     |
+| 405    | `method_not_allowed`   | Anything but GET                                                 |
+| 409    | `ambiguous_location`   | The name means more than one place. `candidates` lists them      |
+| 503    | `snapshot_unavailable` | No snapshot yet, or Blobs is unreadable on a cold instance       |
+| 500    | `internal_error`       | A bug                                                            |
 
-## Still to verify with live credentials
+Caching:
 
-Record a real response for each endpoint into `netlify/functions/api/__fixtures__/` and check:
+- 200 responses: `Cache-Control: public, max-age=60` for the browser, and
+  `Netlify-CDN-Cache-Control: public, durable, s-maxage=60, stale-while-revalidate=60`
+  for the edge.
+- Errors are `no-store`.
 
-1. The `lastupdated` timezone. If it is UTC, change `parseUpstreamTimestamp`.
-2. Radius and distance units are km.
-3. Whether the location endpoint's `referencepoint` changes which stations come back.
-4. The fuel type codes in `shared/fuelTypes.ts` against `/api/reference`.
-5. The shapes of `priceunits` and `lastmodifiedtimestamps` (unused, for completeness).
-6. Whether the API.NSW dashboard shows token calls counting towards the quota.
+## Terms of use
+
+Unchanged from the first round:
+
+- Keep the key secret.
+- 3 failed logins in a row and access is denied.
+- No attribution, caching or redistribution rule is published for the Fuel API.
+- The historical dataset on data.nsw.gov.au is CC BY-SA.
+
+We show "Source: NSW Government FuelCheck". Serving a cached snapshot is the
+same caching the per-request design did, just longer. If in doubt, email
+fuelchecknews@customerservice.nsw.gov.au.
+
+## Historical prices
+
+There is no API endpoint for history. `/lovs` lists `trendperiods`, but the
+published API has no trends endpoint. The scheduled job now records
+`history/v1/YYYY-MM-DD` from launch. Before launch, the monthly files on
+data.nsw.gov.au (2016 – September 2026) are the only source.
 
 ## Getting credentials
 
-1. Sign up at https://api.nsw.gov.au (top right, "Sign up"). Then sign in.
-2. Go to **My Apps** and create an app (any name, e.g. "NSW Fuel Finder").
-3. Open the **Fuel API** product (https://api.nsw.gov.au/Product/Index/22) and
-   subscribe your app to it on the free plan.
-4. Your app now shows an **API Key** and an **API Secret**. Copy them into `.env`:
-
-   ```bash
-   cp .env.example .env
-   # FUEL_API_KEY=<API Key>
-   # FUEL_API_SECRET=<API Secret>
-   ```
-
-5. Do not use the sandbox key and secret printed on the product page. They are shared, and
-   limited to 5 calls a minute.
-6. When we deploy, set the same two variables in the Netlify UI, scoped to Functions.
+1. Sign up at https://api.nsw.gov.au, then create an app under **My Apps**.
+2. Subscribe the app to the **Fuel API** (product 22) on the free plan.
+3. Copy the app's **API Key** into `FUEL_API_KEY` and its **API Secret** into
+   `FUEL_API_SECRET`, in `.env` (from `.env.example`).
 
 ## Local development
 
 ```bash
-npm install -g netlify-cli
 pnpm dev:netlify
 ```
 
-This serves Vite and the function behind one origin at http://localhost:8888, with `/api/*`
-rewritten as in production. `pnpm dev` alone runs Vite without the API.
+This serves Vite and both functions behind http://localhost:8888, with
+`/api/*` rewritten as in production and a local Blobs store in
+`.netlify/blobs-serve` (gitignored).
 
-- **Windows needs Developer Mode** (Settings > System > For developers).
-  - Netlify bundles v2 functions with NFT, which recreates pnpm's symlinked `node_modules` next to
-    the function. Windows refuses symlinks without Developer Mode, and the CLI crashes with
-    `EPERM: operation not permitted, symlink …zod…`.
-  - The alternative, `nodeLinker: hoisted` in `pnpm-workspace.yaml`, also works. It was tested, but
-    it loosens pnpm's dependency isolation for the whole repo.
-- `pnpm dlx netlify-cli` does not work: the CLI's postinstall cannot find `chalk` under pnpm's
-  layout. Install the CLI with npm.
+Scheduled functions do not run on a schedule under `netlify dev`. Seed the
+local snapshot by invoking the job by hand, in a second terminal while
+`netlify dev` is running:
+
+```bash
+netlify functions:invoke snapshot --port 8888 --no-identity
+```
+
+- The first run on an empty local store costs 2 calls (token + prices).
+  Later runs within 12 hours cost 1.
+- The result is logged by `netlify dev` as `snapshot ok {…}`, and stored in `meta/last-run`.
+- Until the first run, `/api/*` answers 503 `snapshot_unavailable`.
+- Every manual run spends from the same 2,500-a-month quota as production.
+
+Windows needs Developer Mode, because Netlify bundles functions with NFT and
+recreates pnpm's symlinks. Install the CLI with npm (`npm install -g
+netlify-cli`); `pnpm dlx` does not work for it.

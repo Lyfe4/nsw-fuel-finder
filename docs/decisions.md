@@ -66,6 +66,8 @@ Phase 2). Deliberately not adding infrastructure that nothing uses yet.
 
 ### Netlify: one function behind an `/api/*` rewrite
 
+> **Still true for /api in round 2. A second, scheduled function now writes the data it reads.**
+
 **Decision:** a single `api` function with an internal router, reached
 through a `status = 200` rewrite from `/api/*` in `netlify.toml`.
 **Why:** one function means one module-scope token cache shared by every
@@ -93,6 +95,8 @@ because it is the version more likely to be retired.
 
 ### Per-request proxy now, with a snapshot design ready for the quota
 
+> **Superseded in round 2 by the scheduled snapshot. See "Scheduled snapshot replaces the per-request proxy".**
+
 **Decision:** for Phase 1, each `/api/nearby` or `/api/location` cache miss
 makes one upstream call. CDN caching is what keeps this inside the quota:
 coordinates rounded to ~1 km, `durable` shared cache, 5-minute TTL on
@@ -110,6 +114,8 @@ count no longer depends on visitors. The response contract in
 before deploying.
 
 ### Coordinates rounded to two decimals
+
+> **Revisited in round 2: kept, for different reasons. See "Coordinate rounding, revisited".**
 
 **Decision:** `/api/nearby` rounds lat/lng to 2 dp (~1.1 km) before calling
 upstream. The frontend will round the same way when it builds URLs.
@@ -130,12 +136,16 @@ allow.
 
 ### Static fuel-type allowlist
 
+> **Updated in round 2 from live data: 9 fuels, EV removed. See "Fuel list from live data".**
+
 **Decision:** `shared/fuelTypes.ts` lists the codes. Unknown codes are a 400.
 **Why:** validating against live `/lovs` would mean a 2 MB fetch on each cold
 start, and a quota call each time. The codes have been stable since 2016.
 The list is still to be checked against live `/api/reference`.
 
 ### Upstream failures are 5xx, never passed through
+
+> **Superseded in round 2: the API no longer calls upstream. Upstream failures now only affect the scheduled job, and show to users as snapshot age.**
 
 **Decision:** status mapping:
 
@@ -150,6 +160,8 @@ Passing a 401 or 400 through would point at the wrong party.
 
 ### Back off after rejected credentials
 
+> **Superseded in round 2 by a guard persisted in Blobs. See "Lockout guard in Blobs".**
+
 **Decision:** after the token endpoint refuses our credentials, the
 function does not call it again for five minutes (per instance).
 **Why:** API.NSW's terms deny access after three consecutive failed
@@ -157,6 +169,8 @@ identifications. Without a backoff, every visitor's request would be
 another failure, and a typo in an env var could lock the account.
 
 ### Token cache in module scope, per instance
+
+> **Superseded in round 2: the token now lives in Blobs, because scheduled runs are cold starts.**
 
 **Decision:** the OAuth token lives in module scope until five minutes before
 expiry. Concurrent cold requests share one token call. An upstream 401
@@ -169,6 +183,8 @@ a few calls a day. Revisit only if token calls turn out to count heavily
 against the quota.
 
 ### Upstream timestamps assumed to be Sydney time
+
+> **Wrong. Live data showed UTC (round 2). See "Timestamps are UTC".**
 
 **Decision:** `lastupdated` is parsed as Australia/Sydney wall-clock time and
 served as ISO 8601 with its offset.
@@ -196,3 +212,218 @@ machine setting, and the repo keeps the same layout as Patchbay.
 tested and works, but it allows undeclared dependencies to resolve
 everywhere. Or dropping Zod from the function, which was rejected because
 it trades a local-tooling problem for hand-written validators.
+
+## 2026-10-21: Round 2 (live data, snapshot architecture)
+
+### Scheduled snapshot replaces the per-request proxy
+
+**Decision:** a scheduled function (`netlify/functions/snapshot`) fetches
+statewide prices every 30 minutes into Netlify Blobs. `/api/nearby` and
+`/api/location` answer from that snapshot and never call API.NSW. The
+per-request client, its nearby/location calls and `/api/reference` were
+deleted.
+**Why:** with per-request calls, visitors spend the 2,500-a-month quota. A bot
+or a traffic spike could exhaust it mid-month and break the demo exactly when
+someone is looking at it. A snapshot makes the call count a constant set by
+the schedule, whatever the traffic. It was only possible because live
+`/prices` turned out to include every station's address and coordinates.
+**Alternatives:** keep per-request with heavier CDN caching (still
+traffic-dependent); `/prices/new` deltas (saves bandwidth, not calls, and its
+cursor is per API key, so any manual run steals the scheduled run's changes).
+
+### Every 30 minutes
+
+**Decision:** cron `*/30 * * * *`.
+**Why:** budget a 31-day month at 2,000 calls (2,500 less 20% headroom).
+
+| Interval | Price calls | Token calls | Total  | Fits? |
+| -------- | ----------- | ----------- | ------ | ----- |
+| 15 min   | 2,976       | 62–93       | ~3,050 | no    |
+| 20 min   | 2,232       | 62–93       | ~2,310 | no    |
+| 30 min   | 1,488       | 62–93       | ~1,580 | yes   |
+
+30 minutes is the most frequent schedule that fits, with 920 calls to spare
+(37%). Live data puts 1,856 of 9,674 prices as changed in the last day, so a
+price is typically hours old anyway; 30 minutes adds little.
+**Alternatives:** hourly (~830 calls/month; more headroom, staler prices).
+Skipping overnight runs (saves ~300 calls), rejected: it adds schedule logic
+to save calls we do not need.
+
+### Token and lockout state in Blobs
+
+**Decision:** the OAuth token (`auth/token`) and the credential-failure count
+(`auth/failure`) live in Blobs, read with strong consistency.
+**Why:** each scheduled run is a cold start, so module scope would mean a token
+call on every run, doubling the cost to ~3,000 calls/month. Verified locally:
+the second run made 0 token calls and 1 price call.
+
+### Lockout guard in Blobs
+
+**Decision:**
+
+- After the 1st credential rejection: no token call for an hour.
+- After the 2nd: none at all with those credentials.
+
+The count is keyed on a hash of the key and secret, so changing either
+resets it, and a success clears it.
+**Why:** API.NSW denies access after 3 consecutive failed identifications.
+Run every 30 minutes, the old 5-minute backoff would have reached three
+failures in an hour. With this guard, the code never makes the third attempt;
+a human has to fix the credentials (or delete `auth/failure`) first.
+**Alternatives:** exponential backoff with no cap (still eventually makes the
+third attempt).
+
+### /lovs not used
+
+**Decision:** no reference-data call at all. Fuel names are static in
+`shared/fuelTypes.ts` and bundled into the app.
+**Why:** every station and brand we need is already in `/prices`. Only 9 fuel
+names matter, and they have been stable since 2016. That saves a 715 kB call
+and a code path.
+
+### Fuel list from live data
+
+**Decision:** U91, E10, P98, P95, DL, PDL, LPG, E85, B20, with FuelCheck's names.
+**Why:**
+
+- EV has 902 rows: 900 are 0 and two are from 2020–21, priced per kWh.
+- 889 of the 3,286 "stations" are EV chargers with no fuel at all.
+- LNG, H2 and CNG have no prices.
+- The combined codes (E10-U91 etc.) are for FuelCheck's own search UI.
+
+### Timestamps are UTC
+
+**Decision:** `lastupdated` is parsed as UTC.
+**Why:** verified. At 03:21 UTC the newest was 03:17:28, and the day's 415
+updates fell between 00:00 and 03:17 (Sydney's late morning to early afternoon). The first round's
+Sydney assumption would have put every price 11 hours in the future.
+
+### Suburb and postcode search from station addresses
+
+**Decision:**
+
+- Suburbs and postcodes are resolved from the snapshot's own addresses.
+- Same-name stations are grouped with a 40 km single-linkage threshold, and
+  a postcode is placed at its largest group.
+- Results are the place's stations plus any within the radius of its centre.
+- A name that means two places returns 409 with `candidates`.
+
+**Why:** measured on live data:
+
+- the widest real single place spans 19.2 km (White Cliffs);
+- the nearest different places sharing a name are 149 km apart (Cobar's
+  roadhouse, which shares a label and is merged), then 303 km (Griffith
+  NSW/ACT);
+- postcodes are sometimes wrong in the data, so a postcode alone is not
+  trusted.
+
+**Known gap:** only suburbs with a fuel station (1,101) can be found. A
+residential suburb like Bondi Beach is a 404. Proposed fix for Phase 1: a
+bundled suburb/postcode centroid gazetteer (ABS Suburbs and Localities, CC
+BY 4.0), used to locate the place before searching around it.
+
+### Coordinate rounding, revisited
+
+**Decision:** keep rounding nearby positions to 2 dp (~1.1 km), and search
+0.8 km past the radius to make up for it.
+**Why:** it no longer protects the quota. It still makes neighbours share CDN
+entries, so a burst of identical requests runs the function about once a
+minute. More importantly, the URL ends up in browser history, logs and
+shared links, and should never carry an exact position. The client
+recomputes exact distances from the station coordinates in every result.
+**Alternatives:** drop rounding (exact server-side distances, but every URL
+unique and precise).
+
+### CDN TTL: one minute
+
+**Decision:** prices are `max-age=60` in the browser and
+`s-maxage=60, stale-while-revalidate=60, durable` at the edge (down from 5
+minutes).
+**Why:** answers cost no upstream calls now, so long TTLs buy nothing. A new
+snapshot is visible within about 2 minutes of being written. The edge still
+absorbs bursts.
+**Alternatives:** a TTL computed to expire exactly at the next snapshot. More
+precise, but more logic for at most a minute saved.
+
+### Stale snapshot: served and flagged, not refused
+
+**Decision:** a snapshot older than 90 minutes (3 missed runs) is still
+served, with `stale: true`. No snapshot at all is a 503
+`snapshot_unavailable` with `Retry-After: 60`.
+**Why:** live data shows most prices are days old anyway (7,485 of 9,674 are
+1–30 days old). A 3-hour-old snapshot is still the best answer anyone has,
+and an error page would hide it. The UI shows "prices as of 2:30pm" from
+`fetchedAt` and a notice when `stale`.
+**Alternatives:** refuse past a threshold (an outage at API.NSW would take our
+site down with it).
+
+### History from launch: one blob per Sydney day
+
+**Decision:** each run folds the snapshot into
+`history/v1/YYYY-MM-DD` as `[min, max, last]` per station per fuel.
+**Why:** API.NSW has no history endpoint. This costs no extra calls, and one
+read and one write per run. It measured 262 kB a day (42 kB gzipped), about
+95 MB a year. Days are Sydney days because that is what "Tuesday's price"
+means to a NSW driver. The record misses a price that changes and changes back
+between two runs; that is acceptable for a daily chart.
+**Alternatives:**
+
+- One blob per station: 2,400 writes a run.
+- One per fuel per day: 9 writes a run.
+
+  Both are worth revisiting if Phase 4 needs per-station reads; a compaction job
+  can reshape the files then.
+
+### Partial-response guard
+
+**Decision:** a response with under half the previous snapshot's stations is
+not written. The previous snapshot stays, and the failure is logged in
+`meta/last-run`.
+**Why:** a truncated upstream response would otherwise blank out half the
+state until the next run.
+
+### Phase 1: native `<select>` for fuel type
+
+**Decision:** a native `<select>` with 9 options, not Radix Select.
+**Why:**
+
+- Phones show their own picker (wheel or sheet), which is the best touch UI
+  there is for a short list.
+- Screen readers and keyboards know a native select perfectly.
+- It costs no JavaScript.
+- Radix Select earns its place for custom option rendering and typeahead
+  across long lists; neither applies here. In Patchbay it also needed a
+  stylesheet workaround for its scroll lock under a strict CSP.
+
+The closed control is styled with tokens; the open list is the OS's.
+
+### Phase 1: no router; URL search params instead
+
+**Decision:** no TanStack Router. A small `useSearchState` hook reads and
+writes `URLSearchParams`:
+
+- `pushState` when the search changes place;
+- `replaceState` when only fuel or radius changes;
+- it listens for `popstate`.
+
+**Why:** the app is one screen whose state is its search (`?fuel=U91&q=2250`
+or `?fuel=U91&lat=…&lng=…`). That state is shareable, survives reload, and Back
+undoes a search, which is everything a router would give us here. A router
+would add a plugin, generated route files and a dependency to model one
+route. The playbook's rule is "every screen a user would link to is a
+route", and a URL with search params satisfies it.
+**Revisit if** Phase 4 adds a real second screen (a station detail page with
+its own history chart).
+
+### Phase 1: keep TanStack Query
+
+**Decision:** server state through TanStack Query.
+**Why:** this one, on its own merits, earns its place:
+
+- requests are cancelled when the search changes;
+- StrictMode double effects are de-duplicated;
+- refetch on focus means a tab left open picks up the next snapshot;
+- retries honour a 503 while the first snapshot is pending;
+- Back is instant from cache.
+
+Hand-rolling those is where small fetch hooks grow bugs.
