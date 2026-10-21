@@ -1,0 +1,14 @@
+/*
+ * Global styles. Placeholder until the design tokens land in Phase 1; the
+ * token layer (colours, spacing, type) will be defined here once and themes
+ * will redefine tokens rather than add classes.
+ */
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+}

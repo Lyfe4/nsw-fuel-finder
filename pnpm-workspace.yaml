@@ -1,0 +1,9 @@
+# pnpm settings for this repo.
+
+# Packages allowed to run install-time build scripts. pnpm blocks these by
+# default (a supply-chain safeguard), so each one must be opted in explicitly.
+# unrs-resolver ships the native module resolver used by eslint-plugin-import-x;
+# esbuild is the bundler Vite and Netlify's function builder run on.
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true

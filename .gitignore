@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Test output
+coverage/
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# Environment files hold the API.NSW key and secret. Only the template, which
+# has no values in it, is committed.
+.env
+.env.*
+!.env.example
+
+# Written by the Netlify CLI when `netlify dev` is run locally. Neither is
+# configuration - netlify.toml is - and deno.lock is a lockfile for Netlify's
+# own edge runtime, not for anything in this repo.
+.netlify/
+deno.lock
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor/agent workspace config is per machine.
+.claude/
