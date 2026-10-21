@@ -17,11 +17,13 @@
   # in the Netlify UI (Site configuration > Environment variables), scoped to
   # Functions, so they never reach the build or the browser bundle.
 
-[functions]
-  node_bundler = "esbuild"
+# No [functions] node_bundler setting: Netlify always bundles v2 functions
+# (the Request -> Response kind used here) with NFT and ignores it. NFT copies
+# the function's node_modules dependencies next to it, which is why
+# `netlify dev` on Windows needs Developer Mode - see docs/decisions.md.
 
 # The browser only ever talks to /api/*. The function behind it has a fixed
-# set of routes (see netlify/functions/api.ts) and is not an open proxy.
+# set of routes (see netlify/functions/api/router.ts) and is not an open proxy.
 # status 200 makes this a rewrite: the address bar and the CDN cache key stay
 # /api/..., and the function sees the original path.
 [[redirects]]

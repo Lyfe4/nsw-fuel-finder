@@ -1,0 +1,13 @@
+{
+  // The server project: the Netlify function that holds the API.NSW
+  // credentials. It runs on Node, so it gets Node types and no DOM - a
+  // `window` or `document` reference here is a compile error, not a crash in
+  // production.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.functions.tsbuildinfo",
+  },
+  "include": ["netlify/functions", "shared"],
+}
