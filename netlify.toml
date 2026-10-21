@@ -1,0 +1,41 @@
+# Netlify build configuration.
+
+[build]
+  command = "pnpm build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  # Matches .nvmrc, so the deploy and CI use the same major.
+  NODE_VERSION = "22"
+
+  # Install exactly what the lockfile says, the same as CI. PNPM_FLAGS, not
+  # NPM_FLAGS: Netlify passes the latter only to npm.
+  PNPM_FLAGS = "--frozen-lockfile"
+
+  # FUEL_API_KEY and FUEL_API_SECRET are deliberately NOT here. They are set
+  # in the Netlify UI (Site configuration > Environment variables), scoped to
+  # Functions, so they never reach the build or the browser bundle.
+
+[functions]
+  node_bundler = "esbuild"
+
+# The browser only ever talks to /api/*. The function behind it has a fixed
+# set of routes (see netlify/functions/api.ts) and is not an open proxy.
+# status 200 makes this a rewrite: the address bar and the CDN cache key stay
+# /api/..., and the function sees the original path.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# `netlify dev` runs Vite and the function behind one origin on :8888, so the
+# frontend calls /api/* in development exactly as it will in production.
+[dev]
+  framework = "#custom"
+  # strictPort: if 5173 is taken, fail loudly rather than let Vite move to
+  # 5174 while netlify dev keeps waiting on 5173.
+  command = "pnpm exec vite --port 5173 --strictPort"
+  targetPort = 5173
+  port = 8888
