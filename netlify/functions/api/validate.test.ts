@@ -143,7 +143,7 @@ describe('parseLocationQuery', () => {
     ['one letter', 'x'],
     ['markup', '<script>'],
     ['a leading digit', '2nd Avenue'],
-    ['too long', 'a'.repeat(51)],
+    ['too long', 'a'.repeat(70)],
   ])('refuses %s', (_, query) => {
     expect(badRequest(() => location(query))).toBe(
       'Enter a NSW suburb name or a four-digit postcode.',

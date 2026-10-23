@@ -50,6 +50,18 @@ export interface PricesResponse {
   stations: StationPrice[];
 }
 
+/** GET /api/places?query=... */
+export interface PlaceSuggestionsResponse {
+  /** The query these are for, so a late response can be told from a current one. */
+  query: string;
+  /**
+   * Up to 8 place labels, best first, e.g. "Kingswood (Penrith) NSW 2747".
+   * Each one, sent back as /api/location's `query`, resolves to exactly
+   * that place.
+   */
+  suggestions: string[];
+}
+
 export type ApiErrorCode =
   | 'bad_request'
   | 'not_found'

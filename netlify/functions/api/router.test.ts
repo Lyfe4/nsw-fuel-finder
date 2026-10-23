@@ -6,7 +6,7 @@ import { buildPlaceIndex } from './places';
 import { createHandler } from './router';
 import { SnapshotUnavailableError } from './snapshotSource';
 
-import type { ApiErrorBody, PricesResponse } from '../../../shared/api';
+import type { ApiErrorBody, PlaceSuggestionsResponse, PricesResponse } from '../../../shared/api';
 
 const ORIGIN = 'http://localhost:8888';
 const loaded = { snapshot: fixtureSnapshot, places: buildPlaceIndex(fixtureSnapshot.stations) };
@@ -98,18 +98,31 @@ describe('GET /api/nearby', () => {
 });
 
 describe('GET /api/location', () => {
-  it('resolves a suburb and measures from its centre', async () => {
+  it('resolves a suburb from the ABS list and measures from its centre', async () => {
     const { get } = setup();
     const { response, body } = await get('/api/location?query=Erina&fuel=U91');
 
     expect(response.status).toBe(200);
     const prices = body as PricesResponse;
-    expect(prices.origin.label).toBe('Erina NSW 2250');
+    expect(prices.origin).toMatchObject({ label: 'Erina NSW 2250', latitude: -33.4373 });
     expect(prices.stations.some((s) => s.address.includes('ERINA'))).toBe(true);
-    // Wyoming is 4 km from Erina's centre, inside the default 5 km; West
-    // Gosford is 5.4 km away, outside it.
-    expect(prices.stations.some((s) => s.address.includes('WYOMING'))).toBe(true);
-    expect(prices.stations.some((s) => s.address.includes('WEST GOSFORD'))).toBe(false);
+  });
+
+  it('finds a suburb with no station of its own, and searches around it', async () => {
+    // The gap the ABS list closes: Bondi Beach has no fuel station.
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=Bondi%20Beach&fuel=U91');
+
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).origin.label).toBe('Bondi Beach NSW 2026');
+  });
+
+  it('resolves the start of a name when it can only mean one place', async () => {
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=Wagga&fuel=U91');
+
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).origin.label).toBe('Wagga Wagga NSW 2650');
   });
 
   it('resolves a postcode', async () => {
@@ -120,7 +133,15 @@ describe('GET /api/location', () => {
     expect((body as PricesResponse).stations.every((s) => /BALRANALD/i.test(s.address))).toBe(true);
   });
 
-  it('finds an address that had no comma before its suburb', async () => {
+  it('places a postcode with no station at its ABS postal area', async () => {
+    const { get } = setup();
+    const { response, body } = await get('/api/location?query=2026&fuel=U91');
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).origin.label).toBe('2026');
+  });
+
+  it("counts a town's stations as in it even when they are far from its centre", async () => {
+    // Every Balranald station is in the result, measured from the ABS centre.
     const { get } = setup();
     const { body } = await get('/api/location?query=balranald&fuel=U91');
     expect((body as PricesResponse).stations.map((s) => s.address)).toContain(
@@ -128,46 +149,103 @@ describe('GET /api/location', () => {
     );
   });
 
-  it('asks which one when a suburb name means two places', async () => {
+  it('lists every place a repeated name could mean', async () => {
     const { get } = setup();
-    const { response, body } = await get('/api/location?query=Griffith&fuel=U91');
+    const { response, body } = await get('/api/location?query=Kingswood&fuel=U91');
 
     expect(response.status).toBe(409);
     expect((body as ApiErrorBody).error).toEqual({
       code: 'ambiguous_location',
-      message: 'There is more than one Griffith.',
-      candidates: ['Griffith ACT 2603', 'Griffith NSW 2680'],
+      message: 'There is more than one Kingswood.',
+      candidates: [
+        'Kingswood (Bega Valley) NSW 2550',
+        'Kingswood (Penrith) NSW 2747',
+        'Kingswood (Tamworth Regional) NSW 2340',
+      ],
     });
   });
 
-  // E10: the Griffith ACT station sells no U91.
   it('accepts a candidate back as the query', async () => {
     const { get } = setup();
-    const { response, body } = await get('/api/location?query=Griffith%20ACT%202603&fuel=E10');
+    const { response, body } = await get(
+      `/api/location?query=${encodeURIComponent('Kingswood (Penrith) NSW 2747')}&fuel=U91`,
+    );
 
     expect(response.status).toBe(200);
-    expect((body as PricesResponse).origin.label).toBe('Griffith ACT 2603');
+    expect((body as PricesResponse).origin.label).toBe('Kingswood (Penrith) NSW 2747');
     expect((body as PricesResponse).stations.map((s) => s.address)).toContain(
-      '77 CANBERRA AV, GRIFFITH ACT 2603',
+      '127 GREAT WESTERN HWY, KINGSWOOD NSW 2747',
     );
   });
 
-  it('does not count an EV charger as a second place', async () => {
-    // Live data has a "Kingswood NSW 2340" near Tamworth, but it is an EV
-    // charger with no fuel price, so only Penrith's Kingswood is a place.
+  it.each([
+    ['a state', 'Griffith ACT', 'Griffith ACT 2603'],
+    ['a postcode', 'Griffith 2680', 'Griffith NSW 2680'],
+    ['a qualifier', 'Kingswood (Penrith)', 'Kingswood (Penrith) NSW 2747'],
+  ])('narrows a repeated name by %s', async (_, query, label) => {
     const { get } = setup();
-    const { response, body } = await get('/api/location?query=Kingswood&fuel=U91');
-
-    expect(response.status).toBe(200);
-    expect((body as PricesResponse).origin.label).toBe('Kingswood NSW 2747');
+    const { body } = await get(`/api/location?query=${encodeURIComponent(query)}&fuel=E10`);
+    expect((body as PricesResponse).origin.label).toBe(label);
   });
 
-  it('says so when no station is listed in a place', async () => {
+  it('says so when a place is not in NSW or the ACT', async () => {
     const { get } = setup();
-    const { response, body } = await get('/api/location?query=Woy%20Woy&fuel=U91');
+    const { response, body } = await get('/api/location?query=Atlantis&fuel=U91');
 
     expect(response.status).toBe(404);
-    expect((body as ApiErrorBody).error.code).toBe('location_not_found');
+    expect((body as ApiErrorBody).error).toEqual({
+      code: 'location_not_found',
+      message: "We couldn't find Atlantis in NSW or the ACT.",
+    });
+  });
+});
+
+describe('GET /api/places', () => {
+  const suggest = async (query: string) => {
+    const { get } = setup();
+    const { response, body } = await get(`/api/places?query=${encodeURIComponent(query)}`);
+    return { response, body: body as PlaceSuggestionsResponse };
+  };
+
+  it('suggests places by name, best match first', async () => {
+    const { body } = await suggest('wagga');
+    expect(body.query).toBe('wagga');
+    expect(body.suggestions[0]).toBe('Wagga Wagga NSW 2650');
+    expect(body.suggestions).toContain('North Wagga Wagga NSW 2650');
+  });
+
+  it('offers every Kingswood, told apart', async () => {
+    const { body } = await suggest('Kingswood');
+    expect(body.suggestions.slice(0, 3)).toEqual([
+      'Kingswood (Bega Valley) NSW 2550',
+      'Kingswood (Penrith) NSW 2747',
+      'Kingswood (Tamworth Regional) NSW 2340',
+    ]);
+  });
+
+  it('reads digits as the start of a postcode', async () => {
+    const { body } = await suggest('2026');
+    expect(body.suggestions).toContain('Bondi Beach NSW 2026');
+  });
+
+  it('ignores case, accents, full stops and Mt for Mount', async () => {
+    expect((await suggest('ST. IVES')).body.suggestions[0]).toBe('St Ives NSW 2075');
+    expect((await suggest('mt druitt')).body.suggestions[0]).toBe('Mount Druitt NSW 2770');
+  });
+
+  it('returns at most eight, and none for odd input rather than an error', async () => {
+    expect((await suggest('b')).body.suggestions).toHaveLength(8);
+    const { response, body } = await suggest('<>');
+    expect(response.status).toBe(200);
+    expect(body.suggestions).toEqual([]);
+  });
+
+  it('is cached for a day at the edge, because it only changes with a deploy', async () => {
+    const { response } = await suggest('erina');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+    expect(response.headers.get('netlify-cdn-cache-control')).toBe(
+      'public, durable, s-maxage=86400',
+    );
   });
 });
 

@@ -26,7 +26,7 @@ describe('createSnapshotSource', () => {
     const { source } = setup();
     const loaded = await source.get();
     expect(loaded.snapshot.fetchedAt).toBe(fixtureSnapshot.fetchedAt);
-    expect(loaded.places.byPostcode.has('2250')).toBe(true);
+    expect(loaded.places.stationPlacesByPostcode.has('2250')).toBe(true);
   });
 
   it('serves its copy for 30 s, then revalidates with the etag', async () => {

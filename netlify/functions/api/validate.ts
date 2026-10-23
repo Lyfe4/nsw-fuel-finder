@@ -22,7 +22,15 @@ export interface NearbyQuery {
 
 export type LocationQuery = (
   | { kind: 'postcode'; postcode: string }
-  | { kind: 'suburb'; suburb: string; postcode: string | null }
+  | {
+      kind: 'suburb';
+      /** The name, with any ABS qualifier: "Kingswood (Penrith)". */
+      suburb: string;
+      state: 'NSW' | 'ACT' | null;
+      postcode: string | null;
+      /** The whole query, tidied, for matching a suggestion label exactly. */
+      text: string;
+    }
 ) & { radiusKm: number; fuelType: FuelTypeCode };
 
 function required(params: URLSearchParams, name: string): string {
@@ -80,13 +88,15 @@ export function parseNearbyQuery(params: URLSearchParams): NearbyQuery {
 
 /*
  * A suburb is letters (any script), spaces, hyphens, apostrophes and full
- * stops: "Woy Woy", "O'Connell", "St. Ives". It may be followed by a state
- * and/or a postcode, which is how an ambiguous name is narrowed down -
- * "Kingswood NSW 2747" is exactly what `candidates` offers. A postcode alone
- * is four digits; NSW and ACT ones start with 1 or 2.
+ * stops: "Woy Woy", "O'Connell", "St. Ives". It may carry the ABS qualifier
+ * that tells repeated names apart, "Kingswood (Penrith)", and be followed by
+ * a state and/or postcode - which is exactly the shape of a suggestion label,
+ * "Kingswood (Penrith) NSW 2747". A postcode alone is four digits; NSW and ACT
+ * ones start with 1 or 2.
  */
 const POSTCODE = /^[12]\d{3}$/;
-const SUBURB = /^(\p{L}[\p{L} .'-]{1,49}?)(?:\s+(?:NSW|ACT))?(?:\s+([12]\d{3}))?$/iu;
+const SUBURB =
+  /^(\p{L}[\p{L} .'-]{1,59}?(?:\s*\([\p{L} .'-]{1,40}\))?)(?:\s+(NSW|ACT))?(?:\s+([12]\d{3}))?$/iu;
 
 export function parseLocationQuery(params: URLSearchParams): LocationQuery {
   const query = required(params, 'query')
@@ -102,5 +112,13 @@ export function parseLocationQuery(params: URLSearchParams): LocationQuery {
   if (!match || !suburb) {
     throw new ApiError('bad_request', 'Enter a NSW suburb name or a four-digit postcode.');
   }
-  return { kind: 'suburb', suburb, postcode: match[2] ?? null, ...common };
+  const state = match[2]?.toUpperCase();
+  return {
+    kind: 'suburb',
+    suburb,
+    state: state === 'NSW' || state === 'ACT' ? state : null,
+    postcode: match[3] ?? null,
+    text: query,
+    ...common,
+  };
 }

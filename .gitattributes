@@ -5,3 +5,4 @@
 
 # Generated files: collapsed in diffs and excluded from language stats.
 pnpm-lock.yaml linguist-generated=true
+netlify/lib/places/gazetteer.json linguist-generated=true -diff

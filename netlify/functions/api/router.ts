@@ -3,9 +3,15 @@ import { resolvePlace } from './places';
 import { searchNearby, searchPlace } from './search';
 import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
 import { parseLocationQuery, parseNearbyQuery } from './validate';
+import { suggestPlaces } from '../../lib/places/gazetteer';
 import { STALE_AFTER_MS } from '../../lib/snapshot/format';
 
-import type { PricesResponse, SearchOrigin, StationPrice } from '../../../shared/api';
+import type {
+  PlaceSuggestionsResponse,
+  PricesResponse,
+  SearchOrigin,
+  StationPrice,
+} from '../../../shared/api';
 
 /*
  * CACHING. Answers come from a snapshot that changes every 30 minutes and cost
@@ -23,7 +29,17 @@ const CACHE = {
   cdn: 'public, durable, s-maxage=60, stale-while-revalidate=60',
 } as const;
 
-const ROUTES = ['nearby', 'location'] as const;
+/**
+ * Suggestions come from the bundled ABS list, which only changes with a
+ * deploy - and a deploy purges Netlify's CDN - so they can be cached for a
+ * day at the edge and an hour in the browser.
+ */
+const SUGGESTION_CACHE = {
+  browser: 'public, max-age=3600',
+  cdn: 'public, durable, s-maxage=86400',
+} as const;
+
+const ROUTES = ['nearby', 'location', 'places'] as const;
 type Route = (typeof ROUTES)[number];
 
 // Reached through the /api/* rewrite or, in `netlify dev`, directly.
@@ -58,7 +74,21 @@ function respond(
   return response;
 }
 
+/**
+ * GET /api/places?query=... - suggestions while the user types. Never an
+ * error for odd input: a stray character mid-word just means no suggestions.
+ */
+function suggestions(params: URLSearchParams): Response {
+  const query = (params.get('query') ?? '').trim().slice(0, 60);
+  const body: PlaceSuggestionsResponse = { query, suggestions: suggestPlaces(query) };
+  const response = json(body, 200, SUGGESTION_CACHE.browser);
+  response.headers.set('Netlify-CDN-Cache-Control', SUGGESTION_CACHE.cdn);
+  return response;
+}
+
 async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps) {
+  if (route === 'places') return suggestions(params);
+
   // Validate before touching the snapshot: bad input is a 400 even when the
   // snapshot is missing.
   if (route === 'nearby') {
