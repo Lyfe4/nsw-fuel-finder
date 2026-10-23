@@ -19,20 +19,41 @@ export class SnapshotUnavailableError extends Error {
 
 /**
  * The snapshot, held in module scope by a warm instance. Rechecked at most
- * every 30 s with a conditional read: unchanged costs a 304, not 1 MB.
+ * every 30 s by reading only its metadata (the snapshot's fetchedAt); the
+ * ~1 MB body is fetched only when that has changed.
+ *
+ * BOTH READS ARE STRONGLY CONSISTENT. They used to be one conditional,
+ * eventually-consistent read, and on 2026-10-23 Netlify's edge kept answering
+ * it with the old version for over an hour under steady traffic: the job
+ * wrote a fresh snapshot every 30 minutes and the API went on serving the
+ * 00:30 one. Strong reads skip the edge cache. The check is a small HEAD
+ * request, so doing it strongly every 30 s costs little.
  *
  * If Blobs is unreachable or returns something unreadable, an instance that
  * already has a snapshot keeps serving it (its age still drives `stale`);
  * one that has never loaded one reports unavailable.
  */
 export function createSnapshotSource(deps: { store: KeyValueStore; now: () => number }) {
-  let cached: (LoadedSnapshot & { etag: string; checkedAt: number }) | null = null;
+  let cached: (LoadedSnapshot & { version: string; checkedAt: number }) | null = null;
   let pending: Promise<LoadedSnapshot> | null = null;
 
   async function refresh(): Promise<LoadedSnapshot> {
-    let result: Awaited<ReturnType<KeyValueStore['getJSONIfChanged']>>;
+    let result: { data: unknown; version: string } | null;
     try {
-      result = await deps.store.getJSONIfChanged(KEYS.snapshot, cached?.etag);
+      // The version is the snapshot's own fetchedAt, which the job writes into
+      // the blob's metadata. Not the etag: a HEAD response is not guaranteed
+      // to carry one (the local Blobs server sends none).
+      const metadata = await deps.store.getMetadata(KEYS.snapshot, 'strong');
+      const version = typeof metadata?.fetchedAt === 'string' ? metadata.fetchedAt : null;
+      if (version !== null && cached?.version === version) {
+        cached.checkedAt = deps.now();
+        return cached;
+      }
+      // No fetchedAt in the metadata (an older writer): fall back to the
+      // etag, which at worst means re-reading the body on every check.
+      const body =
+        metadata === null ? null : await deps.store.getJSONWithEtag(KEYS.snapshot, 'strong');
+      result = body && { data: body.data, version: version ?? body.etag };
     } catch (error) {
       console.error('Reading the snapshot from Blobs failed', error);
       if (cached) return cached;
@@ -42,10 +63,6 @@ export function createSnapshotSource(deps: { store: KeyValueStore; now: () => nu
     if (!result) {
       // Never written yet (a new site, or before the first scheduled run).
       throw new SnapshotUnavailableError('No price snapshot has been taken yet.');
-    }
-    if (result.data === null && cached) {
-      cached.checkedAt = deps.now();
-      return cached;
     }
 
     const parsed = snapshotSchema.safeParse(result.data);
@@ -58,7 +75,7 @@ export function createSnapshotSource(deps: { store: KeyValueStore; now: () => nu
     cached = {
       snapshot: parsed.data,
       places: buildPlaceIndex(parsed.data.stations),
-      etag: result.etag,
+      version: result.version,
       checkedAt: deps.now(),
     };
     return cached;

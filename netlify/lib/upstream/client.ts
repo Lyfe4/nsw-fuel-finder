@@ -99,7 +99,9 @@ export function createUpstreamClient(deps: UpstreamDeps) {
   }
 
   async function assertNotLocked(credentials: Credentials): Promise<void> {
-    const parsed = authFailureSchema.safeParse(await deps.store.getJSON(KEYS.authFailure));
+    const parsed = authFailureSchema.safeParse(
+      await deps.store.getJSON(KEYS.authFailure, 'strong'),
+    );
     if (!parsed.success || parsed.data.credentials !== fingerprint(credentials)) return;
     const { failures, lastFailedAt } = parsed.data;
     if (failures >= MAX_AUTOMATIC_FAILURES) {
@@ -118,7 +120,9 @@ export function createUpstreamClient(deps: UpstreamDeps) {
   }
 
   async function recordFailure(credentials: Credentials): Promise<void> {
-    const parsed = authFailureSchema.safeParse(await deps.store.getJSON(KEYS.authFailure));
+    const parsed = authFailureSchema.safeParse(
+      await deps.store.getJSON(KEYS.authFailure, 'strong'),
+    );
     const same = parsed.success && parsed.data.credentials === fingerprint(credentials);
     await deps.store.setJSON(KEYS.authFailure, {
       credentials: fingerprint(credentials),
@@ -157,7 +161,7 @@ export function createUpstreamClient(deps: UpstreamDeps) {
   async function getToken(credentials: Credentials): Promise<string> {
     // Each scheduled run is a cold start, so the token lives in Blobs rather
     // than in module scope. A run then costs one call, not two.
-    const stored = storedTokenSchema.safeParse(await deps.store.getJSON(KEYS.token));
+    const stored = storedTokenSchema.safeParse(await deps.store.getJSON(KEYS.token, 'strong'));
     if (stored.success && deps.now() < stored.data.expiresAt - REFRESH_MARGIN_MS) {
       return stored.data.token;
     }

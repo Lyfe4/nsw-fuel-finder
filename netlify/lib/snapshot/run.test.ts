@@ -28,16 +28,17 @@ describe('runSnapshot', () => {
       'snapshot/v1/latest',
     ]);
 
-    const snapshot = snapshotSchema.parse(await store.getJSON(KEYS.snapshot));
+    const snapshot = snapshotSchema.parse(await store.getJSON(KEYS.snapshot, 'strong'));
     expect(snapshot.fetchedAt).toBe(new Date(FIXTURE_FETCHED_AT).toISOString());
-    expect(await store.getMetadata(KEYS.snapshot)).toEqual({
+    expect(await store.getMetadata(KEYS.snapshot, 'strong')).toEqual({
       fetchedAt: snapshot.fetchedAt,
       stationCount: snapshot.stations.length,
     });
     expect(
-      historyDaySchema.safeParse(await store.getJSON(KEYS.historyDay('2026-10-21'))).success,
+      historyDaySchema.safeParse(await store.getJSON(KEYS.historyDay('2026-10-21'), 'strong'))
+        .success,
     ).toBe(true);
-    expect(await store.getJSON(KEYS.lastRun)).toEqual(summary);
+    expect(await store.getJSON(KEYS.lastRun, 'strong')).toEqual(summary);
   });
 
   it('costs one call per run once the token is stored', async () => {
@@ -56,7 +57,9 @@ describe('runSnapshot', () => {
     later.advance(30 * 60_000);
     await runSnapshot(later.deps);
 
-    const day = historyDaySchema.parse(await store.getJSON(KEYS.historyDay('2026-10-21')));
+    const day = historyDaySchema.parse(
+      await store.getJSON(KEYS.historyDay('2026-10-21'), 'strong'),
+    );
     const [min, max, last] = day.fuels.U91?.['2263'] ?? [];
     expect([min, max, last]).toEqual([237.9, 237.9, 237.9]);
   });
@@ -64,7 +67,7 @@ describe('runSnapshot', () => {
   it('keeps the previous snapshot when a response is missing most stations', async () => {
     const { store } = memoryStore();
     await runSnapshot(fakeUpstream({}, store).deps);
-    const before = await store.getJSON(KEYS.snapshot);
+    const before = await store.getJSON(KEYS.snapshot, 'strong');
 
     const partial = fakeUpstream(
       { prices: [() => jsonResponse({ stations: [], prices: [] })] },
@@ -74,7 +77,7 @@ describe('runSnapshot', () => {
     const summary = await runSnapshot(partial.deps);
 
     expect(summary).toMatchObject({ ok: false, error: { kind: 'bad_response' } });
-    expect(await store.getJSON(KEYS.snapshot)).toEqual(before);
+    expect(await store.getJSON(KEYS.snapshot, 'strong')).toEqual(before);
   });
 
   it('records a failed run without touching the snapshot', async () => {
@@ -84,7 +87,7 @@ describe('runSnapshot', () => {
     );
 
     expect(summary).toMatchObject({ ok: false, error: { kind: 'unavailable' } });
-    expect(await store.getJSON(KEYS.snapshot)).toBeNull();
-    expect(await store.getJSON(KEYS.lastRun)).toEqual(summary);
+    expect(await store.getJSON(KEYS.snapshot, 'strong')).toBeNull();
+    expect(await store.getJSON(KEYS.lastRun, 'strong')).toEqual(summary);
   });
 });

@@ -41,7 +41,7 @@ export async function runSnapshot(deps: UpstreamDeps): Promise<RunSummary> {
     const upstream = await client.fetchStatewidePrices();
     const { snapshot, stats } = buildSnapshot(upstream, new Date(deps.now()));
 
-    const previous = await deps.store.getMetadata(KEYS.snapshot);
+    const previous = await deps.store.getMetadata(KEYS.snapshot, 'strong');
     const previousCount = typeof previous?.stationCount === 'number' ? previous.stationCount : 0;
     if (stats.stations < previousCount * MIN_STATION_RATIO) {
       throw new UpstreamError(
@@ -57,7 +57,7 @@ export async function runSnapshot(deps: UpstreamDeps): Promise<RunSummary> {
     });
 
     const dayKey = KEYS.historyDay(historyDayFor(snapshot));
-    const existing = historyDaySchema.safeParse(await deps.store.getJSON(dayKey));
+    const existing = historyDaySchema.safeParse(await deps.store.getJSON(dayKey, 'strong'));
     await deps.store.setJSON(
       dayKey,
       updateHistoryDay(existing.success ? existing.data : null, snapshot),

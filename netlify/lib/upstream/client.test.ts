@@ -145,7 +145,7 @@ describe('the lockout guard', () => {
     upstream.advance(61 * 60_000);
     await client.fetchStatewidePrices();
 
-    expect(await upstream.store.getJSON(KEYS.authFailure)).toBeNull();
+    expect(await upstream.store.getJSON(KEYS.authFailure, 'strong')).toBeNull();
   });
 
   it('does not call anything when credentials are missing', async () => {

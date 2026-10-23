@@ -1,18 +1,31 @@
 import { getStore, type Store } from '@netlify/blobs';
 
 /**
+ * How fresh a read must be, as in Netlify Blobs:
+ *
+ * - 'eventual' goes through Netlify's edge cache. The docs say a write
+ *   reaches every edge within 60 s, but on 2026-10-23 a conditional
+ *   eventual read kept returning the old version for 13+ minutes under
+ *   steady traffic (see docs/decisions.md, "Snapshot stall").
+ * - 'strong' bypasses the edge cache and always sees the latest write.
+ *
+ * Required on every read, so each call site says which it needs.
+ */
+export type Consistency = 'strong' | 'eventual';
+
+/**
  * The few storage operations the app needs, so the jobs can be tested without
  * Netlify. `blobStore()` is the real one; `memoryStore()` is for tests.
  */
 export interface KeyValueStore {
-  /** Read with strong consistency: sees a write from a moment ago. */
-  getJSON(key: string): Promise<unknown>;
-  /**
-   * Read only if changed since `etag`. Returns null when the key does not
-   * exist, and `{ data: null }` when it exists and is unchanged.
-   */
-  getJSONIfChanged(key: string, etag?: string): Promise<{ data: unknown; etag: string } | null>;
-  getMetadata(key: string): Promise<Record<string, unknown> | null>;
+  getJSON(key: string, consistency: Consistency): Promise<unknown>;
+  /** The value and its etag, or null when the key does not exist. */
+  getJSONWithEtag(
+    key: string,
+    consistency: Consistency,
+  ): Promise<{ data: unknown; etag: string } | null>;
+  /** Just the metadata, without downloading the value: a cheap "has it changed?". */
+  getMetadata(key: string, consistency: Consistency): Promise<Record<string, unknown> | null>;
   setJSON(key: string, value: unknown, metadata?: Record<string, unknown>): Promise<void>;
   delete(key: string): Promise<void>;
 }
@@ -28,36 +41,24 @@ export const KEYS = {
   historyDay: (day: string) => `history/v1/${day}`,
 } as const;
 
-/**
- * Netlify Blobs. Reads are eventually consistent by default - a write can take
- * up to a minute to be visible everywhere - which is fine for the snapshot and
- * wrong for the auth state, so `getJSON` asks for strong consistency.
- */
+/** Netlify Blobs. */
 export function blobStore(): KeyValueStore {
   // Resolved on first use, not at import: the function environment that
   // getStore reads its credentials from is only guaranteed during a request.
   let resolved: Store | null = null;
   const blobs = (): Store => (resolved ??= getStore({ name: STORE_NAME }));
   return {
-    getJSON: async (key) => {
-      const value: unknown = await blobs().get(key, { type: 'json', consistency: 'strong' });
+    getJSON: async (key, consistency) => {
+      const value: unknown = await blobs().get(key, { type: 'json', consistency });
       return value ?? null;
     },
-    getJSONIfChanged: async (key, etag) => {
-      const result = await blobs().getWithMetadata(key, {
-        type: 'text',
-        ...(etag === undefined ? {} : { etag }),
-      });
+    getJSONWithEtag: async (key, consistency) => {
+      const result = await blobs().getWithMetadata(key, { type: 'text', consistency });
       if (!result) return null;
-      // The typings say `data: string`, but on a 304 (unchanged since
-      // `etag`) the implementation returns `data: null`.
-      const text = result.data as string | null;
-      return {
-        data: text === null ? null : (JSON.parse(text) as unknown),
-        etag: result.etag ?? '',
-      };
+      return { data: JSON.parse(result.data) as unknown, etag: result.etag ?? '' };
     },
-    getMetadata: async (key) => (await blobs().getMetadata(key))?.metadata ?? null,
+    getMetadata: async (key, consistency) =>
+      (await blobs().getMetadata(key, { consistency }))?.metadata ?? null,
     setJSON: async (key, value, metadata) => {
       await blobs().setJSON(key, value, metadata ? { metadata } : {});
     },
@@ -65,37 +66,60 @@ export function blobStore(): KeyValueStore {
   };
 }
 
-/** An in-memory store with the same semantics, for tests. */
-export function memoryStore(initial: Record<string, unknown> = {}) {
+/**
+ * An in-memory store with the same semantics, for tests.
+ *
+ * `staleEdge` models what production showed on 2026-10-23: Netlify's edge
+ * kept answering eventually-consistent reads with the version it first saw,
+ * for 13+ minutes under steady traffic, while strong reads saw every write.
+ * With it on, eventual reads are pinned to their first answer; strong reads
+ * always see the latest.
+ */
+export function memoryStore(
+  initial: Record<string, unknown> = {},
+  options: { staleEdge?: boolean } = {},
+) {
   let version = 0;
   const entries = new Map<
     string,
     { json: string; etag: string; metadata: Record<string, unknown> }
   >();
+  const edge = new Map<string, { json: string; etag: string; metadata: Record<string, unknown> }>();
+  /** What an eventually-consistent read sees. */
+  const eventual = (key: string) => {
+    if (!options.staleEdge) return entries.get(key);
+    const latest = entries.get(key);
+    if (!edge.has(key) && latest) edge.set(key, latest);
+    return edge.get(key);
+  };
   const put = (key: string, value: unknown, metadata: Record<string, unknown> = {}) => {
     version += 1;
     entries.set(key, { json: JSON.stringify(value), etag: `"${String(version)}"`, metadata });
   };
   for (const [key, value] of Object.entries(initial)) put(key, value);
 
+  const read = (key: string, consistency: Consistency) =>
+    consistency === 'strong' ? entries.get(key) : eventual(key);
+
   const store: KeyValueStore = {
-    getJSON: (key) => {
-      const entry = entries.get(key);
+    getJSON: (key, consistency) => {
+      const entry = read(key, consistency);
       return Promise.resolve(entry ? (JSON.parse(entry.json) as unknown) : null);
     },
-    getJSONIfChanged: (key, etag) => {
-      const entry = entries.get(key);
-      if (!entry) return Promise.resolve(null);
-      if (entry.etag === etag) return Promise.resolve({ data: null, etag: entry.etag });
-      return Promise.resolve({ data: JSON.parse(entry.json) as unknown, etag: entry.etag });
+    getJSONWithEtag: (key, consistency) => {
+      const entry = read(key, consistency);
+      return Promise.resolve(
+        entry ? { data: JSON.parse(entry.json) as unknown, etag: entry.etag } : null,
+      );
     },
-    getMetadata: (key) => Promise.resolve(entries.get(key)?.metadata ?? null),
+    getMetadata: (key, consistency) => Promise.resolve(read(key, consistency)?.metadata ?? null),
     setJSON: (key, value, metadata) => {
       put(key, value, metadata);
       return Promise.resolve();
     },
     delete: (key) => {
       entries.delete(key);
+      edge.delete(key);
       return Promise.resolve();
     },
   };
