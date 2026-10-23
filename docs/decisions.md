@@ -623,56 +623,62 @@ safe automatic fix for case.
 
 ## 2026-10-23: Round 3b (snapshot stall)
 
-### Snapshot stall: the API read Blobs through a stale edge
+### Snapshot stall: an expired Blobs token in a warm API instance
 
-**What happened:** after the round 3 deploy (00:36 UTC), the API served the
-00:30 snapshot until some time between 01:40 and 07:09, and again from 08:30
-to at least 08:44.
+**What happened:** after the round 3 deploy (live about 00:36 UTC), the API
+served the 00:30 snapshot until some time between 01:40 and 07:09. It
+happened again from 08:30 to at least 08:44, and again from 09:10 after the
+round 3b deploy.
 
 **Evidence:**
 
-- `netlify logs --function snapshot`: every scheduled run from 23:54 to 08:00
-  logged `snapshot ok`, about 4 s and 1 API call each. 01:00, 01:30 and 02:00
-  included. The job never stopped.
-- `auth/token` was issued at 23:54:48 and never replaced, and there was no
-  `auth/failure` blob, so no credential problem.
-- Reproduced from 08:11 to 08:44. The API was polled every 10 s with
-  cache-busting URLs, so the function ran each time (`Cache-Status:
-fwd=miss`). `meta/last-run`, read through the CLI, showed the 08:30:34
-  write. The API kept serving 08:00:37 for 13+ minutes.
-- Before the deploy, with little traffic, new snapshots appeared within
-  minutes. After an hour with no traffic, the 08:00 snapshot had been picked
-  up.
+- `netlify logs --function snapshot`: every scheduled run from 23:54 on
+  logged `snapshot ok` (about 4 s and 1 API call each), so the job never
+  stopped. `auth/token` was never replaced, and there was no `auth/failure`,
+  so it was not an API.NSW credential problem.
+- Reproduced at 08:30 under 10-second cache-busted polling. `meta/last-run`
+  showed the 08:30:34 write, while the API served 08:00:37 for 13+ minutes.
+- After the first fix (strong reads, below) went live at 08:55, the 09:00
+  snapshot reached the API within a second. Then from **09:10:51**, 15
+  minutes after the instance started, every read failed. From
+  `netlify logs --function api`:
+  `BlobsInternalError: ... (Failed to decode token: Token expired)`.
 
-**Cause:** the API re-checked the snapshot every 30 s with one conditional
-`getWithMetadata(key, { etag })`, using Blobs' default eventual consistency.
-That read is served by Netlify's edge cache. Under steady traffic, the edge
-kept answering "unchanged" for the old etag far beyond the documented 60 s.
-The deploy did not cause it. It only became visible once something polled
-steadily (my checks).
+**Cause:** `blobStore()` cached the `@netlify/blobs` Store for the life of a
+warm instance. `getStore()` captures the current invocation's short-lived
+Blobs token (`globalThis.netlifyBlobsContext`), and the store keeps it. About
+15 minutes after a cold start the token expired:
+
+- **Eventual reads** (until round 3b) did not fail. They went on returning
+  the last cached copy, which is the silent stall.
+- **Strong reads** failed loudly.
+
+It only cleared when a quiet spell let Netlify replace the instance, which
+is why low traffic hid it and steady polling exposed it.
+
+**I first got this wrong.** I blamed the edge cache for keeping an
+eventually-consistent read stale. Strong reads did not fix the problem; they
+surfaced the real error, and the function log named it.
 
 **Fix:**
 
-- Every API read of the snapshot is now strongly consistent, bypassing the
-  edge cache:
-  - a HEAD for the blob's metadata every 30 s;
-  - the ~1 MB body only when the metadata's `fetchedAt` has changed.
-- The version is `fetchedAt`, which the job writes into the metadata. It is
-  not the etag, because the local Blobs server sends no etag on HEAD; an
-  etag-based version reported "no snapshot" forever. Found locally, before
-  deploying.
-- `KeyValueStore` reads now take a required `consistency` argument, so every
-  call site chooses.
-- The in-memory store can model a stale edge (`staleEdge`). The regression
-  test fails with eventual reads and passes with strong.
+- `getStore()` is called per operation (it only builds a client), so each
+  read uses the current invocation's credentials.
+  `netlify/lib/store.test.ts` mocks per-request expiring tokens and fails
+  with the cached store.
+- Kept from the first fix, still right on its own merits:
+  - every API read of the snapshot is strongly consistent: a metadata HEAD
+    every 30 s, and the ~1 MB body only when the metadata's `fetchedAt`
+    changes;
+  - `KeyValueStore` reads take a required `consistency` argument.
+- The version is `fetchedAt`, not the etag: the local Blobs server sends no
+  etag on HEAD, and an etag-based check reported "no snapshot" there.
 
 **Alternatives:**
 
-- A strong full-body read every 30 s: simple, but 1 MB per check per
-  instance.
-- Shortening the check interval: does nothing against a stale edge.
-- Having the job notify the API: functions cannot reach each other's
-  memory.
+- Re-creating the store once per request, via request-scoped dependencies:
+  equivalent, but more plumbing.
+- Catching "Token expired" and retrying with a new store: treats the symptom.
 
 ### `GET /api/status`: a check you can look at
 
@@ -684,7 +690,10 @@ plain-English `problems` when:
 - no run has happened for 90 minutes;
 - the served snapshot is more than 90 minutes old;
 - a newer snapshot was written over 5 minutes ago but an older one is still
-  served (exactly this stall).
+  served (exactly this stall);
+- the run record cannot be read: the error is shown, not "no runs". At
+  09:10 the expired token first showed up as "No scheduled run has been
+  recorded", which was misleading.
 
 **Why:** the stall was silent. The job's log said "ok" while users got old
 prices. A status URL can be opened in a browser or watched by a free uptime
