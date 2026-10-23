@@ -16,7 +16,9 @@ import type {
 const ORIGIN = 'http://localhost:8888';
 const loaded = { snapshot: fixtureSnapshot, places: buildPlaceIndex(fixtureSnapshot.stations) };
 
-function setup(options: { now?: number; unavailable?: boolean; lastRun?: unknown } = {}) {
+function setup(
+  options: { now?: number; unavailable?: boolean; lastRun?: unknown; lastRunFails?: boolean } = {},
+) {
   const getSnapshot = vi.fn(() =>
     options.unavailable
       ? Promise.reject(new SnapshotUnavailableError('No price snapshot has been taken yet.'))
@@ -25,15 +27,17 @@ function setup(options: { now?: number; unavailable?: boolean; lastRun?: unknown
   const handler = createHandler({
     getSnapshot,
     getLastRun: () =>
-      Promise.resolve(
-        'lastRun' in options
-          ? options.lastRun
-          : {
-              ok: true,
-              startedAt: fixtureSnapshot.fetchedAt,
-              fetchedAt: fixtureSnapshot.fetchedAt,
-            },
-      ),
+      options.lastRunFails
+        ? Promise.reject(new Error('Failed to decode token: Token expired'))
+        : Promise.resolve(
+            'lastRun' in options
+              ? options.lastRun
+              : {
+                  ok: true,
+                  startedAt: fixtureSnapshot.fetchedAt,
+                  fetchedAt: fixtureSnapshot.fetchedAt,
+                },
+          ),
     now: () => options.now ?? FIXTURE_FETCHED_AT + 60_000,
   });
   const get = async (path: string, init?: RequestInit) => {
@@ -324,5 +328,14 @@ describe('GET /api/status', () => {
     const { response, body } = await get('/api/status');
     expect(response.status).toBe(503);
     expect((body as StatusResponse).served).toBeNull();
+  });
+
+  it('is 503 and names the error when the run record cannot be read', async () => {
+    const { get } = setup({ lastRunFails: true });
+    const { response, body } = await get('/api/status');
+    expect(response.status).toBe(503);
+    expect((body as StatusResponse).problems).toEqual([
+      'Could not read the last run record: Failed to decode token: Token expired',
+    ]);
   });
 });

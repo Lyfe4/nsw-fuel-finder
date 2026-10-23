@@ -78,6 +78,20 @@ describe('statusReport', () => {
     ]);
   });
 
+  it('says the run record could not be read, rather than that there are no runs', () => {
+    const report = statusReport({
+      served: served('2026-10-23T09:00:35.734Z'),
+      lastRun: null,
+      lastRunError:
+        'Netlify Blobs has generated an internal error (Failed to decode token: Token expired)',
+      now: at('2026-10-23T09:11:00Z'),
+    });
+    expect(report.healthy).toBe(false);
+    expect(report.problems).toEqual([
+      'Could not read the last run record: Netlify Blobs has generated an internal error (Failed to decode token: Token expired)',
+    ]);
+  });
+
   it('treats an unreadable run record as missing', () => {
     const report = statusReport({
       served: served('2026-10-23T08:00:37.309Z'),

@@ -33,6 +33,8 @@ const minutes = (ms: number) => Math.round(ms / 60_000);
 export function statusReport(input: {
   served: Snapshot | null;
   lastRun: unknown;
+  /** Set when the run record could not be read at all: not the same as "no runs". */
+  lastRunError?: string;
   now: number;
 }): StatusResponse {
   const { served, now } = input;
@@ -40,7 +42,9 @@ export function statusReport(input: {
   const lastRun = parsed.success ? parsed.data : null;
   const problems: string[] = [];
 
-  if (!lastRun) {
+  if (input.lastRunError) {
+    problems.push(`Could not read the last run record: ${input.lastRunError}`);
+  } else if (!lastRun) {
     problems.push('No scheduled run has been recorded.');
   } else {
     if (!lastRun.ok) {

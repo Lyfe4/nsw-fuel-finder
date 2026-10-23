@@ -92,14 +92,24 @@ function suggestions(params: URLSearchParams): Response {
 async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps) {
   if (route === 'places') return suggestions(params);
   if (route === 'status') {
-    const [served, lastRun] = await Promise.all([
+    const [served, run] = await Promise.all([
       deps.getSnapshot().then(
         (loaded) => loaded.snapshot,
         () => null,
       ),
-      deps.getLastRun().catch(() => null),
+      // A failed read is reported as such, never as "no runs".
+      deps.getLastRun().then(
+        (lastRun) => ({ lastRun }),
+        (error: unknown) => {
+          console.error('Reading meta/last-run failed', error);
+          return {
+            lastRun: null,
+            lastRunError: error instanceof Error ? error.message : String(error),
+          };
+        },
+      ),
     ]);
-    const report = statusReport({ served, lastRun, now: deps.now() });
+    const report = statusReport({ served, ...run, now: deps.now() });
     return json(report, report.healthy ? 200 : 503, 'no-store');
   }
 
