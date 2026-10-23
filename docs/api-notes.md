@@ -299,16 +299,17 @@ A history day:
 
 ### Failure behaviour
 
-| What fails                                              | What happens                                                                                                                                                        |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/prices` errors or times out                           | The run is logged in `meta/last-run`. The previous snapshot stays                                                                                                   |
-| `/prices` returns under half the previous station count | Treated as partial and not written                                                                                                                                  |
-| Token rejected once                                     | No token call for an hour                                                                                                                                           |
-| Token rejected twice                                    | **Never again with those credentials.** We never make the third attempt that would lock the account. Reset by changing either credential or deleting `auth/failure` |
-| Data call says 401                                      | Token dropped, one retry with a fresh token                                                                                                                         |
-| No snapshot yet                                         | `/api/*` returns 503 `snapshot_unavailable` with `Retry-After: 60`                                                                                                  |
-| Snapshot older than 90 min (3 missed runs)              | Served with `stale: true`                                                                                                                                           |
-| Blobs unreadable                                        | A warm instance keeps serving its copy; a cold one returns 503                                                                                                      |
+| What fails                                              | What happens                                                                                                                                                               |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/prices` errors or times out                           | The run is logged in `meta/last-run`. The previous snapshot stays                                                                                                          |
+| `/prices` returns under half the previous station count | Treated as partial and not written                                                                                                                                         |
+| Token rejected once                                     | No token call for an hour                                                                                                                                                  |
+| Token rejected twice                                    | **Never again with those credentials.** We never make the third attempt that would lock the account. Reset by changing either credential or deleting `auth/failure`        |
+| Data call says 401                                      | Token dropped, one retry with a fresh token                                                                                                                                |
+| No snapshot yet                                         | `/api/*` returns 503 `snapshot_unavailable` with `Retry-After: 60`                                                                                                         |
+| Snapshot older than 90 min (3 missed runs)              | Served with `stale: true`                                                                                                                                                  |
+| Blobs unreadable                                        | A warm instance keeps serving its copy; a cold one returns 503                                                                                                             |
+| A newer snapshot is written but an older one is served  | `/api/status` returns 503. Since round 3b the API checks the snapshot with strongly consistent reads every 30 s, bypassing the edge cache (decisions.md, "Snapshot stall") |
 
 ## Our routes
 
@@ -317,6 +318,7 @@ A history day:
 | `GET /api/nearby?lat&lng&fuel[&radius]` | `PricesResponse`. lat/lng rounded to 2 dp; radius 1–25 km, default 5                                         |
 | `GET /api/location?query&fuel[&radius]` | `PricesResponse` from the place's centre. `query` is a postcode, a suburb, or a suggestion label (see below) |
 | `GET /api/places?query`                 | `PlaceSuggestionsResponse`: up to 8 place labels for a partly typed name or postcode                         |
+| `GET /api/status`                       | `StatusResponse`: 200 if the pipeline is healthy, 503 with `problems` if not. Never cached                   |
 
 `shared/api.ts`:
 

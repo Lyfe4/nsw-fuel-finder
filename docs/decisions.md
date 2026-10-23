@@ -572,6 +572,8 @@ resolve through the ABS centre.
 
 ### Netlify credits: one deploy per round, docs-only pushes skipped
 
+> **Corrected in round 3b: the team is on Legacy Free, where deploys cost build minutes, not credits. See "Correction: the team is on Legacy Free, not credits".**
+
 **Decision:**
 
 - Push once per round (all commits together).
@@ -618,3 +620,100 @@ done for addresses. Leave address casing as received.
 **Why:** "Shell Reddy Express Erina" is plainly a typo. Title-casing
 "MACKAY AV" would mangle names like McDonald and O'Connell, so there is no
 safe automatic fix for case.
+
+## 2026-10-23: Round 3b (snapshot stall)
+
+### Snapshot stall: the API read Blobs through a stale edge
+
+**What happened:** after the round 3 deploy (00:36 UTC), the API served the
+00:30 snapshot until some time between 01:40 and 07:09, and again from 08:30
+to at least 08:44.
+
+**Evidence:**
+
+- `netlify logs --function snapshot`: every scheduled run from 23:54 to 08:00
+  logged `snapshot ok`, about 4 s and 1 API call each. 01:00, 01:30 and 02:00
+  included. The job never stopped.
+- `auth/token` was issued at 23:54:48 and never replaced, and there was no
+  `auth/failure` blob, so no credential problem.
+- Reproduced from 08:11 to 08:44. The API was polled every 10 s with
+  cache-busting URLs, so the function ran each time (`Cache-Status:
+fwd=miss`). `meta/last-run`, read through the CLI, showed the 08:30:34
+  write. The API kept serving 08:00:37 for 13+ minutes.
+- Before the deploy, with little traffic, new snapshots appeared within
+  minutes. After an hour with no traffic, the 08:00 snapshot had been picked
+  up.
+
+**Cause:** the API re-checked the snapshot every 30 s with one conditional
+`getWithMetadata(key, { etag })`, using Blobs' default eventual consistency.
+That read is served by Netlify's edge cache. Under steady traffic, the edge
+kept answering "unchanged" for the old etag far beyond the documented 60 s.
+The deploy did not cause it. It only became visible once something polled
+steadily (my checks).
+
+**Fix:**
+
+- Every API read of the snapshot is now strongly consistent, bypassing the
+  edge cache:
+  - a HEAD for the blob's metadata every 30 s;
+  - the ~1 MB body only when the metadata's `fetchedAt` has changed.
+- The version is `fetchedAt`, which the job writes into the metadata. It is
+  not the etag, because the local Blobs server sends no etag on HEAD; an
+  etag-based version reported "no snapshot" forever. Found locally, before
+  deploying.
+- `KeyValueStore` reads now take a required `consistency` argument, so every
+  call site chooses.
+- The in-memory store can model a stale edge (`staleEdge`). The regression
+  test fails with eventual reads and passes with strong.
+
+**Alternatives:**
+
+- A strong full-body read every 30 s: simple, but 1 MB per check per
+  instance.
+- Shortening the check interval: does nothing against a stale edge.
+- Having the job notify the API: functions cannot reach each other's
+  memory.
+
+### `GET /api/status`: a check you can look at
+
+**Decision:** a no-store endpoint compares what the API is serving with the
+latest run record, read strongly. It returns 200 when healthy, and 503 with
+plain-English `problems` when:
+
+- the last run failed;
+- no run has happened for 90 minutes;
+- the served snapshot is more than 90 minutes old;
+- a newer snapshot was written over 5 minutes ago but an older one is still
+  served (exactly this stall).
+
+**Why:** the stall was silent. The job's log said "ok" while users got old
+prices. A status URL can be opened in a browser or watched by a free uptime
+monitor, which alerts on the 503.
+**Alternatives:** logging only (nobody reads logs until something is
+already wrong); the UI's `stale` flag (only after 90 minutes, and blind to
+"newer exists but not served").
+
+### Correction: the team is on Legacy Free, not credits
+
+**Correction:** round 3 assumed the credit-based Free plan (15 credits a
+deploy). The API says otherwise:
+
+- `listAccountsForUser` shows the team was created on 2025-03-11, before the
+  credit cut-over, with `credit_features: false`;
+- the capabilities are the Legacy Free limits: 125,000 function invocations,
+  100 GB bandwidth, 300 build minutes and 100 function GB-hours a month.
+
+**What that changes:**
+
+- Deploys cost build minutes, about 25 s each. 3 of 300 were used this month
+  as of 2026-10-23.
+- "Push once per round" stays a good habit but is no longer a credit rule.
+- The `ignore` build command is still worth keeping.
+
+**Risks that remain:**
+
+- The 16 sites on the team, Patchbay included, share these limits.
+- On Legacy, reaching 100% of a limit (other than build minutes) pauses all
+  sites until you upgrade.
+- Using a credit-only feature can move the team to credits, and Netlify says
+  that switch is irreversible.
