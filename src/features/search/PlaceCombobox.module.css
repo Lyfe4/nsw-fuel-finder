@@ -1,0 +1,62 @@
+.field {
+  position: relative;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  font-weight: var(--font-weight-bold);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.input {
+  width: 100%;
+  min-height: var(--target-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.list,
+.listClosed {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: var(--layer-popover);
+  max-height: 20rem;
+  margin-top: var(--space-1);
+  overflow-y: auto;
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.option,
+.optionActive {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-size);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+}
+
+/*
+ * The highlighted option is marked by more than colour: a left bar as well,
+ * so it is visible to someone who cannot tell the background shades apart.
+ */
+.optionActive {
+  background: var(--color-accent-subtle);
+  box-shadow: inset 4px 0 0 var(--color-accent);
+}

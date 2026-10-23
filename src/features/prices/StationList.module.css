@@ -1,0 +1,68 @@
+.list {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * The price sits in its own column on the left, visually first, while the
+ * name stays first in reading order (see StationList.tsx).
+ */
+.item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'price name'
+    'price meta'
+    'price address'
+    'price updated';
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.name {
+  grid-area: name;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-tight);
+}
+
+.price {
+  grid-area: price;
+  align-self: start;
+  min-width: 5.5rem;
+  line-height: var(--line-height-tight);
+}
+
+.amount {
+  display: block;
+  font-size: var(--font-size-price);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.meta {
+  grid-area: meta;
+}
+
+.address {
+  grid-area: address;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.updated {
+  grid-area: updated;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

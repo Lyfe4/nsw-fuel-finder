@@ -3,10 +3,27 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
 
 // Testing Library only auto-cleans when Vitest globals are enabled, and they
 // are not, so unmount between tests explicitly.
 afterEach(() => {
   cleanup();
+  // A test that stubbed fetch or geolocation must not leak it into the next.
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  // jsdom has no geolocation; a test that faked one must not leave it behind.
+  if (typeof navigator !== 'undefined') Reflect.deleteProperty(navigator, 'geolocation');
+  // The search lives in the URL; every test starts from a bare page.
+  if (typeof window !== 'undefined') window.history.replaceState(null, '', '/');
+});
+
+beforeAll(() => {
+  // jsdom has no layout, so no scrollIntoView. Downshift calls it to keep the
+  // highlighted suggestion in view.
+  if (typeof Element !== 'undefined') {
+    Element.prototype.scrollIntoView = function scrollIntoView(): void {
+      // no layout in jsdom, nothing to scroll
+    };
+  }
 });
