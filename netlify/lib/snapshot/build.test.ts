@@ -117,4 +117,26 @@ describe('buildSnapshot edge cases', () => {
     expect(st.skippedPrices).toEqual({ unknownFuel: 0, notPositive: 1, badTimestamp: 1 });
     expect(st.skippedStations.notNsw).toBe(1);
   });
+
+  it('collapses repeated whitespace in names, brands and addresses', () => {
+    const { snapshot: s } = buildSnapshot(
+      statewidePricesSchema.parse({
+        stations: [
+          {
+            ...station('1', '  90 THE ENTRANCE  ROAD,  ERINA NSW 2250 '),
+            // A real name from the live data.
+            name: 'Shell Reddy  Express Erina ',
+            brand: ' Shell  Reddy Express',
+          },
+        ],
+        prices: [price(1, 170)],
+      }),
+      new Date(FIXTURE_FETCHED_AT),
+    );
+    expect(s.stations[0]).toMatchObject({
+      name: 'Shell Reddy Express Erina',
+      brand: 'Shell Reddy Express',
+      address: '90 THE ENTRANCE ROAD, ERINA NSW 2250',
+    });
+  });
 });

@@ -75,8 +75,9 @@ export function buildSnapshot(
     stats.prices += Object.keys(prices).length;
     stations.push({
       code: station.code,
-      name: station.name.trim(),
-      brand: station.brand.trim(),
+      // Upstream has stray double spaces: "Shell Reddy  Express Erina".
+      name: station.name.replace(/\s+/g, ' ').trim(),
+      brand: station.brand.replace(/\s+/g, ' ').trim(),
       address: station.address.replace(/\s+/g, ' ').trim(),
       suburb: address.suburb,
       postcode: address.postcode,
