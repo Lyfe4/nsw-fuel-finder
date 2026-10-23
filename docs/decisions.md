@@ -427,3 +427,194 @@ its own history chart).
 - Back is instant from cache.
 
 Hand-rolling those is where small fetch hooks grow bugs.
+
+## 2026-10-23: Round 3 (Phase 1 frontend, ABS gazetteer)
+
+### Place search uses an ABS gazetteer
+
+**Decision:** bundle 4,678 NSW and ACT suburbs and localities and 637
+postcodes from the ABS (ASGS Edition 3, 2021, CC BY 4.0) into the API
+function. Places resolve from this list first, and from station addresses
+only as a fallback.
+**Why:** station addresses only know the 1,101 suburbs with a fuel station, so
+Bondi Beach, and most places people live, were "not found". The ABS service
+returns centroids directly. Postcodes come from point-in-polygon against
+postal areas and agree with station addresses for 98.5% of stations. The
+ABS qualifier makes every label unique ("Kingswood (Penrith) NSW 2747"), so a
+suggestion is also an unambiguous query.
+**Alternatives:**
+
+- Matthew Proctor's australian_postcodes CSV: popular, but mixes sources
+  under unclear licence terms.
+- G-NAF: authoritative, but gigabytes for a lookup that needs kilobytes.
+- A geocoding API: a per-keystroke dependency, a key, and a quota.
+
+### Combobox, not `<datalist>`, for suburb suggestions
+
+**Decision:** a WAI-ARIA 1.2 combobox (Downshift `useCombobox`) fed by a
+small `GET /api/places?query=` endpoint. It returns 8 suggestions, from 2
+characters, debounced by 200 ms.
+**Why:** accessibility is a hard requirement, and `<datalist>` cannot meet it
+reliably:
+
+- Its suggestion UI belongs to the browser and differs by engine. iOS Safari
+  shows it as a QuickType bar above the keyboard, Android Chrome as a
+  dropdown. Neither can be styled or tested.
+- Screen reader support for datalist suggestions is known to be patchy
+  across browser and screen reader pairs. That is from published support
+  notes, not tested on devices here. Whether a changing list is announced is
+  up to each pairing, and we could not add our own announcement.
+- We cannot control its matching. Browsers mostly substring-match the option
+  text, so "wagga" would not rank Wagga Wagga above The Gap (Wagga Wagga), and
+  "mt druitt" would not find Mount Druitt.
+- It needs all ~4,700 options in the DOM, or a fetch per keystroke that
+  rewrites the `<datalist>` under the user. Some engines do not re-show the
+  list after it changes.
+
+The combobox gives us:
+
+- a pattern screen readers know (`role="combobox"`, `aria-expanded`, and
+  `aria-activedescendant` moved by the arrow keys);
+- our own polite "8 suggestions" announcement;
+- our own ranking, which matches exact name, then prefix, then a later word,
+  then the qualifier, and ignores case, accents, full stops and "Mt"/"Mount";
+- a list that is always eight short rows.
+
+Free text still works: Enter with nothing highlighted searches what was
+typed, so suggestions help but never block a search.
+**Library behaviour found:**
+
+- Downshift 9's hooks no longer announce result counts by default. Its
+  `getA11yStatusMessage` does not re-run when async items arrive, hence our
+  own status region.
+- Downshift calls `preventDefault` on Enter whenever the menu is open, even
+  with nothing highlighted, so a typed search never submitted. Fixed with
+  Downshift's `preventDownshiftDefault` escape hatch. Both behaviours are
+  covered by tests that fail without the fix.
+
+**Alternatives:**
+
+- React Aria's ComboBox: excellent accessibility, but several times the size.
+- Hand-rolled: the playbook says not to hand-roll ARIA widgets.
+
+### Screen reader announcements
+
+**Decision:**
+
+- One always-present, visually hidden `role="status"` in the results area
+  announces progress and outcomes: "Finding your location…", "Loading
+  prices…", "21 stations found. Cheapest Unleaded 91 is 229.5 cents a litre
+  at …", plus "These prices may be out of date" when stale.
+- Problems render as a `role="alert"` paragraph. Its action buttons sit
+  outside the alert.
+- No `aria-busy` on the results area.
+
+**Why:**
+
+- A live region must already exist when its text changes, or nothing is
+  announced.
+- Errors announced twice, once as a status and once as an alert, are noise.
+- Some screen readers hold back live regions inside an `aria-busy` element,
+  which would swallow the loading announcement itself.
+
+### Focus never lands on `<body>`
+
+**Decision:**
+
+- Buttons that remove themselves when they work move focus first, in the
+  same click:
+  - Retry and Widen move it to the results heading (`tabIndex={-1}`);
+  - a "did you mean" choice and "Search by suburb or postcode" move it to
+    the suburb box.
+- "Use my location" is not disabled while locating.
+- Searching does not move focus at all.
+
+**Why:**
+
+- A removed or disabled focused element drops keyboard focus to the
+  document, and the next Tab starts from the top.
+- Moving focus synchronously in the handler follows the deferred-focus rule
+  carried over from Patchbay.
+- Not moving focus on search lets people refine what they typed.
+
+### Design tokens in two layers
+
+**Decision:**
+
+- `--palette-*` primitives hold every colour value.
+- Components use only semantic tokens (`--color-text`, `--color-accent`, ...).
+- `src/styles/tokens.test.ts` fails if a CSS module writes a colour.
+- It also checks every text/background pair against WCAG AA: 4.5:1 for
+  text, 3:1 for the focus ring and control borders.
+
+**Why:** Phase 3 dark mode then only re-points the semantic tokens under
+`prefers-color-scheme: dark` and `[data-theme='dark']`, with no component
+changes. jsdom cannot compute contrast, so axe's contrast rule is off in
+tests and the token test covers it instead.
+
+### Empty results offer "Search within 25 km"
+
+**Decision:** when nothing sells the fuel within the radius, the empty state
+offers one button that widens the radius to 25 km. The radius is stored in
+the URL with `replaceState`.
+**Why:** rural searches at the 5 km default often come back empty. Telling
+someone "nothing here" without a next step is a dead end. This is an
+empty-state action, not the Phase 4 distance filter: there is no radius
+control otherwise.
+
+### Postcode-only searches use the station cluster first
+
+**Decision:** a postcode resolves to its largest cluster of stations where it
+has any, and to the ABS postal-area centre otherwise.
+**Why:** rural postal areas are huge. 2880's centre is far from Broken Hill,
+where its stations are. Postcodes without stations (2026 Bondi) still
+resolve through the ABS centre.
+
+### Netlify credits: one deploy per round, docs-only pushes skipped
+
+**Decision:**
+
+- Push once per round (all commits together).
+- `netlify.toml` has an `ignore` command that skips builds when only
+  `docs/` or Markdown changed.
+
+**Why:**
+
+- On Netlify's credit-based Free plan (accounts created on or after 4 Sep
+  2025), each production deploy costs 15 of 300 monthly credits.
+- Running out pauses every site on the team until the next cycle. Patchbay
+  would go down with this site, if they share a team.
+- Everything else this site does costs an estimated 50–90 credits a month:
+  compute is billed at 1 GB for every function on Free, plus requests and
+  bandwidth.
+- So deploys are the only line item that can push the team over: at that
+  baseline, 14–16 deploys a month is the ceiling.
+
+**To check:** which plan model the team is on (Usage & billing > Plan).
+Legacy Free charges nothing per deploy.
+
+### History storage: no action needed yet
+
+**Decision:** keep one Blobs file per Sydney day (~262 kB, ~95 MB a year).
+Do not compact yet.
+**Why:**
+
+- Netlify publishes no separate Blobs storage limit or per-GB rate for Free.
+  Its own page says Blobs draws from the credit pool without a published
+  rate.
+- Objects can be up to 5 GB, and a year of history is under 0.1 GB.
+- Writes are one read and one write per run.
+
+**If it becomes a problem** (a published rate, or Phase 4 needing
+per-station reads), compact on the first run of each month: fold the
+previous month's days into one gzipped `history/v1/YYYY-MM` file of
+`[day, min, max]` per station per fuel. That is roughly 10× smaller, and it
+also makes a station's month a single read.
+
+### Whitespace in station names
+
+**Decision:** collapse repeated whitespace in names and brands, as was already
+done for addresses. Leave address casing as received.
+**Why:** "Shell Reddy Express Erina" is plainly a typo. Title-casing
+"MACKAY AV" would mangle names like McDonald and O'Connell, so there is no
+safe automatic fix for case.

@@ -207,23 +207,16 @@ suburbs seen in other addresses.
 Edge cases, all handled in `netlify/lib/snapshot/address.ts` and
 `netlify/functions/api/places.ts`:
 
-| Case                        | Example                                                                                          | Handling                                                                                                   |
-| --------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| Mixed case                  | `UMINA BEACH` vs `Umina Beach`                                                                   | Compared case-insensitively; all-caps shown title-cased                                                    |
-| "Mt" vs "Mount"             | Data says `Mount Druitt`; people type `Mt Druitt`                                                | `placeKey` treats them as the same                                                                         |
-| Same name, different places | Griffith NSW 2680 / Griffith ACT 2603 (303 km apart); Weston NSW 2326 / Weston ACT 2611 (355 km) | 409 `ambiguous_location` listing both; `query=Griffith ACT 2603` picks one                                 |
-| Same name, one outlier      | Emmdale Roadhouse is 149 km from Cobar, but its address is `COBAR NSW 2835`                      | Same label, so the larger group is the place                                                               |
-| Spread-out places           | White Cliffs' stations are 19 km apart                                                           | Grouped with a 40 km single-linkage threshold                                                              |
-| Wrong postcodes             | `Cowra NSW 2646` (2646 is Corowa's); 32 postcodes have stations more than 40 km apart            | A postcode is located by its largest cluster of stations                                                   |
-| **Suburb with no station**  | `Bondi Beach`, any purely residential suburb                                                     | **404 `location_not_found`**. Only the 1,101 suburbs with a fuel station are known. See "Open issue" below |
-| Partial name                | `Wagga` for Wagga Wagga                                                                          | 404. Needs autocomplete in the UI                                                                          |
-
-**Open issue: suburbs without a station.** Station addresses can only locate
-places that have a station. NSW has roughly 4,500 suburbs and localities, so
-most people typing their own suburb would get a 404. The fix is a small bundled
-gazetteer of suburb and postcode centroids (≈4,600 rows, ~150 kB). One option
-is ABS Suburbs and Localities, licensed CC BY 4.0. With it, the search finds
-the place first and then searches its surroundings. Proposed for Phase 1.
+| Case                        | Example                                                                                          | Handling                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Mixed case                  | `UMINA BEACH` vs `Umina Beach`                                                                   | Compared case-insensitively; all-caps shown title-cased                    |
+| "Mt" vs "Mount"             | Data says `Mount Druitt`; people type `Mt Druitt`                                                | `placeKey` treats them as the same                                         |
+| Same name, different places | Griffith NSW 2680 / Griffith ACT 2603 (303 km apart); Weston NSW 2326 / Weston ACT 2611 (355 km) | 409 `ambiguous_location` listing both; `query=Griffith ACT 2603` picks one |
+| Same name, one outlier      | Emmdale Roadhouse is 149 km from Cobar, but its address is `COBAR NSW 2835`                      | Same label, so the larger group is the place                               |
+| Spread-out places           | White Cliffs' stations are 19 km apart                                                           | Grouped with a 40 km single-linkage threshold                              |
+| Wrong postcodes             | `Cowra NSW 2646` (2646 is Corowa's); 32 postcodes have stations more than 40 km apart            | A postcode is located by its largest cluster of stations                   |
+| Suburb with no station      | `Bondi Beach`, any purely residential suburb                                                     | Resolved from the ABS gazetteer (round 3); see "Place lookup"              |
+| Partial name                | `Wagga` for Wagga Wagga                                                                          | Resolved as a unique prefix; the UI also suggests as you type              |
 
 ## Not used
 
@@ -322,51 +315,91 @@ A history day:
 | Route                                   | Returns                                                                                                      |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `GET /api/nearby?lat&lng&fuel[&radius]` | `PricesResponse`. lat/lng rounded to 2 dp; radius 1–25 km, default 5                                         |
-| `GET /api/location?query&fuel[&radius]` | `PricesResponse` from the place's centre. `query` is a postcode, a suburb, or `Suburb [NSW\|ACT] [postcode]` |
+| `GET /api/location?query&fuel[&radius]` | `PricesResponse` from the place's centre. `query` is a postcode, a suburb, or a suggestion label (see below) |
+| `GET /api/places?query`                 | `PlaceSuggestionsResponse`: up to 8 place labels for a partly typed name or postcode                         |
 
-`PricesResponse` (`shared/api.ts`):
+`shared/api.ts`:
 
 ```ts
-{
+interface PricesResponse {
   fuelType: string;
-  fetchedAt: string; // snapshot time, ISO UTC: "prices as of 2:30pm"
+  fetchedAt: string; // snapshot time, ISO UTC: "prices as of 2:30 pm"
   stale: boolean;
-  origin: {
-    latitude: number;
-    longitude: number;
-    label: string | null;
-  }
-  stations: {
-    stationCode: string;
-    name: string;
-    brand: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-    distanceKm: number; // from origin
-    priceCents: number;
-    priceUpdatedAt: string; // ISO UTC
-  }
-  []; // cheapest first, then nearest, then name
+  origin: { latitude: number; longitude: number; label: string | null };
+  stations: StationPrice[]; // cheapest first, then nearest, then name
+}
+
+interface StationPrice {
+  stationCode: string;
+  name: string;
+  brand: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  distanceKm: number; // from origin
+  priceCents: number;
+  priceUpdatedAt: string; // ISO UTC
+}
+
+interface PlaceSuggestionsResponse {
+  query: string; // the query these answer, to spot a late response
+  suggestions: string[]; // e.g. "Kingswood (Penrith) NSW 2747"
 }
 ```
 
 | Status | Code                   | When                                                             |
 | ------ | ---------------------- | ---------------------------------------------------------------- |
 | 400    | `bad_request`          | Outside NSW, a bad number, an unknown fuel, or a malformed query |
-| 404    | `location_not_found`   | No station is listed in that suburb or postcode                  |
+| 404    | `location_not_found`   | Not a NSW or ACT place or postcode                               |
 | 404    | `not_found`            | Unknown path                                                     |
 | 405    | `method_not_allowed`   | Anything but GET                                                 |
 | 409    | `ambiguous_location`   | The name means more than one place. `candidates` lists them      |
 | 503    | `snapshot_unavailable` | No snapshot yet, or Blobs is unreadable on a cold instance       |
 | 500    | `internal_error`       | A bug                                                            |
 
+`/api/places` never errors on odd input; it returns no suggestions.
+
 Caching:
 
-- 200 responses: `Cache-Control: public, max-age=60` for the browser, and
+- Prices: `Cache-Control: public, max-age=60` for the browser, and
   `Netlify-CDN-Cache-Control: public, durable, s-maxage=60, stale-while-revalidate=60`
   for the edge.
+- Suggestions: an hour in the browser, a day at the edge. They only change
+  with a deploy, and a deploy purges the CDN.
 - Errors are `no-store`.
+
+### Place lookup (round 3)
+
+Station addresses only know the 1,101 suburbs with a fuel station, so
+`/api/location` now resolves places from a bundled ABS gazetteer
+(`netlify/lib/places/gazetteer.json`, built by `scripts/build-gazetteer.js`):
+
+- **Source:** ABS ASGS Edition 3 (2021), Suburbs and Localities and Postal
+  Areas, from the ABS ArcGIS service (`geo.abs.gov.au`), CC BY 4.0.
+- **Contents:** 4,678 NSW and ACT suburbs and localities with a centroid, and 637 postcodes
+  (Norfolk Island's 2899 excluded).
+- **Postcodes for suburbs:** each suburb's centroid is tested against the
+  postal-area polygons, with a 3 km nearest-boundary fallback for coastal
+  centroids that land offshore. The result agrees with the station's own
+  address for 98.5% of stations (3,169 of 3,216). Eight border localities with
+  VIC or QLD postcodes (Barooga, Texas, ...) have none.
+- **Labels are unique**, using the ABS qualifier for repeated names:
+  `Kingswood (Penrith) NSW 2747`. A label sent back as `query` resolves to
+  exactly that place.
+- **Size:** 293 kB (88 kB gzipped), loaded once per function instance.
+
+Resolution order:
+
+1. An exact label is that place.
+2. A postcode is its station cluster, else the postal area's centre.
+3. A name, narrowed by any qualifier, state or postcode given. If several places match, the
+   answer is 409 with the choices.
+4. A name nothing matches exactly, but which starts exactly one place's name ("Wagga"), resolves to that place.
+   Several matches are a 409.
+5. Names only station addresses know ("Dubbo North") fall back to them.
+
+A suburb's stations are those whose address names it within 40 km of its
+centre, plus any within the radius.
 
 ## Terms of use
 
