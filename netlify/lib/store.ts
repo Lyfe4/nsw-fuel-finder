@@ -43,10 +43,17 @@ export const KEYS = {
 
 /** Netlify Blobs. */
 export function blobStore(): KeyValueStore {
-  // Resolved on first use, not at import: the function environment that
-  // getStore reads its credentials from is only guaranteed during a request.
-  let resolved: Store | null = null;
-  const blobs = (): Store => (resolved ??= getStore({ name: STORE_NAME }));
+  /*
+   * A NEW STORE FOR EVERY OPERATION. getStore() reads the current
+   * invocation's Blobs context - a short-lived token - when it is called, and
+   * the store it returns keeps that token. Cached for the life of a warm
+   * instance (as it was until 2026-10-23), every call failed with "Failed to
+   * decode token: Token expired" ~15 minutes after a cold start; before reads
+   * were strong, eventual reads quietly served the last cached copy instead,
+   * which is how the API served an hours-old snapshot. getStore() only builds
+   * a client object, so calling it per operation costs nothing measurable.
+   */
+  const blobs = (): Store => getStore({ name: STORE_NAME });
   return {
     getJSON: async (key, consistency) => {
       const value: unknown = await blobs().get(key, { type: 'json', consistency });
