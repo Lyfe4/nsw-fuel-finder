@@ -2,6 +2,7 @@ import { ApiError, errorResponse, json } from './http';
 import { resolvePlace } from './places';
 import { searchNearby, searchPlace } from './search';
 import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
+import { statusReport } from './status';
 import { parseLocationQuery, parseNearbyQuery } from './validate';
 import { suggestPlaces } from '../../lib/places/gazetteer';
 import { STALE_AFTER_MS } from '../../lib/snapshot/format';
@@ -39,7 +40,7 @@ const SUGGESTION_CACHE = {
   cdn: 'public, durable, s-maxage=86400',
 } as const;
 
-const ROUTES = ['nearby', 'location', 'places'] as const;
+const ROUTES = ['nearby', 'location', 'places', 'status'] as const;
 type Route = (typeof ROUTES)[number];
 
 // Reached through the /api/* rewrite or, in `netlify dev`, directly.
@@ -51,6 +52,8 @@ function matchRoute(pathname: string): Route | null {
 }
 
 export interface HandlerDeps {
+  /** The latest scheduled run summary (meta/last-run), read strongly. */
+  getLastRun: () => Promise<unknown>;
   getSnapshot: () => Promise<LoadedSnapshot>;
   now: () => number;
 }
@@ -88,6 +91,17 @@ function suggestions(params: URLSearchParams): Response {
 
 async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps) {
   if (route === 'places') return suggestions(params);
+  if (route === 'status') {
+    const [served, lastRun] = await Promise.all([
+      deps.getSnapshot().then(
+        (loaded) => loaded.snapshot,
+        () => null,
+      ),
+      deps.getLastRun().catch(() => null),
+    ]);
+    const report = statusReport({ served, lastRun, now: deps.now() });
+    return json(report, report.healthy ? 200 : 503, 'no-store');
+  }
 
   // Validate before touching the snapshot: bad input is a 400 even when the
   // snapshot is missing.

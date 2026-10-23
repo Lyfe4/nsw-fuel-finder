@@ -6,12 +6,17 @@ import { buildPlaceIndex } from './places';
 import { createHandler } from './router';
 import { SnapshotUnavailableError } from './snapshotSource';
 
-import type { ApiErrorBody, PlaceSuggestionsResponse, PricesResponse } from '../../../shared/api';
+import type {
+  ApiErrorBody,
+  PlaceSuggestionsResponse,
+  PricesResponse,
+  StatusResponse,
+} from '../../../shared/api';
 
 const ORIGIN = 'http://localhost:8888';
 const loaded = { snapshot: fixtureSnapshot, places: buildPlaceIndex(fixtureSnapshot.stations) };
 
-function setup(options: { now?: number; unavailable?: boolean } = {}) {
+function setup(options: { now?: number; unavailable?: boolean; lastRun?: unknown } = {}) {
   const getSnapshot = vi.fn(() =>
     options.unavailable
       ? Promise.reject(new SnapshotUnavailableError('No price snapshot has been taken yet.'))
@@ -19,6 +24,16 @@ function setup(options: { now?: number; unavailable?: boolean } = {}) {
   );
   const handler = createHandler({
     getSnapshot,
+    getLastRun: () =>
+      Promise.resolve(
+        'lastRun' in options
+          ? options.lastRun
+          : {
+              ok: true,
+              startedAt: fixtureSnapshot.fetchedAt,
+              fetchedAt: fixtureSnapshot.fetchedAt,
+            },
+      ),
     now: () => options.now ?? FIXTURE_FETCHED_AT + 60_000,
   });
   const get = async (path: string, init?: RequestInit) => {
@@ -277,5 +292,37 @@ describe('routing and failures', () => {
     expect(response.headers.get('retry-after')).toBe('60');
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect((body as ApiErrorBody).error.code).toBe('snapshot_unavailable');
+  });
+});
+
+describe('GET /api/status', () => {
+  it('is 200 and never cached when the API serves what the last run wrote', async () => {
+    const { get } = setup();
+    const { response, body } = await get('/api/status');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(body as StatusResponse).toMatchObject({
+      healthy: true,
+      served: { fetchedAt: fixtureSnapshot.fetchedAt },
+      lastRun: { ok: true },
+    });
+  });
+
+  it('is 503 when a newer snapshot was written but an older one is served', async () => {
+    const written = new Date(FIXTURE_FETCHED_AT + 30 * 60_000).toISOString();
+    const { get } = setup({
+      now: FIXTURE_FETCHED_AT + 45 * 60_000,
+      lastRun: { ok: true, startedAt: written, fetchedAt: written },
+    });
+    const { response, body } = await get('/api/status');
+    expect(response.status).toBe(503);
+    expect((body as StatusResponse).problems[0]).toMatch(/^The API is serving the snapshot from/);
+  });
+
+  it('is 503, not an error, when there is no snapshot at all', async () => {
+    const { get } = setup({ unavailable: true, lastRun: null });
+    const { response, body } = await get('/api/status');
+    expect(response.status).toBe(503);
+    expect((body as StatusResponse).served).toBeNull();
   });
 });

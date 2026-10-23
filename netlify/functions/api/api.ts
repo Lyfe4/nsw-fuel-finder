@@ -8,9 +8,14 @@
  */
 import { createHandler } from './router';
 import { createSnapshotSource } from './snapshotSource';
-import { blobStore } from '../../lib/store';
+import { blobStore, KEYS } from '../../lib/store';
 
 const now = () => Date.now();
-const source = createSnapshotSource({ store: blobStore(), now });
+const store = blobStore();
+const source = createSnapshotSource({ store, now });
 
-export default createHandler({ getSnapshot: () => source.get(), now });
+export default createHandler({
+  getSnapshot: () => source.get(),
+  getLastRun: () => store.getJSON(KEYS.lastRun, 'strong'),
+  now,
+});

@@ -62,6 +62,21 @@ export interface PlaceSuggestionsResponse {
   suggestions: string[];
 }
 
+/**
+ * GET /api/status: whether the price pipeline is healthy end to end. 200 when
+ * healthy, 503 with `problems` when not; never cached.
+ */
+export interface StatusResponse {
+  healthy: boolean;
+  /** Plain-English reasons it is not healthy; empty when it is. */
+  problems: string[];
+  checkedAt: string;
+  /** The snapshot this API instance is serving. */
+  served: { fetchedAt: string; stations: number } | null;
+  /** The latest scheduled run, as recorded in Blobs. */
+  lastRun: { ok: boolean; startedAt: string; fetchedAt?: string; error?: string } | null;
+}
+
 export type ApiErrorCode =
   | 'bad_request'
   | 'not_found'
