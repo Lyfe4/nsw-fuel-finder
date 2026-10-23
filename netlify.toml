@@ -4,6 +4,12 @@
   command = "pnpm build"
   publish = "dist"
   functions = "netlify/functions"
+  # Skip the build when nothing deployable changed since the last deploy.
+  # On the credit-based Free plan every production deploy costs 15 of 300
+  # monthly credits, and running out pauses every site on the team, so a
+  # docs-only push must not deploy. Exit 0 = skip; any change outside docs/
+  # and Markdown (or a first deploy, where there is nothing to diff) builds.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ':(exclude)docs/' ':(exclude)*.md'"
 
 [build.environment]
   # Matches .nvmrc, so the deploy and CI use the same major.
