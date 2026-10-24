@@ -239,7 +239,7 @@ Edge cases, all handled in `netlify/lib/snapshot/address.ts` and
 ```
 every 30 min (cron, UTC)                         every request
 netlify/functions/snapshot  ──writes──▶  Blobs  ◀──reads──  netlify/functions/api
-  token (from Blobs, ~2 calls/day)              (30 s in-memory cache, etag revalidation)
+  token (from Blobs, ~2 calls/day)              (30 s in-memory cache, strong fetchedAt check)
   GET /prices (1 call)                          /api/nearby, /api/location
   build snapshot + today's history              zero upstream calls
 ```
@@ -299,17 +299,18 @@ A history day:
 
 ### Failure behaviour
 
-| What fails                                              | What happens                                                                                                                                                               |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/prices` errors or times out                           | The run is logged in `meta/last-run`. The previous snapshot stays                                                                                                          |
-| `/prices` returns under half the previous station count | Treated as partial and not written                                                                                                                                         |
-| Token rejected once                                     | No token call for an hour                                                                                                                                                  |
-| Token rejected twice                                    | **Never again with those credentials.** We never make the third attempt that would lock the account. Reset by changing either credential or deleting `auth/failure`        |
-| Data call says 401                                      | Token dropped, one retry with a fresh token                                                                                                                                |
-| No snapshot yet                                         | `/api/*` returns 503 `snapshot_unavailable` with `Retry-After: 60`                                                                                                         |
-| Snapshot older than 90 min (3 missed runs)              | Served with `stale: true`                                                                                                                                                  |
-| Blobs unreadable                                        | A warm instance keeps serving its copy; a cold one returns 503                                                                                                             |
-| A newer snapshot is written but an older one is served  | `/api/status` returns 503. Since round 3b the API checks the snapshot with strongly consistent reads every 30 s, bypassing the edge cache (decisions.md, "Snapshot stall") |
+| What fails                                                                    | What happens                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/prices` errors or times out                                                 | The run is logged in `meta/last-run`. The previous snapshot stays                                                                                                                                                                            |
+| `/prices` returns under half the previous station count                       | Treated as partial and not written                                                                                                                                                                                                           |
+| `/prices` returns a `null` body (seen once, 2026-10-23 16:00 UTC, after 10 s) | Logged as `bad_response`. The function returns 502, Netlify invoked it again 4 s later, and that run succeeded, costing 1 extra call. The lockout guard lives in Blobs, so a retry after a token rejection still never makes a third attempt |
+| Token rejected once                                                           | No token call for an hour                                                                                                                                                                                                                    |
+| Token rejected twice                                                          | **Never again with those credentials.** We never make the third attempt that would lock the account. Reset by changing either credential or deleting `auth/failure`                                                                          |
+| Data call says 401                                                            | Token dropped, one retry with a fresh token                                                                                                                                                                                                  |
+| No snapshot yet                                                               | `/api/*` returns 503 `snapshot_unavailable` with `Retry-After: 60`                                                                                                                                                                           |
+| Snapshot older than 90 min (3 missed runs)                                    | Served with `stale: true`                                                                                                                                                                                                                    |
+| Blobs unreadable                                                              | A warm instance keeps serving its copy; a cold one returns 503                                                                                                                                                                               |
+| A newer snapshot is written but an older one is served                        | `/api/status` returns 503. Since round 3b the API checks the snapshot with strongly consistent reads every 30 s, bypassing the edge cache (decisions.md, "Snapshot stall")                                                                   |
 
 ## Our routes
 
@@ -453,6 +454,39 @@ netlify functions:invoke snapshot --port 8888 --no-identity
 - The result is logged by `netlify dev` as `snapshot ok {…}`, and stored in `meta/last-run`.
 - Until the first run, `/api/*` answers 503 `snapshot_unavailable`.
 - Every manual run spends from the same 2,500-a-month quota as production.
+
+### `netlify dev` never touches the production store
+
+Checked on 2026-10-24 against netlify-cli 27.14.0
+(`dist/commands/dev/dev.js` and `dist/lib/blobs/blobs.js`):
+
+- `netlify dev` always starts its own `BlobsServer` (from
+  `@netlify/blobs/server`) on a random localhost port, with a random UUID as
+  its token, and sets `NETLIFY_BLOBS_CONTEXT` to point at it. It does this
+  linked or not, online or `--offline`. There is no flag that points it at
+  the production store.
+- Our code calls `getStore({ name })` with no `siteID` or `token`, so it can
+  only use that context. A production Blobs token is never issued to a local
+  process.
+- Files live in `.netlify/blobs-serve/entries/<siteID>/site:fuel-finder/...`.
+  The real site ID appears in the path because the folder is linked, but it
+  is only a folder name. An `unlinked/` folder there is from before the link.
+
+So local `auth/token`, `auth/failure`, `meta/last-run` and the snapshot are
+all separate from production's.
+
+**The catch: the credentials are not separate.** When the folder is linked
+and not `--offline`, `netlify dev` injects the site's environment variables
+for all scopes, so a local snapshot run uses the production API.NSW key and
+secret (or `.env`'s, which are the same). Two consequences:
+
+- Every local run spends the same monthly quota as production.
+- The lockout guard counts failures **per store**. A local run cannot see a
+  production `auth/failure`, and vice versa. If the credentials stop working,
+  production stops itself after 2 failures, but a local run in between could
+  be the third consecutive failure that API.NSW locks the account on. **If
+  `/api/status` reports a failed run, do not run the snapshot locally until
+  the cause is known.**
 
 Windows needs Developer Mode, because Netlify bundles functions with NFT and
 recreates pnpm's symlinks. Install the CLI with npm (`npm install -g

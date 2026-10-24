@@ -3,10 +3,10 @@ import { getStore, type Store } from '@netlify/blobs';
 /**
  * How fresh a read must be, as in Netlify Blobs:
  *
- * - 'eventual' goes through Netlify's edge cache. The docs say a write
- *   reaches every edge within 60 s, but on 2026-10-23 a conditional
- *   eventual read kept returning the old version for 13+ minutes under
- *   steady traffic (see docs/decisions.md, "Snapshot stall").
+ * - 'eventual' goes through Netlify's edge cache; the docs say a write
+ *   reaches every edge within 60 s. With an expired token it quietly keeps
+ *   returning the last cached copy instead of failing (see docs/decisions.md,
+ *   "Snapshot stall").
  * - 'strong' bypasses the edge cache and always sees the latest write.
  *
  * Required on every read, so each call site says which it needs.
@@ -76,9 +76,9 @@ export function blobStore(): KeyValueStore {
 /**
  * An in-memory store with the same semantics, for tests.
  *
- * `staleEdge` models what production showed on 2026-10-23: Netlify's edge
- * kept answering eventually-consistent reads with the version it first saw,
- * for 13+ minutes under steady traffic, while strong reads saw every write.
+ * `staleEdge` models what production looked like on 2026-10-23 (the cause
+ * turned out to be an expired token, not the edge): eventually-consistent
+ * reads kept the version they first saw while strong reads saw every write.
  * With it on, eventual reads are pinned to their first answer; strong reads
  * always see the latest.
  */

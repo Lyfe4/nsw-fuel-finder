@@ -23,11 +23,12 @@ export class SnapshotUnavailableError extends Error {
  * ~1 MB body is fetched only when that has changed.
  *
  * BOTH READS ARE STRONGLY CONSISTENT. They used to be one conditional,
- * eventually-consistent read, and on 2026-10-23 Netlify's edge kept answering
- * it with the old version for over an hour under steady traffic: the job
- * wrote a fresh snapshot every 30 minutes and the API went on serving the
- * 00:30 one. Strong reads skip the edge cache. The check is a small HEAD
- * request, so doing it strongly every 30 s costs little.
+ * eventually-consistent read, and on 2026-10-23 it went on returning the
+ * 00:30 snapshot for hours while the job wrote a fresh one every 30 minutes.
+ * The cause was an expired Blobs token (see blobStore() in lib/store.ts):
+ * eventual reads hid it, strong reads fail loudly, which is what we want.
+ * The check is a small HEAD request, so doing it strongly every 30 s costs
+ * little.
  *
  * If Blobs is unreachable or returns something unreadable, an instance that
  * already has a snapshot keeps serving it (its age still drives `stale`);
