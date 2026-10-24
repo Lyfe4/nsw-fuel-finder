@@ -1320,3 +1320,84 @@ link, opens its price history".
 The initial bundle grew 7.5 kB: the distance select, favourites, the history
 link and the lazy wrapper. It is still inside the round 5 budget, which was not
 raised.
+
+## 2026-10-24: Round 7 (launch readiness)
+
+### Security headers
+
+**Decision:** in `netlify.toml`, on every response: a Content-Security-Policy,
+`Referrer-Policy: strict-origin-when-cross-origin`, a `Permissions-Policy`
+allowing geolocation for this origin only, `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY` and `Cross-Origin-Opener-Policy: same-origin`. The
+policy, directive by directive, is commented in `netlify.toml`. In short:
+
+- **Scripts** from this origin, plus two inline scripts by SHA-256 hash: the
+  first-paint theme script, and the script inside Netlify's free-plan badge.
+  Never `'unsafe-inline'` or `'unsafe-eval'`.
+- **Inline styles are allowed.** Measured, not assumed: the badge draws itself
+  in a `srcdoc` iframe, which inherits this policy, and its stylesheet starts
+  `:root{--nl-vw:${innerWidth}px;--nl-vh:${innerHeight}px}`. Its hash was
+  different at 375 and 1280 px wide, so no list of hashes can cover it.
+  Refusing it would not just restyle the badge: its own script sizes the
+  visible box, so the badge would silently vanish, and on the free plan it is
+  meant to show. The app itself needs no inline styles (React and MapLibre
+  style through the CSSOM, which CSP does not govern). Inline CSS cannot run
+  code; script stays locked.
+- **The map:** `connect-src` and `img-src` add `https://tiles.openfreemap.org`
+  only. `worker-src 'self'` is enough. MapLibre only builds `blob:` workers
+  for a cross-origin worker URL, and ours is our own hashed asset
+  (`setWorkerUrl`). Its `eval` is for RTL-text and custom-protocol plugins,
+  which we do not load.
+- **`frame-ancestors 'none'`**, `object-src 'none'`, `base-uri 'self'`,
+  `form-action 'self'`, `upgrade-insecure-requests`.
+
+**Referrer-Policy** sends other sites (OpenFreeMap, the credited sources) our
+origin and never the page URL, whose query holds a search or a rounded
+position.
+
+**Verified before production** with `pnpm serve:headers`. It serves the build
+with these exact headers, proxies `/api` and the badge loader to production,
+and adds the badge tag as Netlify does. Under it:
+
+- the smoke check (map, tiles, dot picking, dark basemap, history, phone map)
+  passed with zero violations;
+- the badge drew;
+- MapLibre's worker loaded from our origin;
+- an inline script injected as a negative control was refused.
+
+`check:browser` now fails on any `securitypolicyviolation`, and on a badge
+that does not draw. `netlify/lib/securityHeaders.test.ts` fails when the theme
+script's hash goes stale or the script policy loosens.
+**Known fragility:** when Netlify changes its badge, its script hash changes
+and the badge stops drawing. The smoke check reports it, and the fix is the new
+hash from the violation message. The owner's toolbar (shown to a logged-in
+site owner) has a different script and is not allowed. It is a Netlify
+convenience for us only.
+**Alternatives:** `'unsafe-inline'` for scripts (no protection against
+injection at all); a nonce (needs a server rendering each page, and Netlify
+serves this one statically).
+
+### Domain-aware, so a custom domain is a setting
+
+**Decision:** the canonical link and the Open Graph URLs are filled in at
+build from Netlify's `URL` variable, which is the site's primary domain.
+Moving to `fuel.calvinrdevelopment.com` is a Netlify domain setting plus a
+redeploy, with no code change. `SITE_URL` overrides it.
+
+### Screenshots, reproducibly
+
+**Decision:** `pnpm screenshots` serves the real build locally and answers
+`/api/*` from fixtures recorded from production (`--record`; reads only). It
+fixes the clock a few minutes after the recorded snapshot, so "updated 2 hours
+ago" never drifts, and waits for the map's first complete render. Captures:
+light and dark, 1280 px and 390 px (at 2×), for results with the map, price
+history and favourites. The same run composes the Open Graph card
+(`public/og-image.png`, 1200×630) and a hero image (`docs/screenshots/hero.png`).
+Only the map tiles are live, so a re-run after OpenFreeMap updates its tiles
+can differ in the basemap alone.
+
+### Maintenance reminder
+
+> **Early November 2026:** run `pnpm history:backfill --months 4 --upload` once
+> FuelCheck publishes October, to fill the 1-22 October gap. It writes to
+> production Blobs, so ask first. Also in the README's Maintenance section.
