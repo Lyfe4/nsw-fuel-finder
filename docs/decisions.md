@@ -726,3 +726,207 @@ deploy). The API says otherwise:
   sites until you upgrade.
 - Using a credit-only feature can move the team to credits, and Netlify says
   that switch is irreversible.
+
+## 2026-10-24: Round 4 (round 3b close-out, Phase 2 map)
+
+### Round 3b fix verified
+
+**Evidence:**
+
+- `netlify logs --function snapshot` from 09:50 UTC on the 23rd to 00:00 on
+  the 24th: 29 scheduled runs, all landed. 28 logged `snapshot ok` first
+  time.
+- The 16:00 run got a `null` body from `/prices` after 10 s and failed
+  cleanly (`bad_response`, previous snapshot kept). Netlify invoked the
+  function again 4 s later, and that run succeeded. Cost: one extra call.
+  Written up in api-notes.md, "Failure behaviour".
+- `netlify logs --function api` over the same period: no errors. But traffic
+  stopped at 09:59, 9 minutes after the deploy, so the 15-minute token
+  expiry had not been tested under steady load.
+- So it was tested on the 24th instead: `/api/status` polled every 10 s from
+  00:15 to 00:46. All 177 polls were healthy. The 00:30:36 snapshot was
+  served by the 00:30:44 poll. The API log shows one warm instance throughout
+  (constant memory, no cold-start durations) and no errors, well past the
+  15 minutes at which the old code failed.
+
+### Map tiles: OpenFreeMap, drawn by MapLibre GL, not Leaflet
+
+**Decision:** MapLibre GL JS 6.14 with OpenFreeMap's Positron style.
+**Why:** Round 3's plan said Leaflet, but no raster tile provider fits the
+brief any more:
+
+| Provider        | Key / account                                          | Fits?                                                                                                                                            |
+| --------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| OSM's own tiles | none                                                   | No: the usage policy discourages app traffic and can block without notice                                                                        |
+| CARTO basemaps  | **key now required**                                   | No: a keyless request returns an "API KEY REQUIRED" image (checked 2026-10-24). Free non-commercial up to 5M tiles a month, but needs an account |
+| Stadia Maps     | account, with domain auth (no key in code)             | Possible, but needs you to sign up. Free plan: non-commercial, 200k credits a month                                                              |
+| OpenFreeMap     | none: "no registration, no user database, no API keys" | **Yes.** No request limits, OSM data, Positron and Dark styles                                                                                   |
+
+OpenFreeMap only serves vector tiles, and Leaflet cannot draw those without a
+WebGL plugin. MapLibre draws them natively, and it brings two things this map
+needs anyway:
+
+- label collision, which makes dense prices readable (below);
+- canvas-drawn markers, which stay fast with 560 stations.
+
+**Cost:** MapLibre is ~431 kB gzipped (JS 277 kB, worker 143 kB, CSS 10.5 kB),
+against ~45 kB for Leaflet. It is lazy-loaded, so the first page load grows
+only 3.5 kB (JS 94.9 → 97.7 kB, CSS 2.2 → 2.9 kB gzipped). On a phone it
+downloads only when Map is chosen.
+**Attribution:** "OpenFreeMap © OpenMapTiles Data from OpenStreetMap", from
+the style, shown uncollapsed in the map's corner (`compact: false`). The OSM
+policy says attribution must not be hidden behind a toggle, and MapLibre
+collapses it on maps under 640 px wide by default.
+**Risk:** OpenFreeMap is a donation-funded project with no SLA. If it goes
+down, the map shows its dots on a blank background, and the list is
+unaffected. Switching to Stadia or CARTO is a change to one style URL plus a
+key or a domain registration.
+**Alternatives:** Leaflet with Stadia (smaller, but needs your account, and
+Leaflet has no label collision); MapLibre with CARTO's vector style (needs a
+key).
+
+### Prices on the map, and no clustering
+
+**Decision:** stations are canvas circles coloured by price band, with the
+price beside each dot. Labels that would overlap are dropped, and the
+cheaper station's label wins (`symbol-sort-key` = price). No clustering.
+**Why:** a 25 km search around Parramatta (2150) returns 563 stations, and
+Sydney CBD (2000) returns 430. Price pills as DOM markers would be an
+unreadable pile. Clustering would hide the prices, which are what people
+came for. With collision, every dot stays visible and the cheapest prices are
+labelled. Zooming in reveals the rest, and the list has them all. Checked in
+a browser at 2150/25 km: readable.
+
+### Price colours relative to the results
+
+**Decision:** cheapest third, middle third and dearest third of the stations
+shown, as `--color-price-low/mid/high` tokens (green, amber, red). Ties share
+a band. The map reads the tokens at runtime, because it draws on a canvas.
+**Why:** "cheap" is a different number in Broken Hill and in Parramatta.
+Each colour has 3:1 against the basemap's land and water
+(`src/styles/tokens.test.ts`), and colour is never the only cue: the price is
+beside the dot or in the list. Known limit: green and red look alike to the
+most common colour blindness. The labels carry the information; a
+colour-blind-safe palette is proposed for Phase 3.
+
+### Keyboard path to the map: the list's "Show on map" buttons
+
+**Decision:** markers are not focusable and not in the accessibility tree.
+Each list item has a "Show on map" button, and that is the keyboard and
+screen reader path. The map itself has one Tab stop (the canvas: arrow keys
+pan, + and - zoom) plus two zoom buttons.
+**Why:**
+
+- 560 focusable markers would put 560 Tab stops before the map's controls,
+  in an order that means nothing (map position, not price).
+- A roving-focus group (one Tab stop, arrow keys between markers) was
+  considered. Arrow keys on a map mean "pan" in every map widget, MapLibre's
+  included. Moving between scattered dots by arrow key has no predictable
+  order, so a screen reader user would hear prices in random order.
+- The list already gives the same stations in the order that matters
+  (cheapest first), with full details, as headings. The button adds one Tab
+  stop per station, which also fixes round 3's results having no Tab stops.
+- So the map is a visual view of the list, not a separate source of
+  information. That meets WCAG 1.1.1: the canvas is named "Map of 30
+  stations selling Unleaded 91. The list has the same stations."
+
+**Picking a dot** (pointer and touch) selects the station, scrolls the list to
+it and highlights it, without moving focus. The tap target is any point
+within 12 px of the dot, at least 24 px across (WCAG 2.5.8).
+
+### Focus never jumps or gets lost
+
+**Decision:** each selection action is a pure function in
+`src/features/map/selection.ts` that returns the URL change and a focus
+target:
+
+| Action                       | Wide screen                    | Phone                                                   |
+| ---------------------------- | ------------------------------ | ------------------------------------------------------- |
+| "Show on map" (list)         | focus stays on the button      | switches to Map, focus to the station's card heading    |
+| Dot picked (map)             | focus untouched, list scrolls  | focus untouched, card appears                           |
+| "Show in list" (card, phone) | n/a                            | switches to List, focus to that station's "Show on map" |
+| Close (card)                 | focus to that station's button | focus to the Map switch button                          |
+| List/Map switch              | n/a                            | focus stays on the switch                               |
+
+**Why:** the rule from round 3 still holds: a control that disappears hands
+focus to whatever now stands for the same thing. The move happens in a
+`useLayoutEffect` after the URL change renders, so it lands in the same task
+(the deferred-focus lint rule). Tested in `MapSync.test.tsx` and in a real
+browser.
+
+### Phone layout: a List/Map switch in the URL, using replaceState
+
+**Decision:** below 60 rem, two toggle buttons (`aria-pressed`) in a labelled
+group switch between list and map, and `view=map` is kept in the URL. The
+hidden view stays mounted (`hidden`), so the list keeps its scroll position
+and the map does not reload. `station=` is kept the same way. Both use
+`replaceState`.
+**Why:**
+
+- Tabs (`role="tablist"`) promise arrow-key navigation and a tab panel,
+  which is more than a two-way switch needs.
+- `replaceState` keeps Back meaning "undo my search", as in round 3. Push was
+  considered for the view, since a phone user may expect Back to leave the
+  map. But flipping list and map, or looking at five stations, would fill
+  the history with steps that are not searches.
+- A new place clears `station`. A fuel change keeps it, so the same station
+  stays selected if it sells the new fuel.
+
+### Wide layout: side by side, map sticky, centred on what is visible
+
+**Decision:** from 60 rem, the page widens to 80 rem. The list and the map sit
+side by side, and the map sticks to the top while the list scrolls. The search
+form, header and footer keep the 40 rem reading width.
+**Found in the browser:** at the top of the page the map starts half way down
+the window, so its true centre is at the bottom edge, and "Show on map"
+panned the station out of sight. The pan now uses an `offset` to the centre
+of the visible part. It uses `offset`, not `padding`, because MapLibre keeps
+padding for every later camera move.
+**Also found in the browser (by the smoke check failing one run in two):** the
+card under the map appears in the same render as the selection, so the
+map's container has already shrunk when the pan starts. MapLibre's
+`ResizeObserver` only catches up a frame later, so the pan was worked out for
+the old size and the station ended up off centre by half the card's height.
+The map now calls `resize()` before panning.
+
+### Library behaviour this relies on (MapLibre GL 6.14)
+
+- **Worker location:** v6 resolves its worker from `import.meta.url`, which a
+  bundler breaks. `setWorkerUrl()` with Vite's `?url` import of the
+  self-contained `maplibre-gl-worker.mjs` fixes it.
+- **Attribution** collapses to an (i) button on maps 640 px wide or less
+  unless `compact: false`.
+- **Canvas:** gets `tabindex="0"`, `role="region"` and `aria-label` from
+  `locale['Map.Title']` (default "Map"). We set our own label and keep it
+  current.
+- **Keyboard handler:** arrows pan, +/- zoom, Shift+arrows rotate (disabled
+  here, with all other rotation and pitch).
+- **Resize:** a `ResizeObserver` on the container, so a map un-hidden on a
+  phone redraws itself. It runs a frame after the layout change, so a camera
+  move in the same render as a size change calls `resize()` first. On resize
+  the centre stays put.
+- **`setData()`** returns a promise in v6; we do not need to wait for it.
+- **Symbol placement:** labels in higher layers are placed first, and within
+  a layer a lower `symbol-sort-key` wins. That is why the selected price
+  always shows.
+- **Without WebGL** the constructor throws. `MapErrorBoundary` catches that,
+  or a failed chunk download, and says the list has every station.
+- **`easeTo({ padding })`** persists on the camera. We use `offset`.
+
+### Testing the map
+
+- **Unit:** `selection.ts` (focus and URL rules), `mapData.ts` (bands,
+  GeoJSON, bounds), and the URL state.
+- **Component:** `StationMap.test.tsx` replaces MapLibre with a recorder. It
+  checks the style URL, uncollapsed attribution, layer order, picking the
+  nearest dot within 12 px, panning only for list selections, re-panning on a
+  repeated "Show on map", not refitting on a data refresh, reduced motion,
+  and the visible-centre offset.
+- **Integration and axe:** `MapSync.test.tsx` runs the whole app with the map
+  module replaced, on a phone and a wide screen. It checks that the map
+  module is imported only when shown, every focus rule above, and axe in
+  both layouts.
+- **Real browser:** `pnpm check:browser [url]` (Playwright Chromium, as in
+  Patchbay; not in CI, because it needs a running site). It covers postcode
+  and suburb search, list to map, map to list, card close, a 375 px phone
+  layout, MapLibre not downloaded for the list, and no console errors.

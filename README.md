@@ -14,3 +14,6 @@ Live NSW fuel prices near you, sorted cheapest first for the fuel you use.
   (2021) Suburbs and Localities and Postal Areas, used under
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Built by
   `scripts/build-gazetteer.js`.
+- Map: [OpenFreeMap](https://openfreemap.org/) tiles, © [OpenMapTiles](https://openmaptiles.org/),
+  data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, drawn
+  with [MapLibre GL JS](https://maplibre.org/). Credited in the map's corner.
