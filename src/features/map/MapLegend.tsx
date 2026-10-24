@@ -6,7 +6,9 @@ const swatch = (modifier: string | undefined) =>
 /**
  * What the dot colours mean. The colours are relative to the stations shown,
  * which the wording says, and they are never the only cue: prices are beside
- * the dots where they fit and in the list.
+ * the dots where they fit, the cheapest say "Cheapest", and the list has
+ * every station in price order. Blue to grey to orange stays readable with
+ * every common colour blindness (src/styles/tokens.test.ts checks it).
  */
 export function MapLegend() {
   return (

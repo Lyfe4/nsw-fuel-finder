@@ -3,6 +3,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { refineNearby } from '@/features/prices/refine';
 import { Results } from '@/features/prices/Results';
 import { usePrices } from '@/features/prices/usePrices';
+import { useRefreshed } from '@/features/prices/useRefreshed';
 import { resultsView } from '@/features/prices/view';
 
 import { SearchForm } from './SearchForm';
@@ -39,6 +40,8 @@ export function SearchScreen() {
     [fuel, radius, place],
   );
   const prices = usePrices(priceSearch);
+  const searchKey = JSON.stringify(priceSearch);
+  const refreshed = useRefreshed(searchKey, prices.data?.fetchedAt);
 
   // With the precise position for this very search, show real distances.
   const stations = useMemo(() => {
@@ -112,6 +115,8 @@ export function SearchScreen() {
           geolocation.reset();
           focusSearch();
         }}
+        searchKey={searchKey}
+        refreshed={refreshed}
         station={search.station}
         layout={search.view}
         onSelectStation={selectStation}

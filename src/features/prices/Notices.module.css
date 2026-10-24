@@ -31,3 +31,14 @@
   background: var(--color-warning-subtle);
   color: var(--color-warning);
 }
+
+/* "Which did you mean?": a question, not an error, so the accent, not the danger red. */
+.question {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-accent);
+  border-left-width: 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+}

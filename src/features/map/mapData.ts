@@ -1,3 +1,4 @@
+import { cheapestPrice } from '@/features/prices/priceAge';
 import { formatPrice } from '@/lib/format';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
@@ -12,7 +13,7 @@ export type PriceBand = 'low' | 'mid' | 'high';
 
 export interface StationProperties {
   code: string;
-  /** "229.5", drawn beside the dot. */
+  /** "229.5", drawn beside the dot; "Cheapest 209.9" for the cheapest. */
   label: string;
   band: PriceBand;
   /** Lower draws its label first, so where labels collide the cheaper one is kept. */
@@ -45,9 +46,15 @@ export function priceBands(prices: readonly number[]): (price: number) => PriceB
   return (price) => (price <= lowMax ? 'low' : price <= midMax ? 'mid' : 'high');
 }
 
-/** GeoJSON is longitude first. */
+/**
+ * GeoJSON is longitude first. The cheapest stations (ties included) say so in
+ * words, so the colour is never the only way to find them. Not when every
+ * price is the same (one station, say), where "cheapest" would mean nothing.
+ */
 export function toFeatures(stations: readonly StationPrice[]): StationFeatureCollection {
-  const band = priceBands(stations.map((station) => station.priceCents));
+  const prices = stations.map((station) => station.priceCents);
+  const band = priceBands(prices);
+  const cheapest = cheapestPrice(prices);
   return {
     type: 'FeatureCollection',
     features: stations.map((station) => ({
@@ -55,7 +62,10 @@ export function toFeatures(stations: readonly StationPrice[]): StationFeatureCol
       geometry: { type: 'Point', coordinates: [station.longitude, station.latitude] },
       properties: {
         code: station.stationCode,
-        label: formatPrice(station.priceCents),
+        label:
+          station.priceCents === cheapest
+            ? `Cheapest ${formatPrice(station.priceCents)}`
+            : formatPrice(station.priceCents),
         band: band(station.priceCents),
         priority: station.priceCents,
       },

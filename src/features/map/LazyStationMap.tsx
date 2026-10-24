@@ -1,6 +1,7 @@
-import { Component, lazy, Suspense, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react';
 
 import styles from './LazyStationMap.module.css';
+import { warmMapResources } from './mapStyle';
 
 import type { StationMapProps } from './StationMap';
 
@@ -42,6 +43,12 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { failed: bool
 }
 
 export function LazyStationMap(props: StationMapProps) {
+  // While MapLibre downloads, fetch the style and tile index it will ask for
+  // next (see mapStyle.ts), and the other theme's when the page switches.
+  useEffect(() => {
+    warmMapResources(props.theme);
+  }, [props.theme]);
+
   return (
     <MapErrorBoundary>
       <Suspense fallback={<p className={styles.placeholder}>Loading map…</p>}>

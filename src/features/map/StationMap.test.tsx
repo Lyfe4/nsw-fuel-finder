@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { prices, station } from '@/lib/testing/fakeApi';
@@ -10,7 +10,7 @@ import { StationMap, type StationMapProps } from './StationMap';
  * recorder: what the component asked the map to do is what is tested. How
  * it looks is checked in a real browser (scripts/smoke-check.mjs).
  */
-type Handler = (event: { point: { x: number; y: number } }) => void;
+type Handler = (event: { point: { x: number; y: number }; error?: unknown }) => void;
 
 const { FakeMap, maps } = vi.hoisted(() => {
   const maps: InstanceType<typeof FakeMap>[] = [];
@@ -28,6 +28,11 @@ const { FakeMap, maps } = vi.hoisted(() => {
     resize = vi.fn();
     fitBounds = vi.fn();
     remove = vi.fn();
+    setStyle = vi.fn(() => {
+      // A new style replaces every source and layer, ours included.
+      this.sources.clear();
+      this.layers = [];
+    });
     touchZoomRotate = { disableRotation: vi.fn() };
     keyboard = { disableRotation: vi.fn() };
 
@@ -106,6 +111,7 @@ function setup(overrides: Partial<StationMapProps> = {}) {
     onPick,
     label: 'Map of 2 stations',
     reducedMotion: false,
+    theme: 'light',
     ...overrides,
   };
   const view = render(<StationMap {...props} />);
@@ -134,11 +140,12 @@ describe('StationMap', () => {
 
   it('draws the stations and the origin once the style has loaded', () => {
     const { map } = setup();
-    fire(map, 'load');
+    fire(map, 'style.load');
     expect(map.layers.map((layer) => layer.id)).toEqual([
       'station-dots',
       'station-labels',
-      'origin',
+      'origin-ring',
+      'origin-dot',
       'selected-dot',
       'selected-label',
     ]);
@@ -153,7 +160,7 @@ describe('StationMap', () => {
 
   it('a click near a dot picks that station, and does not pan to it', () => {
     const { map, onPick, rerender } = setup();
-    fire(map, 'load');
+    fire(map, 'style.load');
     map.rendered = [
       { code: 'a', lng: 0.1, lat: 0.1 },
       { code: 'b', lng: 0.005, lat: 0.005 },
@@ -168,14 +175,14 @@ describe('StationMap', () => {
 
   it('a click away from every dot picks nothing', () => {
     const { map, onPick } = setup();
-    fire(map, 'load');
+    fire(map, 'style.load');
     fire(map, 'click');
     expect(onPick).not.toHaveBeenCalled();
   });
 
   it('a station selected from the list is highlighted and panned to, at street zoom', () => {
     const { map, rerender } = setup();
-    fire(map, 'load');
+    fire(map, 'style.load');
     rerender({ selected: 'a', showRequest: 1 });
     expect(map.filters.get('selected-label')).toEqual(['==', ['get', 'code'], 'a']);
     expect(map.filters.get('station-labels')).toEqual(['!=', ['get', 'code'], 'a']);
@@ -193,7 +200,7 @@ describe('StationMap', () => {
 
   it('showing the same station again pans back to it; a data refresh does not', () => {
     const { map, rerender } = setup({ selected: 'a', showRequest: 1 });
-    fire(map, 'load');
+    fire(map, 'style.load');
     expect(map.easeTo).toHaveBeenCalledTimes(1);
 
     rerender({ stations: [...STATIONS] });
@@ -206,7 +213,7 @@ describe('StationMap', () => {
 
   it('centres a station in the part of the map that is on screen', () => {
     const { map, rerender } = setup();
-    fire(map, 'load');
+    fire(map, 'style.load');
     // A wide screen at the top of the page: the map's lower half is below the window.
     vi.spyOn(map.canvas, 'getBoundingClientRect').mockReturnValue(
       DOMRect.fromRect({ x: 0, y: window.innerHeight / 2, width: 600, height: window.innerHeight }),
@@ -219,14 +226,14 @@ describe('StationMap', () => {
 
   it('jumps instead of gliding when the user prefers reduced motion', () => {
     const { map, rerender } = setup({ reducedMotion: true });
-    fire(map, 'load');
+    fire(map, 'style.load');
     rerender({ selected: 'b', showRequest: 1 });
     expect(map.easeTo).toHaveBeenCalledWith(expect.objectContaining({ duration: 0 }));
   });
 
   it('refits to a new search', () => {
     const { map, rerender } = setup();
-    fire(map, 'load');
+    fire(map, 'style.load');
     rerender({ stations: [STATIONS[0] ?? station()] });
     expect(map.fitBounds).toHaveBeenCalledTimes(1);
   });
@@ -237,5 +244,61 @@ describe('StationMap', () => {
     expect(map.canvas).toHaveAttribute('aria-label', 'Map of 1 station');
     unmount();
     expect(map.remove).toHaveBeenCalled();
+  });
+  it('opens on the dark basemap when the page is dark', () => {
+    const { map } = setup({ theme: 'dark' });
+    expect(map.options.style).toBe('https://tiles.openfreemap.org/styles/dark');
+  });
+
+  it('swaps the basemap when the theme changes, then draws everything again', () => {
+    const { map, rerender } = setup({ selected: 'a' });
+    fire(map, 'style.load');
+
+    rerender({ theme: 'dark' });
+    // A diff would keep the basemap's layers and drop ours without a word.
+    expect(map.setStyle).toHaveBeenCalledWith('https://tiles.openfreemap.org/styles/dark', {
+      diff: false,
+    });
+    expect(map.layers).toEqual([]);
+
+    // Until the new style has loaded there is nothing to draw on.
+    rerender({ stations: [...STATIONS] });
+    expect(map.sources.size).toBe(0);
+
+    fire(map, 'style.load');
+    expect(map.layers.map((layer) => layer.id)).toContain('station-dots');
+    expect(map.sources.get('stations')?.setData).toHaveBeenCalled();
+    expect(map.filters.get('selected-dot')).toEqual(['==', ['get', 'code'], 'a']);
+    // Same search, same view: no refit and no pan.
+    expect(map.fitBounds).not.toHaveBeenCalled();
+    expect(map.easeTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reload the style when the theme has not changed', () => {
+    const { map, rerender } = setup();
+    fire(map, 'style.load');
+    rerender({ label: 'Map of 2 stations, again' });
+    expect(map.setStyle).not.toHaveBeenCalled();
+  });
+
+  it('says it is loading until the first complete render, instead of a blank box', () => {
+    const { map } = setup();
+    expect(screen.getByText('Loading map…')).toBeInTheDocument();
+    fire(map, 'style.load');
+    expect(screen.getByText('Loading map…')).toBeInTheDocument();
+    fire(map, 'load');
+    expect(screen.queryByText('Loading map…')).not.toBeInTheDocument();
+  });
+
+  it('says so if the map fails before it loads, and stops saying so if it loads after all', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { map } = setup();
+    fire(map, 'error');
+    expect(screen.getByText('The map couldn’t load. Every station is in the list.')).toBeVisible();
+    fire(map, 'load');
+    expect(screen.queryByText(/The map couldn’t load/)).not.toBeInTheDocument();
+    // A later tile error on a working map changes nothing.
+    fire(map, 'error');
+    expect(screen.queryByText(/The map couldn’t load/)).not.toBeInTheDocument();
   });
 });

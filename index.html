@@ -8,6 +8,36 @@
       name="description"
       content="Live NSW fuel prices near you, cheapest first for the fuel you use."
     />
+    <!-- Kept in step with the theme by src/features/theme/useTheme.ts. -->
+    <meta name="theme-color" content="#f6f7f9" />
+    <!--
+      The map's style, tiles and fonts come from here. Opening the connection
+      now takes its DNS and TLS round trips off the map's first load; a page
+      that never shows a map spends one idle connection.
+    -->
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+    <!--
+      THE THEME, BEFORE FIRST PAINT. The stored choice, or the device setting,
+      on <html> before the stylesheet applies, so a dark-mode visitor never
+      sees a white flash while the app loads. src/features/theme/theme.ts owns
+      the key and keeps the attribute current afterwards; theme.test.ts runs
+      this script to hold the two together. Storage can throw, hence the try.
+    -->
+    <script>
+      (function () {
+        var theme = null;
+        try {
+          theme = window.localStorage.getItem('fuel-finder:theme:v1');
+        } catch (error) {
+          theme = null;
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          theme = dark ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

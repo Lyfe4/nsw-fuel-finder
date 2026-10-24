@@ -5,6 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
+import { resetPreferenceForTests } from './src/features/theme/theme';
 import { installMatchMedia } from './src/lib/testing/matchMedia';
 
 // jsdom has no matchMedia. Every test starts on a phone-width screen; one
@@ -24,6 +25,12 @@ afterEach(() => {
   if (typeof navigator !== 'undefined') Reflect.deleteProperty(navigator, 'geolocation');
   // The search lives in the URL; every test starts from a bare page.
   if (typeof window !== 'undefined') window.history.replaceState(null, '', '/');
+  // A theme chosen in one test must not carry into the next.
+  if (typeof window !== 'undefined') {
+    window.localStorage.clear();
+    document.documentElement.removeAttribute('data-theme');
+    resetPreferenceForTests();
+  }
 });
 
 beforeAll(() => {

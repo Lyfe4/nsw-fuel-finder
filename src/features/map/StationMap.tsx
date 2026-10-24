@@ -7,10 +7,13 @@ import {
   type GeoJSONSource,
   type MapMouseEvent,
 } from 'maplibre-gl';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
+import type { Theme } from '@/features/theme/theme';
+
 import { boundsOf, toFeatures } from './mapData';
+import { addLayers, LAYER, SOURCE, tokenColours } from './mapLayers';
+import { MAPLIBRE_WORKER_URL, mapStyleUrl } from './mapStyle';
 import styles from './StationMap.module.css';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
@@ -21,19 +24,8 @@ import type { PricesResponse, StationPrice } from '../../../shared/api';
  * someone who never opens the map should never download it.
  */
 
-/*
- * MapLibre finds its worker next to its own file, which is not where Vite
- * puts it. `?url` makes Vite emit the (self-contained) worker as a hashed
- * asset and hands us its address.
- */
-setWorkerUrl(workerUrl);
-
-/**
- * OpenFreeMap: no key, no account, no request limit, OpenStreetMap data, and a
- * dark style for Phase 3. Attribution comes from the style and is shown
- * uncollapsed in the map corner. See docs/decisions.md, "Map tiles".
- */
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+// See mapStyle.ts: Vite emits the worker somewhere MapLibre would not look.
+setWorkerUrl(MAPLIBRE_WORKER_URL);
 
 /** Fitting results never zooms in further than this (a single station would otherwise fill the screen). */
 const MAX_FIT_ZOOM = 14;
@@ -45,15 +37,6 @@ const SHOW_ZOOM = 14;
  */
 const PICK_RADIUS = 12;
 const FIT_PADDING = 48;
-
-const SOURCE = { stations: 'stations', origin: 'origin' } as const;
-const LAYER = {
-  origin: 'origin',
-  dots: 'station-dots',
-  labels: 'station-labels',
-  selectedDot: 'selected-dot',
-  selectedLabel: 'selected-label',
-} as const;
 
 export interface StationMapProps {
   stations: StationPrice[];
@@ -69,119 +52,8 @@ export interface StationMapProps {
   /** The canvas's accessible name. */
   label: string;
   reducedMotion: boolean;
-}
-
-/** Marker colours from the design tokens: the map draws on a canvas, out of CSS's reach. */
-function tokenColours(element: Element) {
-  const style = getComputedStyle(element);
-  const token = (name: string) => style.getPropertyValue(name).trim();
-  return {
-    low: token('--color-price-low'),
-    mid: token('--color-price-mid'),
-    high: token('--color-price-high'),
-    outline: token('--color-marker-outline'),
-    selected: token('--color-marker-selected'),
-    origin: token('--color-map-origin'),
-    text: token('--color-text'),
-    halo: token('--color-surface'),
-  };
-}
-
-function addLayers(map: MapLibreMap, colours: ReturnType<typeof tokenColours>): void {
-  const empty = { type: 'FeatureCollection' as const, features: [] };
-  map.addSource(SOURCE.origin, { type: 'geojson', data: empty });
-  map.addSource(SOURCE.stations, { type: 'geojson', data: empty });
-
-  const bandColour: ExpressionSpecification = [
-    'match',
-    ['get', 'band'],
-    'low',
-    colours.low,
-    'mid',
-    colours.mid,
-    colours.high,
-  ];
-  const isSelected = (code: string | null): ExpressionSpecification => [
-    '==',
-    ['get', 'code'],
-    code ?? '',
-  ];
-
-  map.addLayer({
-    id: LAYER.dots,
-    type: 'circle',
-    source: SOURCE.stations,
-    paint: {
-      'circle-radius': 6,
-      'circle-color': bandColour,
-      'circle-stroke-width': 1.5,
-      'circle-stroke-color': colours.outline,
-    },
-  });
-  /*
-   * Prices beside the dots. MapLibre drops a label that would overlap
-   * another, and symbol-sort-key decides which one wins: the cheaper. So a
-   * dense 25 km search in Sydney shows every dot and the cheapest prices,
-   * and zooming in reveals the rest. No clustering: a cluster would hide
-   * exactly the prices people came for.
-   */
-  map.addLayer({
-    id: LAYER.labels,
-    type: 'symbol',
-    source: SOURCE.stations,
-    layout: {
-      'text-field': ['get', 'label'],
-      'text-font': ['Noto Sans Bold'],
-      'text-size': 12,
-      'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
-      'text-radial-offset': 0.7,
-      'text-padding': 2,
-      'symbol-sort-key': ['get', 'priority'],
-    },
-    paint: { 'text-color': colours.text, 'text-halo-color': colours.halo, 'text-halo-width': 1.5 },
-  });
-  // The search origin: a hollow ring above the dots, so it is never buried in
-  // a dense area and never reads as a station.
-  map.addLayer({
-    id: LAYER.origin,
-    type: 'circle',
-    source: SOURCE.origin,
-    paint: {
-      'circle-radius': 9,
-      'circle-opacity': 0,
-      'circle-stroke-width': 3,
-      'circle-stroke-color': colours.origin,
-    },
-  });
-  map.addLayer({
-    id: LAYER.selectedDot,
-    type: 'circle',
-    source: SOURCE.stations,
-    filter: isSelected(null),
-    paint: {
-      'circle-radius': 9,
-      'circle-color': bandColour,
-      'circle-stroke-width': 3,
-      'circle-stroke-color': colours.selected,
-    },
-  });
-  // Placed before the other labels (higher layers are placed first), so the
-  // selected price is always shown and the others make way for it.
-  map.addLayer({
-    id: LAYER.selectedLabel,
-    type: 'symbol',
-    source: SOURCE.stations,
-    filter: isSelected(null),
-    layout: {
-      'text-field': ['get', 'label'],
-      'text-font': ['Noto Sans Bold'],
-      'text-size': 15,
-      'text-anchor': 'left',
-      'text-offset': [1, 0],
-      'text-allow-overlap': true,
-    },
-    paint: { 'text-color': colours.text, 'text-halo-color': colours.halo, 'text-halo-width': 2 },
-  });
+  /** Light or dark basemap, to match the page. */
+  theme: Theme;
 }
 
 /**
@@ -222,6 +94,8 @@ function stationAt(map: MapLibreMap, event: MapMouseEvent): string | null {
   return best?.code ?? null;
 }
 
+type Loading = 'loading' | 'loaded' | 'failed';
+
 /**
  * The results on a map. Pointer and touch only for the stations themselves:
  * keyboard and screen reader users get the same stations, in price order,
@@ -236,10 +110,18 @@ export function StationMap({
   onPick,
   label,
   reducedMotion,
+  theme,
 }: StationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const [ready, setReady] = useState(false);
+  /**
+   * Bumped each time our layers are (re)added. Zero until the first style
+   * has loaded. A theme change replaces the style, and with it our layers,
+   * so `layersReady` is false from then until the new style has loaded.
+   */
+  const [styleGeneration, setStyleGeneration] = useState(0);
+  const layersReady = useRef(false);
+  const [loading, setLoading] = useState<Loading>('loading');
   /** A station picked on the map itself: already in view, so selecting it must not pan. */
   const pickedHere = useRef<string | null>(null);
 
@@ -250,7 +132,11 @@ export function StationMap({
     pickedHere.current = code;
     onPick(code);
   });
-  const initialView = useEffectEvent(() => ({ bounds: boundsOf(stations, origin), label }));
+  const initialView = useEffectEvent(() => ({
+    bounds: boundsOf(stations, origin),
+    label,
+    theme,
+  }));
 
   useEffect(() => {
     const container = containerRef.current;
@@ -259,7 +145,7 @@ export function StationMap({
     // Throws without WebGL; MapErrorBoundary catches it and says so.
     const map = new MapLibreMap({
       container,
-      style: STYLE_URL,
+      style: mapStyleUrl(initial.theme),
       bounds: initial.bounds,
       fitBoundsOptions: { padding: FIT_PADDING, maxZoom: MAX_FIT_ZOOM },
       attributionControl: { compact: false },
@@ -273,9 +159,23 @@ export function StationMap({
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
-    map.on('load', () => {
+    // Fired for the first style and again after every theme change.
+    map.on('style.load', () => {
       addLayers(map, tokenColours(container));
-      setReady(true);
+      layersReady.current = true;
+      setStyleGeneration((n) => n + 1);
+    });
+    // The first complete render: style, tiles and fonts. Until then the
+    // placeholder covers a canvas that would otherwise sit blank.
+    map.on('load', () => {
+      setLoading('loaded');
+    });
+    // Before the first render, an error is most likely the style or the
+    // tiles failing to download. If the map does load after all, 'load'
+    // replaces this message.
+    map.on('error', (event: { error?: unknown }) => {
+      console.warn('Map error', event.error);
+      setLoading((state) => (state === 'loaded' ? state : 'failed'));
     });
     map.on('click', (event) => {
       const code = stationAt(map, event);
@@ -287,6 +187,7 @@ export function StationMap({
     mapRef.current = map;
     return () => {
       mapRef.current = null;
+      layersReady.current = false;
       map.remove();
     };
   }, []);
@@ -295,13 +196,27 @@ export function StationMap({
     mapRef.current?.getCanvas().setAttribute('aria-label', label);
   }, [label]);
 
+  /*
+   * The page changed theme: swap the basemap. `diff: false` because a diff
+   * between the two styles would quietly drop our own layers and fire no
+   * `style.load` to add them back.
+   */
+  const shownTheme = useRef(theme);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || shownTheme.current === theme) return;
+    shownTheme.current = theme;
+    layersReady.current = false;
+    map.setStyle(mapStyleUrl(theme), { diff: false });
+  }, [theme]);
+
   // New data: redraw. A new search (a different origin or station count, not
   // the minutely refresh of the same one): fit it.
   const fitKey = `${String(origin.latitude)},${String(origin.longitude)},${String(stations.length)}`;
   const lastFit = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
+    if (!map || !layersReady.current) return;
     void map.getSource<GeoJSONSource>(SOURCE.stations)?.setData(toFeatures(stations));
     void map.getSource<GeoJSONSource>(SOURCE.origin)?.setData({
       type: 'Feature',
@@ -316,13 +231,13 @@ export function StationMap({
       });
     }
     lastFit.current = fitKey;
-  }, [ready, stations, origin, fitKey, reducedMotion]);
+  }, [styleGeneration, stations, origin, fitKey, reducedMotion]);
 
   // Selection: highlight, and pan to it unless it was picked right here.
   const lastShown = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
+    if (!map || !layersReady.current) return;
     const filter: ExpressionSpecification = ['==', ['get', 'code'], selected ?? ''];
     map.setFilter(LAYER.selectedDot, filter);
     map.setFilter(LAYER.selectedLabel, filter);
@@ -349,7 +264,18 @@ export function StationMap({
       duration: reducedMotion ? 0 : 500,
       offset: visibleCentreOffset(map.getContainer()),
     });
-  }, [ready, selected, showRequest, stations, reducedMotion]);
+  }, [styleGeneration, selected, showRequest, stations, reducedMotion]);
 
-  return <div ref={containerRef} className={styles.map} />;
+  return (
+    <div className={styles.frame}>
+      <div ref={containerRef} className={styles.map} />
+      {loading !== 'loaded' && (
+        <p className={styles.loading}>
+          {loading === 'loading'
+            ? 'Loading map…'
+            : 'The map couldn’t load. Every station is in the list.'}
+        </p>
+      )}
+    </div>
+  );
 }

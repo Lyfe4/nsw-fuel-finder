@@ -1,9 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { focusManager } from '@tanstack/react-query';
+import { act, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { announced, placeInput, renderApp, results } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
-import { apiError, fakeApi, json, prices } from '@/lib/testing/fakeApi';
+import { apiError, FETCHED_AT, fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
 
 describe('result states', () => {
   it('empty: says so, and offers the widest search without a new history entry', async () => {
@@ -49,11 +50,16 @@ describe('result states', () => {
     });
     const { user, container } = renderApp('/?query=Kingswood');
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'There is more than one Kingswood. Which did you mean?',
-    );
-    // The error is the alert's to announce; the status region stays quiet.
-    expect(announced()).toBe('');
+    // A question, not an error: said politely by the status region, not as an alert.
+    await waitFor(() => {
+      expect(announced()).toBe('There is more than one Kingswood. Which did you mean?');
+    });
+    expect(
+      within(results()).getByText('There is more than one Kingswood. Which did you mean?', {
+        selector: 'p:not([role])',
+      }),
+    ).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
     await user.click(screen.getByRole('button', { name: 'Kingswood (Penrith) NSW 2747' }));
@@ -119,5 +125,67 @@ describe('result states', () => {
     // Not an alert: the prices are still the best answer there is.
     expect(screen.queryByRole('alert')).toBeNull();
     await expectNoAxeViolations(container);
+  });
+
+  it('postcode: says "of postcode 2880", not "of 2880"', async () => {
+    fakeApi({
+      location: () =>
+        json(prices({ origin: { latitude: -31.95, longitude: 141.46, label: '2880' } })),
+    });
+    renderApp('/?query=2880');
+    expect(
+      await screen.findByRole('heading', { name: '2 stations within 5 km of postcode 2880' }),
+    ).toBeInTheDocument();
+  });
+
+  it('few: offers the wider search beside one or two stations', async () => {
+    const api = fakeApi({
+      location: (params) =>
+        json(params.get('radius') === '25' ? prices() : prices({ stations: [station()] })),
+    });
+    const { user, container } = renderApp('/?query=Erina');
+
+    expect(
+      await within(results()).findByText('Only 1 station sells Unleaded 91 within 5 km.'),
+    ).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+    await user.click(screen.getByRole('button', { name: 'Search within 25 km' }));
+    expect(screen.getByRole('heading', { level: 2 })).toHaveFocus();
+    await waitFor(() => {
+      expect(api.calls('location').at(-1)).toMatchObject({ radius: '25' });
+    });
+    expect(await screen.findByRole('heading', { level: 2, name: /^2 stations/ })).toBeVisible();
+    expect(screen.queryByText(/^Only \d+ stations? sells?/)).not.toBeInTheDocument();
+  });
+
+  it('refresh: a newer snapshot for the same search, on coming back to the tab, is announced', async () => {
+    let fetchedAt = FETCHED_AT;
+    fakeApi({ location: () => json(prices({ fetchedAt })) });
+    renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    expect(announced()).toMatch(/^2 stations found\./);
+
+    // Half an hour later the snapshot has moved on, and the tab gets focus again.
+    fetchedAt = '2026-10-23T04:00:00.000Z';
+    const later = Date.now() + 30 * 60_000;
+    vi.spyOn(Date, 'now').mockReturnValue(later);
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await waitFor(() => {
+      expect(announced()).toMatch(/^Prices updated, as of .*3:00\spm\. 2 stations found\./);
+    });
+    focusManager.setFocused(undefined);
+  });
+
+  it('refresh: the first answer to a new search is not announced as an update', async () => {
+    fakeApi();
+    const { user } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Fuel' }), 'E10');
+    await waitFor(() => {
+      expect(announced()).toMatch(/^2 stations found\. Cheapest Ethanol 94/);
+    });
   });
 });

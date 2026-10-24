@@ -43,6 +43,23 @@ describe('toFeatures', () => {
       properties: { code: '7', label: '229.9', band: 'low', priority: 229.9 },
     });
   });
+
+  it('says "Cheapest" in words beside every cheapest station, ties included', () => {
+    const labels = toFeatures([
+      station({ stationCode: 'a', priceCents: 199.9 }),
+      station({ stationCode: 'b', priceCents: 199.9 }),
+      station({ stationCode: 'c', priceCents: 215 }),
+    ]).features.map((feature) => feature.properties.label);
+    expect(labels).toEqual(['Cheapest 199.9', 'Cheapest 199.9', '215.0']);
+  });
+
+  it('says nothing about "cheapest" when every price is the same', () => {
+    const labels = toFeatures([
+      station({ stationCode: 'a', priceCents: 199.9 }),
+      station({ stationCode: 'b', priceCents: 199.9 }),
+    ]).features.map((feature) => feature.properties.label);
+    expect(labels).toEqual(['199.9', '199.9']);
+  });
 });
 
 describe('boundsOf', () => {

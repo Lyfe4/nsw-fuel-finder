@@ -2,8 +2,8 @@ import { Button } from '@/components/Button/Button';
 import type { ApiRequestError } from '@/lib/api';
 
 import styles from './Notices.module.css';
+import { whichPlace, type LocationProblem } from './view';
 
-import type { LocationProblem } from './view';
 import type { ReactNode } from 'react';
 
 /**
@@ -62,8 +62,14 @@ export function ErrorNotice({
 }) {
   switch (error.code) {
     case 'ambiguous_location':
+      /*
+       * Not a problem: the search worked and found more than one place.
+       * Styled as a question, and announced politely by the results status
+       * region (see announcement() in view.ts), not as an alert.
+       */
       return (
-        <Problem message={`${error.message} Which did you mean?`}>
+        <div className={styles.question}>
+          <p>{whichPlace(error)}</p>
           <ul className={styles.candidates}>
             {error.candidates.map((candidate) => (
               <li key={candidate}>
@@ -71,7 +77,7 @@ export function ErrorNotice({
               </li>
             ))}
           </ul>
-        </Problem>
+        </div>
       );
     case 'location_not_found':
       return (

@@ -30,7 +30,11 @@ describe('searching by suburb or postcode', () => {
     await waitFor(() => {
       expect(announced()).toBe('Loading prices…');
     });
-    expect(within(results()).getByText('Loading prices…', { selector: 'p' })).toBeInTheDocument();
+    // Station-shaped placeholders on screen, hidden from screen readers (the status says it).
+    expect(within(results()).getByTestId('loading-stations')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
     act(() => respond?.());
 
     expect(
@@ -124,6 +128,34 @@ describe('searching by suburb or postcode', () => {
     expect(window.location.search).toBe('?fuel=U91&query=erina');
   });
 
+  /*
+   * Kept as the WAI-ARIA combobox pattern has it (and as a native search box
+   * behaves): Escape closes the list, and only a second Escape clears the
+   * text. Someone pressing Escape to get the list out of the way keeps what
+   * they typed.
+   */
+  it('Escape closes the suggestions first, keeping the text, then clears it', async () => {
+    fakeApi({
+      places: (params) =>
+        json(suggestions(params.get('query') ?? '', ['Erina NSW 2250', 'Erina Heights NSW 2260'])),
+    });
+    const { user } = renderApp();
+
+    await user.type(placeInput(), 'erina');
+    const listbox = screen.getByRole('listbox');
+    await waitFor(() => {
+      expect(within(listbox).getAllByRole('option')).toHaveLength(2);
+    });
+
+    await user.keyboard('{Escape}');
+    expect(placeInput()).toHaveAttribute('aria-expanded', 'false');
+    expect(placeInput()).toHaveValue('erina');
+
+    await user.keyboard('{Escape}');
+    expect(placeInput()).toHaveValue('');
+    expect(placeInput()).toHaveFocus();
+  });
+
   it('asks for suggestions only from two characters', async () => {
     const api = fakeApi();
     const { user } = renderApp();
@@ -179,6 +211,8 @@ describe('searching by suburb or postcode', () => {
     fakeApi();
     const { user } = renderApp();
 
+    await user.tab();
+    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('combobox', { name: 'Fuel' })).toHaveFocus();
     await user.tab();

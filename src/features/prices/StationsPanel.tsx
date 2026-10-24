@@ -14,10 +14,13 @@ import {
   type SelectionChange,
 } from '@/features/map/selection';
 import { ViewSwitch } from '@/features/map/ViewSwitch';
+import { useTheme } from '@/features/theme/useTheme';
 import { REDUCED_MOTION, useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
+import { cheapestPrice } from './priceAge';
 import { StationList } from './StationList';
 import styles from './StationsPanel.module.css';
+import { LIST_PAGE_SIZE } from './view';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
 import type { ResultsLayout } from '../search/searchState';
@@ -25,6 +28,8 @@ import type { ResultsLayout } from '../search/searchState';
 export interface StationsPanelProps {
   data: PricesResponse;
   stations: StationPrice[];
+  /** Identifies the search: a new one starts the list from its first batch again. */
+  searchKey: string;
   now: Date;
   fuelName: string;
   /** From the URL. */
@@ -43,6 +48,7 @@ export interface StationsPanelProps {
 export function StationsPanel({
   data,
   stations,
+  searchKey,
   now,
   fuelName,
   station,
@@ -52,6 +58,7 @@ export function StationsPanel({
 }: StationsPanelProps) {
   const wide = useMediaQuery(WIDE_SCREEN);
   const reducedMotion = useMediaQuery(REDUCED_MOTION);
+  const { theme } = useTheme();
   const width: ScreenWidth = wide ? 'wide' : 'narrow';
   const selected = findSelected(stations, station);
 
@@ -66,11 +73,31 @@ export function StationsPanel({
   // Bumped by every "Show on map", so the same station can be shown again.
   const [showRequest, setShowRequest] = useState(0);
 
+  /*
+   * How much of the list is shown: a batch, more on request, back to one
+   * batch for a new search (not for the refresh of the same one). A station
+   * picked on the map, or opened from a shared link, is listed with
+   * everything cheaper than it, and stays listed after it is closed, so
+   * Close can hand focus back to its button.
+   */
+  const [batches, setBatches] = useState({ searchKey, count: LIST_PAGE_SIZE });
+  const selectedIndex = selected ? stations.indexOf(selected) : -1;
+  const wanted = Math.max(
+    batches.searchKey === searchKey ? batches.count : LIST_PAGE_SIZE,
+    selectedIndex + 1,
+  );
+  if (batches.searchKey !== searchKey || batches.count !== wanted) {
+    setBatches({ searchKey, count: wanted });
+  }
+  const listed = Math.min(stations.length, wanted);
+
   const listRef = useRef<HTMLOListElement>(null);
   const cardHeadingRef = useRef<HTMLHeadingElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
   const mapButtonRef = useRef<HTMLButtonElement>(null);
-  const pendingFocus = useRef<FocusTarget>({ kind: 'stay' });
+  const pendingFocus = useRef<FocusTarget | { kind: 'list-heading'; station: string }>({
+    kind: 'stay',
+  });
 
   /*
    * A change that hides the control that was used names where focus goes
@@ -91,10 +118,10 @@ export function StationsPanel({
       mapPanelRef.current?.scrollIntoView({ block: 'end' });
     }
     if (target.kind === 'view-switch') mapButtonRef.current?.focus();
-    if (target.kind === 'list-button') {
+    if (target.kind === 'list-button' || target.kind === 'list-heading') {
       const items = listRef.current?.querySelectorAll<HTMLElement>('[data-station]') ?? [];
       const item = [...items].find((element) => element.dataset.station === target.station);
-      item?.querySelector('button')?.focus();
+      item?.querySelector(target.kind === 'list-button' ? 'button' : 'h3')?.focus();
     }
   });
 
@@ -112,14 +139,24 @@ export function StationsPanel({
       <div className={styles.columns}>
         <div className={styles.list} hidden={!showList}>
           <StationList
-            stations={stations}
+            stations={stations.slice(0, listed)}
+            total={count}
             now={now}
             selected={selected?.stationCode ?? null}
+            cheapest={cheapestPrice(stations.map((s) => s.priceCents))}
+            pageSize={LIST_PAGE_SIZE}
             reducedMotion={reducedMotion}
             listRef={listRef}
             onShowOnMap={(code) => {
               setShowRequest((n) => n + 1);
               apply(showOnMap(code, width));
+            }}
+            onShowMore={() => {
+              // The button stays put while the new stations appear above it.
+              // Focus goes to the first of them, where reading carries on.
+              const next = stations[listed];
+              if (next) pendingFocus.current = { kind: 'list-heading', station: next.stationCode };
+              setBatches({ searchKey, count: listed + LIST_PAGE_SIZE });
             }}
           />
         </div>
@@ -133,6 +170,7 @@ export function StationsPanel({
                 showRequest={showRequest}
                 label={mapLabel}
                 reducedMotion={reducedMotion}
+                theme={theme}
                 onPick={(code) => {
                   apply(pickOnMap(code));
                 }}

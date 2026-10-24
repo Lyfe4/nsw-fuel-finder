@@ -2,6 +2,7 @@ import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { formatAge, formatAsOf } from '@/lib/format';
 
+import { LoadingStations } from './LoadingStations';
 import { ErrorNotice, LocationProblemNotice, StaleNotice } from './Notices';
 import styles from './Results.module.css';
 import { StationsPanel } from './StationsPanel';
@@ -25,6 +26,10 @@ export interface ResultsProps {
   onWiden: () => void;
   /** Move focus to the suburb box: the way out of most problems. */
   onSearchInstead: () => void;
+  /** Identifies the search, so a new one starts the list from the top. */
+  searchKey: string;
+  /** Set when the same search was just answered from a newer snapshot. */
+  refreshed: boolean;
   /** The selected station's code and a phone's list/map choice, from the URL. */
   station: string | null;
   layout: ResultsLayout;
@@ -32,9 +37,19 @@ export interface ResultsProps {
   onLayoutChange: (layout: ResultsLayout) => void;
 }
 
-function where(data: PricesResponse): string {
-  return data.origin.label ? `of ${data.origin.label}` : 'of you';
+/**
+ * "of Erina NSW 2250", "of postcode 2880", "of you". A postcode searched on
+ * its own comes back labelled with just its four digits, which read as a
+ * distance or a count without the word.
+ */
+export function where(data: PricesResponse): string {
+  const label = data.origin.label;
+  if (!label) return 'of you';
+  return /^\d{4}$/.test(label) ? `of postcode ${label}` : `of ${label}`;
 }
+
+/** Fewer than this many stations, and a wider search is offered beside them. */
+const FEW_STATIONS = 3;
 
 export function Results({
   view,
@@ -48,6 +63,8 @@ export function Results({
   onPickCandidate,
   onWiden,
   onSearchInstead,
+  searchKey,
+  refreshed,
   station,
   layout,
   onSelectStation,
@@ -67,7 +84,12 @@ export function Results({
        * Always in the page, so screen readers are already listening when its
        * text changes. Errors are not announced here: they arrive as alerts.
        */}
-      <VisuallyHidden role="status">{announcement(view, fuelName)}</VisuallyHidden>
+      <VisuallyHidden role="status">
+        {announcement(view, fuelName, {
+          refreshedAsOf:
+            refreshed && view.kind === 'results' ? formatAsOf(view.data.fetchedAt, now) : undefined,
+        })}
+      </VisuallyHidden>
 
       {view.kind === 'idle' && (
         <p className={styles.message}>
@@ -77,7 +99,7 @@ export function Results({
 
       {view.kind === 'locating' && <p className={styles.message}>Finding your location…</p>}
 
-      {view.kind === 'loading' && <p className={styles.message}>Loading prices…</p>}
+      {view.kind === 'loading' && <LoadingStations />}
 
       {view.kind === 'location-problem' && (
         <LocationProblemNotice
@@ -118,8 +140,20 @@ export function Results({
         </div>
       )}
 
+      {view.kind === 'results' && view.stations.length < FEW_STATIONS && radius < maxRadius && (
+        <div className={styles.few}>
+          <p>
+            Only {view.stations.length}{' '}
+            {view.stations.length === 1 ? 'station sells' : 'stations sell'} {fuelName} within{' '}
+            {radius} km.
+          </p>
+          <Button onClick={onWiden}>Search within {maxRadius} km</Button>
+        </div>
+      )}
+
       {view.kind === 'results' && (
         <StationsPanel
+          searchKey={searchKey}
           data={view.data}
           stations={view.stations}
           now={now}

@@ -1,0 +1,56 @@
+.list {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+/* The same outline as a station card (StationList.module.css). */
+.card {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  grid-template-rows: repeat(3, auto);
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.price,
+.line,
+.lineShort {
+  border-radius: var(--radius-sm);
+  background: var(--color-highlight);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.price {
+  grid-row: 1 / -1;
+  height: 2rem;
+}
+
+.line {
+  height: 1rem;
+}
+
+.lineShort {
+  width: 60%;
+  height: 0.75rem;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Still, not slowed: global.css shortens animations, which would make this flicker. */
+@media (prefers-reduced-motion: reduce) {
+  .price,
+  .line,
+  .lineShort {
+    animation: none;
+  }
+}

@@ -2,6 +2,8 @@ import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { SearchScreen } from '@/features/search/SearchScreen';
+import { ThemeSelect } from '@/features/theme/ThemeSelect';
+import { useApplyTheme } from '@/features/theme/useTheme';
 
 import styles from './App.module.css';
 import { createQueryClient } from './queryClient';
@@ -12,13 +14,17 @@ import { createQueryClient } from './queryClient';
  */
 export function App({ queryClient }: { queryClient?: QueryClient }) {
   const [client] = useState(() => queryClient ?? createQueryClient());
+  useApplyTheme();
 
   return (
     <QueryClientProvider client={client}>
       <div className={styles.page}>
         <header className={styles.header}>
-          <h1 className={styles.title}>NSW Fuel Finder</h1>
-          <p className={styles.tagline}>Live fuel prices near you, cheapest first.</p>
+          <div className={styles.titles}>
+            <h1 className={styles.title}>NSW Fuel Finder</h1>
+            <p className={styles.tagline}>Live fuel prices near you, cheapest first.</p>
+          </div>
+          <ThemeSelect />
         </header>
         <main className={styles.main}>
           <SearchScreen />

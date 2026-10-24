@@ -51,6 +51,8 @@ a {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* An infinite animation shortened to 0.01ms would flicker, not stop. */
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
