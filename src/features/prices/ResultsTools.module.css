@@ -1,0 +1,111 @@
+/* Sort and the filters' summary on one line where they fit; the panel opens below both. */
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3) var(--space-4);
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label,
+.legend {
+  font-weight: var(--font-weight-bold);
+}
+
+.select {
+  min-height: var(--target-size);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+/* Grows to the full width when open, so the checkboxes have room. */
+.filters {
+  flex: 1 1 14rem;
+}
+
+.filters[open] {
+  flex-basis: 100%;
+}
+
+/*
+ * A list item, so the browser's open/closed marker stays: it is what says
+ * this opens. Padded to a full-height target (WCAG 2.5.8).
+ */
+.summary {
+  display: list-item;
+  min-height: var(--target-size);
+  padding-top: var(--space-2);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+
+.current {
+  font-weight: var(--font-weight-regular);
+}
+
+.panel {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* The full width of the panel, so the brands can spread into columns. */
+.brands {
+  justify-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hint,
+.count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Columns of checkboxes, as many as fit: 30 brands in a phone-length column would be a long scroll. */
+.options {
+  columns: 12rem auto;
+  column-gap: var(--space-4);
+  margin-top: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.options li {
+  break-inside: avoid;
+}
+
+/* The whole line is the target, at full height (WCAG 2.5.8). */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-size);
+  cursor: pointer;
+}
+
+.checkbox {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.clear {
+  margin-top: var(--space-1);
+}

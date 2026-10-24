@@ -3,7 +3,8 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { FavouritesPanel } from '@/features/favourites/FavouritesPanel';
 import { HistoryLinkContext, HistoryLinkHint } from '@/features/history/HistoryLink';
 import { LazyHistoryView } from '@/features/history/LazyHistoryView';
-import { refineNearby } from '@/features/prices/refine';
+import { applyFilters, hasFilters, sortStations } from '@/features/prices/filters';
+import { refineNearby, refineNearest } from '@/features/prices/refine';
 import { Results } from '@/features/prices/Results';
 import { usePrices } from '@/features/prices/usePrices';
 import { useRefreshed } from '@/features/prices/useRefreshed';
@@ -11,9 +12,10 @@ import { resultsView } from '@/features/prices/view';
 
 import { SearchForm } from './SearchForm';
 import styles from './SearchScreen.module.css';
-import { MAX_RADIUS_KM, roundPosition } from './searchState';
+import { roundPosition } from './searchState';
 import { useGeolocation } from './useGeolocation';
 import { useSearchState } from './useSearchState';
+import { NEAREST_COUNT } from '../../../shared/api';
 import { FUEL_TYPES } from '../../../shared/fuelTypes';
 
 import type { LatLng } from '../../../shared/geo';
@@ -32,8 +34,8 @@ export function SearchScreen() {
   const search = useSearchState();
   const { searchNearby, searchLocation, setFuel, setRadius, setView, selectStation } = search;
   const { openHistory, closeHistory, historyHref } = search;
+  const { setSort, setBrands, setHideOld, clearFilters } = search;
   const placeInput = useRef<HTMLInputElement>(null);
-  const radiusSelect = useRef<HTMLSelectElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
 
   const onLocated = useCallback(
@@ -54,15 +56,37 @@ export function SearchScreen() {
   const refreshed = useRefreshed(searchKey, prices.data?.fetchedAt);
 
   // With the precise position for this very search, show real distances.
-  const stations = useMemo(() => {
+  const { stations, nearest } = useMemo(() => {
     const data = prices.data;
-    if (!data) return [];
+    if (!data) return { stations: [], nearest: [] };
     const precise = geolocation.position;
-    if (place?.kind !== 'nearby' || !precise) return data.stations;
+    const asSent = { stations: data.stations, nearest: data.nearest };
+    if (place?.kind !== 'nearby' || !precise) return asSent;
     const rounded = roundPosition(precise.latitude, precise.longitude);
-    if (rounded.lat !== place.lat || rounded.lng !== place.lng) return data.stations;
-    return refineNearby(data.stations, precise, radius);
+    if (rounded.lat !== place.lat || rounded.lng !== place.lng) return asSent;
+    const refined = refineNearby(data.stations, precise, radius);
+    if (refined.length > 0) return { stations: refined, nearest: [] };
+    // The API searched a little past the radius (it only has the rounded
+    // position). If all it found is really just outside, those are the
+    // nearest; otherwise its own nearest list, measured again.
+    const beyond = data.stations.length > 0 ? data.stations : data.nearest;
+    return { stations: [], nearest: refineNearest(beyond, precise).slice(0, NEAREST_COUNT) };
   }, [prices.data, geolocation.position, place, radius]);
+
+  /*
+   * "Now", to the minute: the list's "updated 3 hours ago" and the old-price
+   * filter must agree on which prices are old, and a new Date on every render
+   * would refilter (and redraw the map) for nothing.
+   */
+  const minute = Math.floor(new Date().getTime() / 60_000);
+  const now = useMemo(() => new Date(minute * 60_000), [minute]);
+
+  const { sort, brands, hideOld } = search;
+  const filters = useMemo(() => ({ brands, hideOld }), [brands, hideOld]);
+  const shown = useMemo(
+    () => sortStations(applyFilters(stations, filters, now), sort),
+    [stations, filters, now, sort],
+  );
 
   const view = resultsView({
     geolocation: geolocation.status,
@@ -71,6 +95,9 @@ export function SearchScreen() {
     error: prices.error,
     data: prices.data,
     stations,
+    shown,
+    filtered: hasFilters(filters),
+    nearest,
   });
 
   const fuelName = FUEL_TYPES.find((f) => f.code === fuel)?.name ?? fuel;
@@ -100,7 +127,6 @@ export function SearchScreen() {
     (visible ?? resultsHeading.current)?.focus();
   });
 
-  const now = new Date();
   const historyLinks = useMemo(
     () => ({ href: historyHref, open: openHistory }),
     [historyHref, openHistory],
@@ -113,7 +139,6 @@ export function SearchScreen() {
         fuel={fuel}
         radius={radius}
         onRadiusChange={setRadius}
-        radiusSelectRef={radiusSelect}
         currentQuery={place?.kind === 'location' ? place.query : ''}
         locating={geolocation.status === 'locating'}
         onFuelChange={setFuel}
@@ -139,7 +164,6 @@ export function SearchScreen() {
           view={view}
           fuelName={fuelName}
           radius={radius}
-          maxRadius={MAX_RADIUS_KM}
           now={now}
           headingRef={resultsHeading}
           onRetry={() => {
@@ -155,9 +179,6 @@ export function SearchScreen() {
             geolocation.reset();
             searchLocation(candidate);
           }}
-          onChooseDistance={() => {
-            radiusSelect.current?.focus();
-          }}
           onSearchInstead={() => {
             geolocation.reset();
             focusSearch();
@@ -168,6 +189,20 @@ export function SearchScreen() {
           layout={search.view}
           onSelectStation={selectStation}
           onLayoutChange={setView}
+          tools={{
+            found: stations,
+            sort,
+            brands,
+            hideOld,
+            onSortChange: setSort,
+            onBrandsChange: setBrands,
+            onHideOldChange: setHideOld,
+            onClearFilters: clearFilters,
+          }}
+          onClearFilters={() => {
+            focusResults();
+            clearFilters();
+          }}
         />
       </div>
     </HistoryLinkContext>

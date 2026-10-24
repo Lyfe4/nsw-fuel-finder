@@ -119,6 +119,7 @@ describe('a station’s price history', () => {
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     const inList = within(screen.getByRole('list', { name: 'Stations, cheapest first' })).getByRole(
       'link',
+      { name: 'Ampol Foodary Erina' },
     );
     await user.click(inList);
     await screen.findByRole('heading', { name: 'Price history: Ampol Foodary Erina' });
@@ -174,5 +175,44 @@ describe('a station’s price history', () => {
     const { container } = setup('/?query=Erina&history=1');
     await screen.findByRole('slider');
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('the station’s own page', () => {
+  it('lists every fuel it sells now, in the picker’s order, marking the one charted', async () => {
+    setup('/?query=Erina&history=1', () =>
+      json(
+        historyResponse({
+          station: {
+            ...summary(ERINA),
+            prices: {
+              DL: { priceCents: 249.9, updatedAt: '2026-10-22T03:30:00Z' },
+              U91: { priceCents: 229.9, updatedAt: '2026-10-23T00:30:00Z' },
+              P98: { priceCents: 251.9, updatedAt: '2026-10-23T00:30:00Z' },
+            },
+          },
+        }),
+      ),
+    );
+    const table = await screen.findByRole('table', { name: 'Every fuel here now, cents a litre' });
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual([
+      'Unleaded 91 (chart below)',
+      'Premium 98',
+      'Diesel',
+    ]);
+    const diesel = rows[2];
+    if (!diesel) throw new Error('no Diesel row');
+    expect(within(diesel).getByRole('cell', { name: '249.9' })).toBeInTheDocument();
+  });
+
+  it('has directions to it', async () => {
+    setup('/?query=Erina&history=1');
+    const view = await screen.findByRole('region', { name: /^Price history/ });
+    expect(
+      await within(view).findByRole('link', {
+        name: 'Directions to Ampol Foodary Erina, opens in a new tab',
+      }),
+    ).toHaveAttribute('target', '_blank');
   });
 });

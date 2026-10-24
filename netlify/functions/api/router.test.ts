@@ -5,6 +5,7 @@ import { FIXTURE_FETCHED_AT, fixtureSnapshot } from './__fixtures__/snapshot';
 import { buildPlaceIndex } from './places';
 import { createHandler } from './router';
 import { SnapshotUnavailableError } from './snapshotSource';
+import { NEAREST_COUNT, NEAREST_MAX_KM } from '../../../shared/api';
 
 import type {
   ApiErrorBody,
@@ -14,6 +15,7 @@ import type {
   StatusResponse,
   HistoryResponse,
 } from '../../../shared/api';
+import type { HistoryDay } from '../../lib/snapshot/history';
 
 const ORIGIN = 'http://localhost:8888';
 const loaded = { snapshot: fixtureSnapshot, places: buildPlaceIndex(fixtureSnapshot.stations) };
@@ -25,8 +27,10 @@ function setup(
     lastRun?: unknown;
     lastRunFails?: boolean;
     history?: { backfill: unknown; live: unknown };
+    day?: HistoryDay['fuels'] | null;
   } = {},
 ) {
+  const requestedDays: string[] = [];
   const getSnapshot = vi.fn(() =>
     options.unavailable
       ? Promise.reject(new SnapshotUnavailableError('No price snapshot has been taken yet.'))
@@ -47,6 +51,10 @@ function setup(
                 },
           ),
     getHistory: () => Promise.resolve(options.history ?? { backfill: null, live: null }),
+    getDay: (day) => {
+      requestedDays.push(day);
+      return Promise.resolve(options.day ?? null);
+    },
     now: () => options.now ?? FIXTURE_FETCHED_AT + 60_000,
   });
   const get = async (path: string, init?: RequestInit) => {
@@ -54,7 +62,7 @@ function setup(
     const body: unknown = await response.json();
     return { response, body };
   };
-  return { get, getSnapshot };
+  return { get, getSnapshot, requestedDays };
 }
 
 beforeEach(() => {
@@ -91,6 +99,68 @@ describe('GET /api/nearby', () => {
     const { get } = setup();
     const { body } = await get(`/api/nearby?${gosford}&fuel=B20`);
     expect((body as PricesResponse).stations).toEqual([]);
+    // The one station in the fixture that does is offered as the nearest.
+    expect((body as PricesResponse).nearest.map((s) => s.name)).toEqual([
+      'Independent Marrickville',
+    ]);
+  });
+
+  it('says how much each price has moved since yesterday, from yesterday’s day file', async () => {
+    const listed = ((await setup().get(`/api/nearby?${gosford}&fuel=U91`)).body as PricesResponse)
+      .stations;
+    const [cheaper, dearer, same, unknown] = listed.map((s) =>
+      fixtureSnapshot.stations.find((station) => station.code === s.stationCode),
+    );
+    if (!cheaper || !dearer || !same || !unknown) throw new Error('fixture has too few stations');
+    const now = (s: typeof cheaper) => s.prices.U91?.[0] ?? 0;
+    const { get, requestedDays } = setup({
+      day: {
+        U91: {
+          [cheaper.code]: [now(cheaper), now(cheaper) + 3, now(cheaper) + 2],
+          [dearer.code]: [now(dearer) - 1.5, now(dearer), now(dearer) - 1.5],
+          [same.code]: [now(same), now(same), now(same)],
+        },
+      },
+    });
+    const { body } = await get(`/api/nearby?${gosford}&fuel=U91`);
+
+    // The snapshot is from 21 Oct in Sydney, so yesterday is the 20th.
+    expect(requestedDays).toEqual(['2026-10-20']);
+    const change = (code: string) =>
+      (body as PricesResponse).stations.find((s) => s.stationCode === code)?.changeCents;
+    expect(change(cheaper.code)).toBe(-2);
+    expect(change(dearer.code)).toBe(1.5);
+    expect(change(same.code)).toBe(0);
+    expect(change(unknown.code)).toBeNull();
+  });
+
+  it('still answers, with every change unknown, when yesterday cannot be read', async () => {
+    const { get } = setup({ day: null });
+    const { response, body } = await get(`/api/nearby?${gosford}&fuel=U91`);
+    expect(response.status).toBe(200);
+    expect((body as PricesResponse).stations.every((s) => s.changeCents === null)).toBe(true);
+  });
+
+  it('lists the nearest stations, nearest first, when none are within the distance', async () => {
+    const { get } = setup();
+    // Out to sea off Terrigal: nothing within 1 km.
+    const { body } = await get('/api/nearby?lat=-33.45&lng=151.6&radius=1&fuel=U91');
+    const prices = body as PricesResponse;
+
+    expect(prices.stations).toEqual([]);
+    // The fixture has fewer than NEAREST_COUNT within NEAREST_MAX_KM.
+    expect(prices.nearest.length).toBeGreaterThan(1);
+    expect(prices.nearest.length).toBeLessThanOrEqual(NEAREST_COUNT);
+    const km = prices.nearest.map((s) => s.distanceKm);
+    expect(km).toEqual([...km].sort((a, b) => a - b));
+    expect(km[0]).toBeGreaterThan(1);
+    expect(km.at(-1)).toBeLessThanOrEqual(NEAREST_MAX_KM);
+  });
+
+  it('sends no nearest stations when the search found some', async () => {
+    const { get } = setup();
+    const { body } = await get(`/api/nearby?${gosford}&fuel=U91`);
+    expect((body as PricesResponse).nearest).toEqual([]);
   });
 
   it('sets a one-minute cache at the browser and the edge', async () => {

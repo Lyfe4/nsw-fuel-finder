@@ -4,11 +4,13 @@ import { formatAge, formatAsOf } from '@/lib/format';
 
 import { LoadingStations } from './LoadingStations';
 import { ErrorNotice, LocationProblemNotice, StaleNotice } from './Notices';
+import { PriceSummaryLine } from './PriceSummaryLine';
 import styles from './Results.module.css';
+import { ResultsTools, type ResultsToolsProps } from './ResultsTools';
 import { StationsPanel } from './StationsPanel';
-import { announcement, type ResultsView } from './view';
+import { announcement, distanceRange, type ResultsView } from './view';
+import { NEAREST_MAX_KM, type PricesResponse } from '../../../shared/api';
 
-import type { PricesResponse } from '../../../shared/api';
 import type { ResultsLayout } from '../search/searchState';
 import type { Ref } from 'react';
 
@@ -16,15 +18,12 @@ export interface ResultsProps {
   view: ResultsView;
   fuelName: string;
   radius: number;
-  maxRadius: number;
   now: Date;
   /** Focusable (tabIndex -1) so actions that remove their own button can move focus here. */
   headingRef?: Ref<HTMLHeadingElement>;
   onRetry: () => void;
   onRetryLocation: () => void;
   onPickCandidate: (candidate: string) => void;
-  /** Move focus to the distance select: the way out of an empty result. */
-  onChooseDistance: () => void;
   /** Move focus to the suburb box: the way out of most problems. */
   onSearchInstead: () => void;
   /** Identifies the search, so a new one starts the list from the top. */
@@ -36,6 +35,10 @@ export interface ResultsProps {
   layout: ResultsLayout;
   onSelectStation: (station: string | null, layout?: ResultsLayout) => void;
   onLayoutChange: (layout: ResultsLayout) => void;
+  /** Sort and filters, from the URL, and every station found (for the counts). */
+  tools: Omit<ResultsToolsProps, 'now'>;
+  /** "Clear filters" when they hide every station: the button goes, so this moves focus too. */
+  onClearFilters: () => void;
 }
 
 /**
@@ -49,17 +52,36 @@ export function where(data: PricesResponse): string {
   return /^\d{4}$/.test(label) ? `of postcode ${label}` : `of ${label}`;
 }
 
+function heading(view: Extract<ResultsView, { data: PricesResponse }>, radius: number): string {
+  const within = (count: string) => `${count} within ${String(radius)} km ${where(view.data)}`;
+  switch (view.kind) {
+    case 'results': {
+      const count = view.stations.length;
+      const stations = view.total === 1 ? 'station' : 'stations';
+      return within(
+        view.filtered
+          ? `${String(count)} of ${String(view.total)} ${stations}`
+          : `${String(count)} ${stations}`,
+      );
+    }
+    case 'no-match':
+      return within(`0 of ${String(view.total)} stations`);
+    case 'nearest':
+      return `Nearest stations, ${distanceRange(view.stations)} away`;
+    case 'empty':
+      return 'Prices';
+  }
+}
+
 export function Results({
   view,
   fuelName,
   radius,
-  maxRadius,
   now,
   headingRef,
   onRetry,
   onRetryLocation,
   onPickCandidate,
-  onChooseDistance,
   onSearchInstead,
   searchKey,
   refreshed,
@@ -67,15 +89,15 @@ export function Results({
   layout,
   onSelectStation,
   onLayoutChange,
+  tools,
+  onClearFilters,
 }: ResultsProps) {
   return (
     // No aria-busy: some screen readers hold back live regions inside a busy
     // element, which would swallow "Loading prices..." itself.
     <section className={styles.results} aria-labelledby="results-heading">
       <h2 id="results-heading" className={styles.heading} tabIndex={-1} ref={headingRef}>
-        {view.kind === 'results'
-          ? `${String(view.stations.length)} ${view.stations.length === 1 ? 'station' : 'stations'} within ${String(radius)} km ${where(view.data)}`
-          : 'Prices'}
+        {'data' in view ? heading(view, radius) : 'Prices'}
       </h2>
 
       {/*
@@ -86,6 +108,8 @@ export function Results({
         {announcement(view, fuelName, {
           refreshedAsOf:
             refreshed && view.kind === 'results' ? formatAsOf(view.data.fetchedAt, now) : undefined,
+          radius,
+          sort: tools.sort,
         })}
       </VisuallyHidden>
 
@@ -116,7 +140,7 @@ export function Results({
         />
       )}
 
-      {(view.kind === 'results' || view.kind === 'empty') && (
+      {'data' in view && (
         <>
           <p className={styles.asOf}>
             {fuelName} · prices as of {formatAsOf(view.data.fetchedAt, now)}
@@ -128,25 +152,47 @@ export function Results({
       {view.kind === 'empty' && (
         <div className={styles.empty}>
           <p>
-            No stations sell {fuelName} within {radius} km {where(view.data)}.
+            No stations sell {fuelName} within {NEAREST_MAX_KM} km {where(view.data)}.
           </p>
-          {radius < maxRadius ? (
-            <Button variant="primary" onClick={onChooseDistance}>
-              Choose a larger distance
-            </Button>
-          ) : (
-            <p>Try another fuel, or a different place.</p>
-          )}
+          <p>Try another fuel, or a different place.</p>
         </div>
       )}
 
-      {view.kind === 'results' && (
+      {view.kind === 'nearest' && (
+        <p className={styles.nearest}>
+          None sell {fuelName} within {radius} km {where(view.data)}, so these are the nearest{' '}
+          {view.stations.length} that do, nearest first.
+        </p>
+      )}
+
+      {view.kind === 'results' && <PriceSummaryLine stations={view.stations} />}
+
+      {(view.kind === 'results' || view.kind === 'no-match') && (
+        <ResultsTools {...tools} now={now} />
+      )}
+
+      {view.kind === 'no-match' && (
+        <div className={styles.empty}>
+          <p>None of the {view.total} stations match your filters.</p>
+          <Button variant="primary" onClick={onClearFilters}>
+            Clear filters
+          </Button>
+        </div>
+      )}
+
+      {(view.kind === 'results' || view.kind === 'nearest') && (
         <StationsPanel
           searchKey={searchKey}
           data={view.data}
           stations={view.stations}
           now={now}
           fuelName={fuelName}
+          listLabel={
+            view.kind === 'nearest' || tools.sort === 'distance'
+              ? 'Stations, nearest first'
+              : 'Stations, cheapest first'
+          }
+          arrangement={`${tools.sort}|${tools.brands.join(',')}|${String(tools.hideOld)}`}
           station={station}
           view={layout}
           onSelect={onSelectStation}

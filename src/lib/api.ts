@@ -4,6 +4,7 @@ import type {
   HistoryResponse,
   PlaceSuggestionsResponse,
   PricesResponse,
+  StationPrice,
   StationsResponse,
 } from '../../shared/api';
 
@@ -71,16 +72,39 @@ export interface PriceSearch {
   place: { kind: 'nearby'; lat: number; lng: number } | { kind: 'location'; query: string };
 }
 
+/**
+ * A prices answer from before round 8, which had no `nearest` or
+ * `changeCents`. For a minute or so after a deploy the browser's own cache
+ * (max-age=60) can still hand one to the new code.
+ */
+type PricesOnTheWire = Omit<PricesResponse, 'nearest' | 'stations'> & {
+  nearest?: PricesResponse['nearest'];
+  stations: (Omit<StationPrice, 'changeCents'> & { changeCents?: number | null })[];
+};
+
+function normalisePrices(body: PricesOnTheWire): PricesResponse {
+  return {
+    ...body,
+    stations: body.stations.map((station) => ({
+      ...station,
+      changeCents: station.changeCents ?? null,
+    })),
+    nearest: body.nearest ?? [],
+  };
+}
+
 /** GET /api/nearby or /api/location. Parameter names match the API exactly. */
-export function fetchPrices({ fuel, radius, place }: PriceSearch, signal?: AbortSignal) {
+export async function fetchPrices({ fuel, radius, place }: PriceSearch, signal?: AbortSignal) {
   const common = { fuel, radius: String(radius) };
-  return place.kind === 'nearby'
-    ? getJson<PricesResponse>(
-        '/api/nearby',
-        { lat: String(place.lat), lng: String(place.lng), ...common },
-        signal,
-      )
-    : getJson<PricesResponse>('/api/location', { query: place.query, ...common }, signal);
+  const body =
+    place.kind === 'nearby'
+      ? await getJson<PricesOnTheWire>(
+          '/api/nearby',
+          { lat: String(place.lat), lng: String(place.lng), ...common },
+          signal,
+        )
+      : await getJson<PricesOnTheWire>('/api/location', { query: place.query, ...common }, signal);
+  return normalisePrices(body);
 }
 
 /** GET /api/places?query= */

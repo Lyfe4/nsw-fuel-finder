@@ -60,3 +60,35 @@
   background: var(--color-accent-subtle);
   box-shadow: inset 4px 0 0 var(--color-accent);
 }
+
+/* The input and its clear button: the button sits inside the box's right end. */
+.inputWrap {
+  position: relative;
+}
+
+/* Room for the clear button, so long names never run under it. */
+.input {
+  padding-right: var(--target-size);
+}
+
+.clear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: var(--target-size);
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xl);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--color-text);
+}

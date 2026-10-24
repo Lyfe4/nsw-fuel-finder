@@ -250,3 +250,33 @@ describe('searching by suburb or postcode', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
+
+describe('the clear button in the suburb box', () => {
+  it('appears with text, clears it, and leaves focus in the box, ready to type', async () => {
+    fakeApi();
+    const { user, container } = renderApp();
+    expect(screen.queryByRole('button', { name: 'Clear suburb or postcode' })).toBeNull();
+
+    await user.type(placeInput(), 'Erin');
+    const clear = screen.getByRole('button', { name: 'Clear suburb or postcode' });
+    await expectNoAxeViolations(container);
+    await user.click(clear);
+    expect(placeInput()).toHaveValue('');
+    expect(placeInput()).toHaveFocus();
+    expect(clear).not.toBeInTheDocument();
+  });
+
+  it('is a separate Tab stop after the box, and clears from the keyboard', async () => {
+    fakeApi();
+    const { user } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    placeInput().focus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Clear suburb or postcode' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(placeInput()).toHaveValue('');
+    expect(placeInput()).toHaveFocus();
+    // Clearing the box is not a search: the results stay until the next one.
+    expect(window.location.search).toBe('?query=Erina');
+  });
+});

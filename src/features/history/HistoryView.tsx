@@ -1,9 +1,11 @@
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
+import { DirectionsLink } from '@/features/prices/DirectionsLink';
 import { formatAge, formatPrice } from '@/lib/format';
 
 import { HistoryChart } from './HistoryChart';
 import styles from './HistoryView.module.css';
 import { coverageText, formatDay, gaps, summarise, summaryText } from './summary';
+import { FUEL_TYPES } from '../../../shared/fuelTypes';
 
 import type { HistoryResponse } from '../../../shared/api';
 
@@ -45,8 +47,13 @@ export function HistoryView({
             `Does not sell ${fuelName} now.`
           )}
         </p>
-        <FavouriteButton code={station.stationCode} name={station.name} />
+        <div className={styles.actions}>
+          <DirectionsLink station={station} />
+          <FavouriteButton code={station.stationCode} name={station.name} />
+        </div>
       </div>
+
+      <AllFuels data={data} now={now} />
 
       {summary ? (
         <p className={styles.summary}>{summaryText(summary)}</p>
@@ -110,5 +117,42 @@ export function HistoryView({
         )}
       </p>
     </div>
+  );
+}
+
+/**
+ * Every fuel the station sells, from the same snapshot the search uses (it
+ * comes with the history, so this costs no request of any kind). Up to seven
+ * rows, in the fuel picker's order; the one the chart is for says so in words.
+ */
+function AllFuels({ data, now }: { data: HistoryResponse; now: Date }) {
+  const sold = FUEL_TYPES.flatMap(({ code, name }) => {
+    const price = data.station.prices[code];
+    return price ? [{ code, name, ...price }] : [];
+  });
+  if (sold.length === 0) return null;
+  return (
+    <table className={styles.table}>
+      <caption className={styles.caption}>Every fuel here now, cents a litre</caption>
+      <thead>
+        <tr>
+          <th scope="col">Fuel</th>
+          <th scope="col">Price</th>
+          <th scope="col">Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sold.map(({ code, name, priceCents, updatedAt }) => (
+          <tr key={code}>
+            <th scope="row">
+              {name}
+              {code === data.fuelType && <span className={styles.charted}> (chart below)</span>}
+            </th>
+            <td>{formatPrice(priceCents)}</td>
+            <td>{formatAge(updatedAt, now)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

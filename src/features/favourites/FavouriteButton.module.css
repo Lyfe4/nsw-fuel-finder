@@ -5,13 +5,32 @@
 }
 
 .star,
-.starOn {
+.starOn,
+.starPop {
   font-size: var(--font-size-lg);
   line-height: 1;
   text-decoration: none;
 }
 
 /* Filled and coloured when saved; the filled shape alone already tells them apart. */
-.starOn {
+.starOn,
+.starPop {
   color: var(--color-accent);
+}
+
+/*
+ * Just saved: a quick grow and settle. Transform only, so the button and the
+ * line around it do not move. None with reduced motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .starPop {
+    display: inline-block;
+    animation: star-pop 260ms ease-out;
+  }
+}
+
+@keyframes star-pop {
+  40% {
+    transform: scale(1.45);
+  }
 }

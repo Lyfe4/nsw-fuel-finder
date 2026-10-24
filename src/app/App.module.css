@@ -59,3 +59,39 @@
     max-width: var(--content-width);
   }
 }
+
+/*
+ * Very wide screens (from 1440 px): the search form moves to a column of its
+ * own, and stays in view while the list scrolls. Beside the results rather
+ * than above them, it never competes with the sticky map for height, which
+ * it would on a narrower laptop. Only when the window is tall enough to hold
+ * the whole form; otherwise it scrolls with the page as usual.
+ */
+@media (min-width: 90rem) {
+  .page {
+    max-width: var(--content-width-widest);
+  }
+
+  .main {
+    grid-template-columns: var(--search-column-width) minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--space-6);
+  }
+
+  .main > form {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  /* The price history or the results: one at a time, never both. */
+  .main > :not(form) {
+    grid-column: 2;
+  }
+}
+
+@media (min-width: 90rem) and (min-height: 40rem) {
+  .main > form {
+    position: sticky;
+    top: var(--space-4);
+  }
+}

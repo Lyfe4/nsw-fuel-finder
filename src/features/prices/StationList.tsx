@@ -6,7 +6,9 @@ import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { HistoryLink } from '@/features/history/HistoryLink';
 import { formatDistance, formatPrice } from '@/lib/format';
 
+import { DirectionsLink } from './DirectionsLink';
 import { priceAge } from './priceAge';
+import { PriceChange } from './PriceChange';
 import styles from './StationList.module.css';
 
 import type { StationPrice } from '../../../shared/api';
@@ -27,6 +29,8 @@ export interface StationListProps {
   /** How many "Show more" adds. */
   pageSize: number;
   reducedMotion: boolean;
+  /** The list's name, which says its order: "Stations, cheapest first". */
+  label: string;
   listRef?: Ref<HTMLOListElement>;
 }
 
@@ -52,6 +56,7 @@ export function StationList({
   onShowMore,
   pageSize,
   reducedMotion,
+  label,
   listRef,
 }: StationListProps) {
   const selectedItem = useRef<HTMLLIElement>(null);
@@ -74,7 +79,7 @@ export function StationList({
 
   return (
     <>
-      <ol className={styles.list} aria-label="Stations, cheapest first" ref={listRef}>
+      <ol className={styles.list} aria-label={label} ref={listRef}>
         {stations.map((station) => {
           const isSelected = station.stationCode === selected;
           const age = priceAge(station.priceUpdatedAt, now);
@@ -101,6 +106,7 @@ export function StationList({
                     <span className={styles.badge}>Cheapest</span>
                   </>
                 )}
+                <PriceChange cents={station.changeCents} className={styles.change} />
               </p>
               <p className={styles.meta}>
                 {station.brand} · {formatDistance(station.distanceKm)} away
@@ -119,6 +125,7 @@ export function StationList({
                 >
                   Show on map<VisuallyHidden>, {station.name}</VisuallyHidden>
                 </Button>
+                <DirectionsLink station={station} />
                 <FavouriteButton code={station.stationCode} name={station.name} />
                 {isSelected && <span className={styles.shown}>Shown on map</span>}
               </div>

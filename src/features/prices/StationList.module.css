@@ -128,3 +128,28 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
+
+/* Today's move, under the price in its column: "↓ 2.0 today". */
+.change {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+/*
+ * New cards (a search's results, "Show more") settle into place: a short
+ * rise and fade, transform and opacity only, so nothing around them moves
+ * (no layout shift). Never from invisible, so the price is readable from the
+ * first frame. None at all with reduced motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .item {
+    animation: card-in 180ms ease-out;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0.5;
+    transform: translateY(0.375rem);
+  }
+}

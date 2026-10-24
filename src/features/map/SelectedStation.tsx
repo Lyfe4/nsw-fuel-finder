@@ -2,6 +2,8 @@ import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { HistoryLink } from '@/features/history/HistoryLink';
+import { DirectionsLink } from '@/features/prices/DirectionsLink';
+import { PriceChange } from '@/features/prices/PriceChange';
 import { formatAge, formatDistance, formatPrice } from '@/lib/format';
 
 import styles from './SelectedStation.module.css';
@@ -40,7 +42,8 @@ export function SelectedStation({
         <span className={styles.amount}>{formatPrice(station.priceCents)}</span>{' '}
         <span aria-hidden="true">¢/L</span>
         <VisuallyHidden>cents a litre</VisuallyHidden>
-        <span className={styles.age}>, updated {formatAge(station.priceUpdatedAt, now)}</span>
+        <span className={styles.age}>, updated {formatAge(station.priceUpdatedAt, now)}</span>{' '}
+        <PriceChange cents={station.changeCents} />
       </p>
       <p>
         {station.brand} · {formatDistance(station.distanceKm)} away
@@ -48,6 +51,7 @@ export function SelectedStation({
       <p className={styles.address}>{station.address}</p>
       <div className={styles.actions}>
         {onShowInList && <Button onClick={onShowInList}>Show in list</Button>}
+        <DirectionsLink station={station} />
         <FavouriteButton code={station.stationCode} name={station.name} />
         <Button onClick={onClose}>
           Close<VisuallyHidden>, {station.name}</VisuallyHidden>

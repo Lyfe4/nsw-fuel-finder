@@ -63,6 +63,22 @@ function recordViolations() {
   });
 }
 
+/**
+ * Waits for the list's cards to finish arriving (a 180 ms rise and fade).
+ * Clicked mid-animation, Playwright finds the button "not stable" and retries
+ * with a forced scroll alignment, which moves the page under the checks that
+ * follow. The infinite loading pulses are left out: they never finish.
+ */
+const settled = (page) =>
+  page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished),
+    ),
+  );
+
 const overlaps = (a, b) =>
   Boolean(a && b) &&
   a.x < b.x + b.width &&
@@ -108,6 +124,7 @@ try {
   await search.press('Enter');
   await page.waitForURL(/query=Gosford/);
   await list.getByRole('listitem').first().waitFor();
+  await settled(page);
   check('suburb search lists stations', (await list.getByRole('listitem').count()) > 0);
 
   // List -> map. Scroll first, so the map is stuck fully in view beside the
@@ -230,6 +247,67 @@ try {
   await list.getByRole('listitem').first().waitFor();
   check('choosing 10 km searches again, kept in the URL', true);
 
+  // Round 8: the summary sentence, sort, filters and directions.
+  check(
+    'the price summary is one sentence over the list',
+    await page
+      .getByRole('paragraph')
+      .filter({ hasText: /^Cheapest [\d.]+, average [\d.]+ cents a litre\./ })
+      .isVisible(),
+  );
+  const sort = page.getByRole('combobox', { name: 'Sort' });
+  await sort.selectOption('distance');
+  await page.waitForURL(/sort=distance/);
+  const nearest = page.getByRole('list', { name: 'Stations, nearest first' });
+  const kms = await nearest.evaluate((el) =>
+    [...el.querySelectorAll(':scope > li')].map((li) => {
+      const [, value, unit] = /([\d.]+) (k?m) away/.exec(li.textContent ?? '') ?? [];
+      return Number(value) / (unit === 'm' ? 1000 : 1);
+    }),
+  );
+  check(
+    'Nearest first sorts by distance, kept in the URL',
+    kms.length > 1 && kms.every((km, i) => i === 0 || km >= kms[i - 1]),
+  );
+  await sort.selectOption('price');
+  await page.getByText('Filters:').click();
+  const firstBrand = page.getByRole('group', { name: 'Brands' }).getByRole('checkbox').first();
+  const brandName = (await firstBrand.locator('xpath=..').textContent())?.replace(/ \(\d+\)$/, '');
+  await firstBrand.check();
+  await page.waitForURL(/brand=/);
+  const brands = await list.evaluate((el) =>
+    [...el.querySelectorAll(':scope > li')].map(
+      (li) => /^(.*) · /.exec(li.querySelector('p:nth-of-type(2)')?.textContent ?? '')?.[1],
+    ),
+  );
+  check(
+    'ticking a brand lists only that brand, kept in the URL',
+    brands.length > 0 && brands.every((brand) => brand === brandName),
+    `${brandName ?? ''}: ${String(brands.length)}`,
+  );
+  check(
+    'the heading says how many of how many',
+    /^\d+ of \d+ stations? within/.test(
+      (await page.getByRole('heading', { level: 2 }).first().textContent()) ?? '',
+    ),
+  );
+  check(
+    'and focus stays on the checkbox',
+    await firstBrand.evaluate((el) => el === document.activeElement),
+  );
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await page.waitForURL((url) => !url.searchParams.has('brand'));
+  const directions = list
+    .getByRole('link', { name: /^Directions to .*, opens in a new tab$/ })
+    .first();
+  check(
+    'each station has directions, opening a maps app in a new tab',
+    (await directions.getAttribute('target')) === '_blank' &&
+      /^https:\/\/(www\.google\.com\/maps\/dir\/|maps\.apple\.com\/)/.test(
+        (await directions.getAttribute('href')) ?? '',
+      ),
+  );
+
   // Favourites: star the cheapest, see it in the panel with a price.
   // Chromium names it "Favourite , <station>" (a space for the hidden span).
   const star = list.getByRole('button', { name: /^Favourite/ }).first();
@@ -264,6 +342,10 @@ try {
       .getByRole('link', { name: 'NSW FuelCheck price history' })
       .isVisible(),
   );
+  check(
+    'it lists every fuel the station sells',
+    await page.getByRole('table', { name: 'Every fuel here now, cents a litre' }).isVisible(),
+  );
   await slider.focus();
   await page.keyboard.press('Home');
   check(
@@ -279,6 +361,42 @@ try {
   );
   // Leave no favourite behind in this browser profile.
   await star.click();
+
+  // Nothing within the distance: the nearest stations, not a dead end.
+  await page.goto(`${BASE}/?fuel=U91&query=Mount%20Hope&radius=25`);
+  const nearestHeading = page.getByRole('heading', { level: 2, name: /^Nearest stations, / });
+  await nearestHeading.waitFor();
+  check(
+    'a place with nothing within 25 km lists the nearest stations instead',
+    (await page
+      .getByRole('list', { name: 'Stations, nearest first' })
+      .getByRole('listitem')
+      .count()) > 0,
+    (await nearestHeading.textContent()) ?? '',
+  );
+
+  // The clear button in the suburb box.
+  await page.getByRole('button', { name: 'Clear suburb or postcode' }).click();
+  check(
+    'the clear button empties the suburb box and leaves focus in it',
+    (await search.inputValue()) === '' &&
+      (await search.evaluate((el) => el === document.activeElement)),
+  );
+
+  // Very wide: the search form in its own column, still in view down the list.
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(`${BASE}/?fuel=U91&query=2150&radius=10`);
+  await list.getByRole('listitem').first().waitFor();
+  await page.evaluate(() => {
+    window.scrollTo(0, 1500);
+  });
+  const form = await page.getByRole('search').boundingBox();
+  const listBox = await list.boundingBox();
+  check(
+    'at 1600 px the search form sits beside the list and stays in view',
+    Boolean(form && listBox) && form.x + form.width < listBox.x && form.y >= 0 && form.y < 100,
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
 
   check('no console errors on the wide screen', errors.length === 0, errors.join(' | '));
   const violations = await page.evaluate(() => window.__cspViolations ?? []);

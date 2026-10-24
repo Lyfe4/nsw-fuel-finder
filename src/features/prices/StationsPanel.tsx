@@ -20,6 +20,7 @@ import { REDUCED_MOTION, useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery'
 import { cheapestPrice } from './priceAge';
 import { StationList } from './StationList';
 import styles from './StationsPanel.module.css';
+import { useReorderAnimation } from './useReorderAnimation';
 import { LIST_PAGE_SIZE } from './view';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
@@ -32,6 +33,10 @@ export interface StationsPanelProps {
   searchKey: string;
   now: Date;
   fuelName: string;
+  /** The list's name, saying its order: "Stations, cheapest first". */
+  listLabel: string;
+  /** The sort and filters, as one string: the cards slide to their new places when it changes. */
+  arrangement: string;
   /** From the URL. */
   station: string | null;
   view: ResultsLayout;
@@ -51,6 +56,8 @@ export function StationsPanel({
   searchKey,
   now,
   fuelName,
+  listLabel,
+  arrangement,
   station,
   view,
   onSelect,
@@ -92,6 +99,7 @@ export function StationsPanel({
   const listed = Math.min(stations.length, wanted);
 
   const listRef = useRef<HTMLOListElement>(null);
+  useReorderAnimation(listRef, arrangement, reducedMotion);
   const cardHeadingRef = useRef<HTMLHeadingElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
   const mapButtonRef = useRef<HTMLButtonElement>(null);
@@ -146,6 +154,7 @@ export function StationsPanel({
             cheapest={cheapestPrice(stations.map((s) => s.priceCents))}
             pageSize={LIST_PAGE_SIZE}
             reducedMotion={reducedMotion}
+            label={listLabel}
             listRef={listRef}
             onShowOnMap={(code) => {
               setShowRequest((n) => n + 1);

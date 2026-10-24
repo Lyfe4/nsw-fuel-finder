@@ -28,3 +28,14 @@ export function refineNearby(
         collator.compare(a.name, b.name),
     );
 }
+
+/**
+ * The nearest stations (for a search that found none), measured again from
+ * the precise position and kept nearest first. No radius: they are, by
+ * definition, beyond it.
+ */
+export function refineNearest(stations: readonly StationPrice[], precise: LatLng): StationPrice[] {
+  return stations
+    .map((station) => ({ ...station, distanceKm: roundTo(haversineKm(precise, station), 2) }))
+    .sort((a, b) => a.distanceKm - b.distanceKm || a.priceCents - b.priceCents);
+}

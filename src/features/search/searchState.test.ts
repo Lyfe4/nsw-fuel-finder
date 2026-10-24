@@ -11,6 +11,9 @@ describe('parseSearch', () => {
       view: 'list',
       station: null,
       history: null,
+      sort: 'price',
+      brands: [],
+      hideOld: false,
     });
   });
 
@@ -22,6 +25,9 @@ describe('parseSearch', () => {
       view: 'list',
       station: null,
       history: null,
+      sort: 'price',
+      brands: [],
+      hideOld: false,
     });
   });
 
@@ -91,7 +97,45 @@ describe('serializeSearch', () => {
         view: 'list',
         station: null,
         history: null,
+        sort: 'price',
+        brands: [],
+        hideOld: false,
       }),
     ).toBe('fuel=U91&lat=-33.87&lng=151.21&radius=25');
+  });
+
+  it('round-trips sort and filters, with brands in a stable order', () => {
+    const state = parseSearch('?query=2150&sort=distance&brand=Shell&brand=7-Eleven&old=hide');
+    expect(state).toMatchObject({ sort: 'distance', brands: ['Shell', '7-Eleven'], hideOld: true });
+    expect(serializeSearch(state)).toBe(
+      'fuel=U91&query=2150&sort=distance&brand=7-Eleven&brand=Shell&old=hide',
+    );
+  });
+});
+
+describe('sort and filters in the URL', () => {
+  it.each([
+    ['an unknown sort', '?sort=random', { sort: 'price' }],
+    ['an unknown old-price setting', '?old=yes', { hideOld: false }],
+    ['a brand that cannot be a brand', '?brand=%3Cb%3E&brand=BP', { brands: ['BP'] }],
+    [
+      'the same brand twice, spaced oddly',
+      '?brand=Metro%20%20Fuel&brand=Metro+Fuel',
+      { brands: ['Metro Fuel'] },
+    ],
+  ])('copes with %s', (_, search, expected) => {
+    expect(parseSearch(search)).toMatchObject(expected);
+  });
+
+  it('keeps every FuelCheck brand name, apostrophes and all', () => {
+    const brands = [
+      "PK's",
+      'Ampol Foodary',
+      'U-Go',
+      'Mobil 1 Carlingford Car Care',
+      '24Xpress logo',
+    ];
+    const search = brands.map((brand) => `brand=${encodeURIComponent(brand)}`).join('&');
+    expect(parseSearch(`?${search}`).brands).toEqual(brands);
   });
 });

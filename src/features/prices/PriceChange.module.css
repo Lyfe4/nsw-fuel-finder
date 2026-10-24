@@ -1,0 +1,19 @@
+/*
+ * The direction is in the arrow and the words; the colour only repeats it.
+ * Cheaper in the accent, dearer in the warning colour: both are text colours
+ * checked for contrast in both themes.
+ */
+.down,
+.up {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.down {
+  color: var(--color-accent);
+}
+
+.up {
+  color: var(--color-warning);
+}

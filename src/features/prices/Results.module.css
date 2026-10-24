@@ -22,3 +22,10 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
+
+/* Why these stations are further than asked: said before the list, not after it. */
+.nearest {
+  padding: var(--space-3) var(--space-4);
+  border-left: var(--space-1) solid var(--color-accent);
+  background: var(--color-surface);
+}

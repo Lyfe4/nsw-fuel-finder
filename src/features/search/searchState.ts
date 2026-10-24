@@ -12,12 +12,17 @@ import { roundTo } from '../../../shared/geo';
  *   /?fuel=E10&lat=-33.87&lng=151.21&radius=10
  *   /?fuel=U91&query=2250&view=map&station=2263
  *   /?fuel=U91&query=2250&history=2263
+ *   /?fuel=U91&query=2150&radius=10&sort=distance&brand=BP&brand=Shell&old=hide
  *
  * `view` and `station` are how the results are shown, not what was
  * searched: the map or the list on a phone, and the station picked out on
  * both. They are in the URL so a shared link opens on the same station.
  * `history` is the station whose price history is open, over the results:
  * a view of its own, so opening it is a new history entry and Back closes it.
+ *
+ * `sort`, `brand` and `old` narrow and order the results on this device;
+ * the API never sees them. Like the fuel, they are kept across searches: a
+ * driver with a Shell card wants Shell in the next suburb too.
  */
 
 export const DEFAULT_FUEL: FuelTypeCode = 'U91';
@@ -46,6 +51,14 @@ export type SearchPlace =
 
 export type ResultsLayout = 'list' | 'map';
 
+/** Cheapest first (the API's own order), or nearest first. */
+export type ResultsSort = 'price' | 'distance';
+
+/** At most this many brands in a URL; there are about 60 in NSW. */
+const MAX_BRANDS = 60;
+/** A brand as FuelCheck names it: "7-Eleven", "Ampol Foodary", "Metro Fuel". */
+const BRAND = /^[\p{L}\p{N} &'.()+-]{1,40}$/u;
+
 export interface SearchState {
   fuel: FuelTypeCode;
   radius: number;
@@ -56,6 +69,11 @@ export interface SearchState {
   station: string | null;
   /** The station whose price history is open, if any. */
   history: string | null;
+  sort: ResultsSort;
+  /** Only these brands; empty means every brand. */
+  brands: string[];
+  /** Leave out prices not updated for OLD_PRICE_DAYS or more. */
+  hideOld: boolean;
 }
 
 /** Station codes are short numbers today; this is loose enough to outlive that. */
@@ -89,7 +107,15 @@ export function parseSearch(search: string): SearchState {
   const historyParam = params.get('history') ?? '';
   const history = STATION_CODE.test(historyParam) ? historyParam : null;
 
-  return { fuel, radius, place, view, station, history };
+  const sort: ResultsSort = params.get('sort') === 'distance' ? 'distance' : 'price';
+  const brands = [
+    ...new Set(params.getAll('brand').map((brand) => brand.trim().replace(/\s+/g, ' '))),
+  ]
+    .filter((brand) => BRAND.test(brand))
+    .slice(0, MAX_BRANDS);
+  const hideOld = params.get('old') === 'hide';
+
+  return { fuel, radius, place, view, station, history, sort, brands, hideOld };
 }
 
 export function serializeSearch({
@@ -99,6 +125,9 @@ export function serializeSearch({
   view,
   station,
   history,
+  sort,
+  brands,
+  hideOld,
 }: SearchState): string {
   const params = new URLSearchParams({ fuel });
   if (place?.kind === 'location') params.set('query', place.query);
@@ -107,6 +136,10 @@ export function serializeSearch({
     params.set('lng', String(place.lng));
   }
   if (radius !== DEFAULT_RADIUS_KM) params.set('radius', String(radius));
+  if (sort === 'distance') params.set('sort', 'distance');
+  // Sorted, so the same filter is always the same URL.
+  for (const brand of [...brands].sort()) params.append('brand', brand);
+  if (hideOld) params.set('old', 'hide');
   if (view === 'map') params.set('view', 'map');
   if (station) params.set('station', station);
   if (history) params.set('history', history);

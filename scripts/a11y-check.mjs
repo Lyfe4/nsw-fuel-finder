@@ -58,6 +58,16 @@ async function open(
 }
 
 async function axe(page, label) {
+  // Cards fade up as they arrive; judge contrast once they have settled.
+  // (Not the loading pulses, which run until their content arrives.)
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished),
+    ),
+  );
   await page.addScriptTag({ path: AXE });
   const violations = await page.evaluate(async () => {
     // MapLibre's canvas is drawn pixels; axe cannot judge them, and the
@@ -122,6 +132,29 @@ try {
     await page.getByRole('button', { name: 'Show 20 more' }).waitFor();
     await axe(page, `${theme}, long list with "Show more"`);
 
+    // Sort and filters: the panel open, a brand ticked, nearest first.
+    await page.getByText('Filters:').click();
+    await page.getByRole('group', { name: 'Brands' }).getByRole('checkbox').first().check();
+    await page.getByRole('combobox', { name: 'Sort' }).selectOption('distance');
+    await page.getByRole('list', { name: 'Stations, nearest first' }).waitFor();
+    await axe(page, `${theme}, filters open, a brand ticked, nearest first`);
+    await page.screenshot({ path: join(SHOTS, `filters-${theme}.png`) });
+
+    // Filters that leave nothing, and a place with nothing nearby.
+    await page.goto(`${BASE}/?fuel=U91&query=2250&brand=Costco`);
+    await page
+      .locator('p')
+      .filter({ hasText: /^None of the \d+ stations match your filters\.$/ })
+      .waitFor();
+    await axe(page, `${theme}, filters that match nothing`);
+    await page.goto(`${BASE}/?fuel=U91&query=Mount%20Hope&radius=25`);
+    await page.getByRole('heading', { level: 2, name: /^Nearest stations/ }).waitFor();
+    await axe(page, `${theme}, nearest stations beyond the distance`);
+    await page.screenshot({ path: join(SHOTS, `nearest-${theme}.png`) });
+
+    await page.goto(`${BASE}/?fuel=U91&query=2150&radius=25`);
+    await page.getByRole('button', { name: 'Show 20 more' }).waitFor();
+
     // A station's price history, its table open, and favourites with one saved.
     await page
       .getByRole('button', { name: /^Favourite/ })
@@ -165,6 +198,8 @@ try {
     ['landscape phone', { width: 812, height: 375 }, true],
     ['tablet', { width: 768, height: 1024 }, true],
     ['desktop', { width: 1280, height: 800 }, false],
+    // From 1440 px the search form has a column of its own.
+    ['very wide', { width: 1600, height: 900 }, false],
   ];
   for (const [name, viewport, mobile] of sizes) {
     for (const theme of ['light', 'dark']) {

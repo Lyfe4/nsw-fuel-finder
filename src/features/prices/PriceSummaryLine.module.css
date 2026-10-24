@@ -1,0 +1,9 @@
+.summary {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+}
+
+.summary strong {
+  font-variant-numeric: tabular-nums;
+}

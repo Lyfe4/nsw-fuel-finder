@@ -14,8 +14,6 @@ export interface SearchFormProps {
   locating: boolean;
   onFuelChange: (fuel: FuelTypeCode) => void;
   onRadiusChange: (radius: number) => void;
-  /** The distance select, so an empty result can point to it. */
-  radiusSelectRef?: Ref<HTMLSelectElement>;
   onSearchPlace: (query: string) => void;
   onUseLocation: () => void;
   placeInputRef?: Ref<HTMLInputElement>;
@@ -28,7 +26,6 @@ export function SearchForm({
   locating,
   onFuelChange,
   onRadiusChange,
-  radiusSelectRef,
   onSearchPlace,
   onUseLocation,
   placeInputRef,
@@ -98,7 +95,6 @@ export function SearchForm({
             id={radiusId}
             className={styles.select}
             value={radius}
-            ref={radiusSelectRef}
             onChange={(event) => {
               onRadiusChange(Number(event.target.value));
             }}

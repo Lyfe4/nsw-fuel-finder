@@ -4,6 +4,9 @@
  *
  *   pnpm build && pnpm screenshots            # from the committed fixtures
  *   pnpm screenshots --record                 # re-record them from production first
+ *   pnpm screenshots --record --from http://localhost:4175
+ *                                             # ...or from a local API (an API change
+ *                                             # not yet deployed, on production's data)
  *
  * FIXED DATA. /api/* is answered from scripts/screenshots/fixtures/, recorded
  * from production by --record (reads only: no API.NSW call, no Blobs write),
@@ -35,7 +38,11 @@ const PRODUCTION = 'https://nsw-fuel-finder.netlify.app';
 const SEARCH = { fuel: 'U91', query: '2250' };
 
 const { values } = parseArgs({
-  options: { record: { type: 'boolean', default: false }, base: { type: 'string' } },
+  options: {
+    record: { type: 'boolean', default: false },
+    from: { type: 'string', default: PRODUCTION },
+    base: { type: 'string' },
+  },
 });
 mkdirSync(FIXTURES, { recursive: true });
 mkdirSync(OUT, { recursive: true });
@@ -45,7 +52,7 @@ const readFixture = (name) => JSON.parse(readFileSync(fixturePath(name), 'utf8')
 
 async function record() {
   const get = async (path) => {
-    const response = await fetch(`${PRODUCTION}${path}`);
+    const response = await fetch(`${values.from}${path}`);
     if (!response.ok) throw new Error(`${path}: HTTP ${String(response.status)}`);
     return response.json();
   };
@@ -57,7 +64,7 @@ async function record() {
   writeFileSync(fixturePath('location'), `${JSON.stringify(prices, null, 2)}\n`);
   writeFileSync(fixturePath('stations'), `${JSON.stringify(stations, null, 2)}\n`);
   writeFileSync(fixturePath('history'), `${JSON.stringify(history, null, 2)}\n`);
-  console.warn(`Recorded fixtures from ${PRODUCTION} (snapshot ${prices.fetchedAt}).`);
+  console.warn(`Recorded fixtures from ${values.from} (snapshot ${prices.fetchedAt}).`);
 }
 
 if (values.record) await record();
@@ -67,6 +74,10 @@ const stations = readFixture('stations');
 const history = readFixture('history');
 const [cheapest] = prices.stations;
 const favourites = stations.stations.map((s) => ({ code: s.stationCode, name: s.name }));
+/** The brand with most stations in the scene, for the filters capture. */
+const [topBrand] = Object.entries(Object.groupBy(prices.stations, (station) => station.brand)).sort(
+  (a, b) => b[1].length - a[1].length,
+)[0];
 const now = new Date(Date.parse(prices.fetchedAt) + 7 * 60_000);
 
 const server = values.base ? null : await preview({ preview: { port: 4180, strictPort: true } });
@@ -194,8 +205,26 @@ try {
         document.getElementById('history-heading')?.scrollIntoView();
       });
       await shoot(page, `phone-${theme}-history`);
+      // Sort and filters: the panel open, one brand ticked.
+      await page.goto(url(`&brand=${encodeURIComponent(topBrand)}`));
+      await page.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
+      await page.getByText('Filters:').click();
+      await settle(page);
+      await page.evaluate(() => {
+        document.getElementById('results-heading')?.scrollIntoView();
+      });
+      await shoot(page, `phone-${theme}-filters`);
       await context.close();
     }
+  }
+
+  // Very wide (1600 px): the search form in a column of its own.
+  {
+    const { context, page } = await open({ theme: 'light', width: 1600, height: 900, scale: 1 });
+    await page.goto(url());
+    await settle(page, { map: true });
+    await shoot(page, 'wide-light-results');
+    await context.close();
   }
 
   // --- Composed images: the Open Graph card and a hero ----------------------

@@ -139,6 +139,9 @@
   --content-width: 40rem;
   /* List and map side by side (from 60rem, WIDE_SCREEN in useMediaQuery.ts). */
   --content-width-wide: 80rem;
+  /* From 90rem (1440 px): the search form in a column of its own beside them. */
+  --content-width-widest: 112rem;
+  --search-column-width: 22rem;
   /*
    * Netlify's free plan pins a "Powered by Netlify" badge to the bottom-right
    * corner of every page, and it cannot be turned off. Content that would end

@@ -6,6 +6,7 @@
  * The snapshot source lives at module scope, so a warm instance keeps its
  * parsed copy between requests.
  */
+import { createPreviousDaySource } from './previousDay';
 import { createHandler } from './router';
 import { createSnapshotSource } from './snapshotSource';
 import { blobStore, KEYS } from '../../lib/store';
@@ -13,6 +14,7 @@ import { blobStore, KEYS } from '../../lib/store';
 const now = () => Date.now();
 const store = blobStore();
 const source = createSnapshotSource({ store, now });
+const previousDay = createPreviousDaySource({ store, now });
 
 export default createHandler({
   getSnapshot: () => source.get(),
@@ -25,5 +27,6 @@ export default createHandler({
     ]);
     return { backfill, live };
   },
+  getDay: (day) => previousDay.get(day),
   now,
 });

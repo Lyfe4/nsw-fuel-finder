@@ -4,44 +4,61 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { announced, placeInput, renderApp, results } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
-import { apiError, FETCHED_AT, fakeApi, json, prices } from '@/lib/testing/fakeApi';
+import { apiError, FETCHED_AT, fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
 
 describe('result states', () => {
-  it('empty: says so, and points to the distance, which searches wider without a new history entry', async () => {
-    const api = fakeApi({
-      location: (params) =>
-        json(params.get('radius') === '25' ? prices() : prices({ stations: [] })),
+  it('nothing within the distance: the nearest stations instead, nearest first, and why', async () => {
+    const far = (code: string, name: string, km: number, cents: number) =>
+      station({ stationCode: code, name, distanceKm: km, priceCents: cents });
+    fakeApi({
+      location: () =>
+        json(
+          prices({
+            origin: { latitude: -30.09, longitude: 145.94, label: 'Bourke NSW 2840' },
+            stations: [],
+            nearest: [
+              far('7', 'Enngonia Store', 38.2, 239.9),
+              far('8', 'Brewarrina Fuel', 71.6, 229.9),
+            ],
+          }),
+        ),
     });
-    const { user, container } = renderApp('/?query=Erina');
+    const { container } = renderApp('/?query=Bourke&radius=25');
 
     expect(
-      await within(results()).findByText(
-        'No stations sell Unleaded 91 within 5 km of Erina NSW 2250.',
-      ),
+      await screen.findByRole('heading', { level: 2, name: 'Nearest stations, 38–72 km away' }),
     ).toBeInTheDocument();
-    expect(announced()).toBe('No stations found selling Unleaded 91.');
+    expect(
+      within(results()).getByText(
+        'None sell Unleaded 91 within 25 km of Bourke NSW 2840, so these are the nearest 2 that do, nearest first.',
+      ),
+    ).toBeVisible();
+    const list = screen.getByRole('list', { name: 'Stations, nearest first' });
+    expect(
+      within(list)
+        .getAllByRole('heading', { level: 3 })
+        .map((h) => h.textContent),
+    ).toEqual(['Enngonia Store', 'Brewarrina Fuel']);
+    expect(announced()).toBe(
+      'None within 25 km. The nearest 2 selling Unleaded 91 are 38 to 72 km away. Cheapest of them is 229.9 cents a litre at Brewarrina Fuel.',
+    );
+    // Ten far-flung stations need no sorting, filtering or saving sum.
+    expect(screen.queryByRole('combobox', { name: 'Sort' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Cheapest .*, average/)).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
-
-    const length = window.history.length;
-    await user.click(screen.getByRole('button', { name: 'Choose a larger distance' }));
-    const distance = screen.getByRole('combobox', { name: 'Within' });
-    expect(distance).toHaveFocus();
-    await user.selectOptions(distance, '25 km');
-    await screen.findByRole('list', { name: 'Stations, cheapest first' });
-    expect(api.calls('location').at(-1)).toMatchObject({ radius: '25' });
-    expect(window.location.search).toBe('?fuel=U91&query=Erina&radius=25');
-    expect(window.history.length).toBe(length);
   });
 
-  it('empty at the largest distance: no button to a larger one', async () => {
-    fakeApi({ location: () => json(prices({ stations: [] })) });
-    renderApp('/?query=Erina&radius=25');
+  it('nothing within 100 km either: says so, with somewhere to go next', async () => {
+    fakeApi({ location: () => json(prices({ stations: [], nearest: [] })) });
+    const { container } = renderApp('/?query=Erina&fuel=B20');
     expect(
-      await within(results()).findByText('Try another fuel, or a different place.'),
+      await within(results()).findByText(
+        'No stations sell Biodiesel 20 within 100 km of Erina NSW 2250.',
+      ),
     ).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: 'Choose a larger distance' }),
-    ).not.toBeInTheDocument();
+    expect(within(results()).getByText('Try another fuel, or a different place.')).toBeVisible();
+    expect(announced()).toBe('No stations found selling Biodiesel 20.');
+    await expectNoAxeViolations(container);
   });
 
   it('distance: offers 2, 5, 10 and 25 km, starts at 5, and keeps the choice in the URL', async () => {

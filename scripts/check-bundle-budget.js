@@ -25,11 +25,16 @@ import { gzipSync } from 'node:zlib';
 // prints larger numbers for the same files.
 //
 // Measured at 316.7 kB raw / 97.5 kB gzipped in round 5, up from 311.2 kB in
-// round 4 (dark mode, list batches). 332 kB is 5% headroom: room for a small
-// feature, not for a library slipping into the entry chunk.
-const INITIAL_JS_BUDGET = 332 * 1024;
-// Measured at 15.6 kB raw / 3.6 kB gzipped in round 5.
-const INITIAL_CSS_BUDGET = 18 * 1024;
+// round 4 (dark mode, list batches). 332 kB was 5% headroom.
+// RAISED IN ROUND 8, on purpose: 333.9 kB raw / 102.9 kB gzipped, +9.7 kB
+// (+3.0 kB gzipped) for sort, filters, the price summary, today's change,
+// directions and the clear button. All of it is on screen with the first
+// results, so lazy-loading it would only delay it. 350 kB is 5% headroom
+// again: room for a small feature, not for a library in the entry chunk.
+const INITIAL_JS_BUDGET = 350 * 1024;
+// Measured at 15.6 kB raw / 3.6 kB gzipped in round 5. Raised in round 8 for
+// the same features: 20.6 kB raw / 4.5 kB gzipped.
+const INITIAL_CSS_BUDGET = 22 * 1024;
 // The map chunk: MapLibre itself, measured at 1,016.0 kB raw / 273.1 kB
 // gzipped (MapLibre 6.14). It cannot be split further.
 const LAZY_CHUNK_BUDGET = 1100 * 1024;

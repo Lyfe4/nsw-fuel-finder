@@ -42,3 +42,13 @@
     min-height: 0;
   }
 }
+
+/*
+ * From 1600 px the list stops growing at a comfortable measure and the map
+ * takes the rest: more map is useful, longer lines of station text are not.
+ */
+@media (min-width: 100rem) {
+  .columns {
+    grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
+  }
+}

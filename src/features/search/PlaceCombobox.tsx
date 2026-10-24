@@ -62,30 +62,51 @@ export function PlaceCombobox({ value, onValueChange, onSelect, inputRef }: Plac
       <p id={hintId} className={styles.hint}>
         For example Erina, Bondi Beach or 2250
       </p>
-      <input
-        className={styles.input}
-        {...getInputProps({
-          ...(inputRef ? { ref: inputRef } : {}),
-          onKeyDown: (event) => {
-            // Downshift swallows Enter whenever its menu is open, even with
-            // nothing highlighted - so typing "Erina" and pressing Enter would
-            // do nothing. With no suggestion highlighted, Enter belongs to the
-            // form and submits what was typed - and the list closes, or it
-            // would sit over the results it just asked for.
-            if (event.key === 'Enter' && highlightedIndex < 0) {
-              (
-                event.nativeEvent as KeyboardEvent & { preventDownshiftDefault?: boolean }
-              ).preventDownshiftDefault = true;
+      <div className={styles.inputWrap}>
+        <input
+          className={styles.input}
+          {...getInputProps({
+            ...(inputRef ? { ref: inputRef } : {}),
+            onKeyDown: (event) => {
+              // Downshift swallows Enter whenever its menu is open, even with
+              // nothing highlighted - so typing "Erina" and pressing Enter would
+              // do nothing. With no suggestion highlighted, Enter belongs to the
+              // form and submits what was typed - and the list closes, or it
+              // would sit over the results it just asked for.
+              if (event.key === 'Enter' && highlightedIndex < 0) {
+                (
+                  event.nativeEvent as KeyboardEvent & { preventDownshiftDefault?: boolean }
+                ).preventDownshiftDefault = true;
+                closeMenu();
+              }
+            },
+            'aria-describedby': hintId,
+            autoComplete: 'off',
+            autoCapitalize: 'words',
+            spellCheck: false,
+            enterKeyHint: 'search',
+          })}
+        />
+        {/*
+         * Escape clears too (the second press), but nobody on a phone knows
+         * that. Only there when there is something to clear; focus goes back to
+         * the box, ready to type, since the button itself is about to go.
+         */}
+        {value !== '' && (
+          <button
+            type="button"
+            className={styles.clear}
+            aria-label="Clear suburb or postcode"
+            onClick={() => {
+              document.getElementById(inputId)?.focus();
               closeMenu();
-            }
-          },
-          'aria-describedby': hintId,
-          autoComplete: 'off',
-          autoCapitalize: 'words',
-          spellCheck: false,
-          enterKeyHint: 'search',
-        })}
-      />
+              onValueChange('');
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
+      </div>
       <ul className={showList ? styles.list : styles.listClosed} {...getMenuProps()}>
         {showList &&
           suggestions.map((item, index) => (

@@ -1,0 +1,11 @@
+/* Looks like "Show on map" beside it, and is as easy to hit (WCAG 2.5.8). */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-size);
+}
+
+.icon {
+  text-decoration: none;
+}

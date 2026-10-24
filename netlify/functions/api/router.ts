@@ -1,12 +1,14 @@
 import { ApiError, errorResponse, json } from './http';
 import { resolvePlace } from './places';
-import { searchNearby, searchPlace } from './search';
+import { searchNearby, searchNearest, searchPlace, type YesterdayPrices } from './search';
 import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
 import { historyBody, parseStationCode, parseStationCodes, stationsBody } from './stations';
 import { statusReport } from './status';
 import { parseFuelType, parseLocationQuery, parseNearbyQuery } from './validate';
+import { addDays } from '../../lib/history/stationHistory';
 import { suggestPlaces } from '../../lib/places/gazetteer';
 import { STALE_AFTER_MS } from '../../lib/snapshot/format';
+import { sydneyDay } from '../../lib/upstream/time';
 
 import type {
   PlaceSuggestionsResponse,
@@ -14,6 +16,8 @@ import type {
   SearchOrigin,
   StationPrice,
 } from '../../../shared/api';
+import type { FuelTypeCode } from '../../../shared/fuelTypes';
+import type { HistoryDay } from '../../lib/snapshot/history';
 
 /*
  * CACHING. Answers come from a snapshot that changes every 30 minutes and cost
@@ -67,6 +71,8 @@ export interface HandlerDeps {
   getSnapshot: () => Promise<LoadedSnapshot>;
   /** One station's two history files (published, and our own); each null when absent. */
   getHistory: (code: string) => Promise<{ backfill: unknown; live: unknown }>;
+  /** A finished day's prices (history/v1/DAY), or null; never throws. */
+  getDay: (day: string) => Promise<HistoryDay['fuels'] | null>;
   now: () => number;
 }
 
@@ -79,9 +85,10 @@ function cached(body: unknown, cache: { browser: string; cdn: string }): Respons
 function respond(
   { snapshot }: LoadedSnapshot,
   now: number,
-  fuelType: string,
+  fuelType: FuelTypeCode,
   origin: SearchOrigin,
   stations: StationPrice[],
+  yesterday: YesterdayPrices | undefined,
 ): Response {
   const body: PricesResponse = {
     fuelType,
@@ -89,6 +96,8 @@ function respond(
     stale: now - Date.parse(snapshot.fetchedAt) > STALE_AFTER_MS,
     origin,
     stations,
+    nearest:
+      stations.length === 0 ? searchNearest(snapshot.stations, origin, fuelType, yesterday) : [],
   };
   const response = json(body, 200, CACHE.browser);
   response.headers.set('Netlify-CDN-Cache-Control', CACHE.cdn);
@@ -148,17 +157,32 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
   if (route === 'nearby') {
     const query = parseNearbyQuery(params);
     const loaded = await deps.getSnapshot();
+    const yesterday = await yesterdayFor(loaded, query.fuelType, deps);
     const origin = { latitude: query.latitude, longitude: query.longitude };
-    const stations = searchNearby(loaded.snapshot.stations, origin, query.radiusKm, query.fuelType);
-    return respond(loaded, deps.now(), query.fuelType, { ...origin, label: null }, stations);
+    const { stations: all } = loaded.snapshot;
+    const stations = searchNearby(all, origin, query.radiusKm, query.fuelType, yesterday);
+    const where = { ...origin, label: null };
+    return respond(loaded, deps.now(), query.fuelType, where, stations, yesterday);
   }
 
   const query = parseLocationQuery(params);
   const loaded = await deps.getSnapshot();
   const place = resolvePlace(loaded.places, query);
-  const stations = searchPlace(loaded.snapshot.stations, place, query.radiusKm, query.fuelType);
+  const yesterday = await yesterdayFor(loaded, query.fuelType, deps);
+  const { stations: all } = loaded.snapshot;
+  const stations = searchPlace(all, place, query.radiusKm, query.fuelType, yesterday);
   const origin = { latitude: place.latitude, longitude: place.longitude, label: place.label };
-  return respond(loaded, deps.now(), query.fuelType, origin, stations);
+  return respond(loaded, deps.now(), query.fuelType, origin, stations, yesterday);
+}
+
+/** One fuel's prices on the Sydney day before the snapshot's, for "since yesterday". */
+async function yesterdayFor(
+  { snapshot }: LoadedSnapshot,
+  fuel: FuelTypeCode,
+  deps: HandlerDeps,
+): Promise<YesterdayPrices | undefined> {
+  const day = addDays(sydneyDay(new Date(snapshot.fetchedAt)), -1);
+  return (await deps.getDay(day))?.[fuel];
 }
 
 export function createHandler(deps: HandlerDeps): (request: Request) => Promise<Response> {

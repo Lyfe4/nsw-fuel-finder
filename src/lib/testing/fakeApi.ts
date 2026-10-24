@@ -49,6 +49,7 @@ export function station(overrides: Partial<StationPrice> = {}): StationPrice {
     distanceKm: 0.4,
     priceCents: 229.9,
     priceUpdatedAt: '2026-10-23T00:30:00Z',
+    changeCents: null,
     ...overrides,
   };
 }
@@ -70,6 +71,7 @@ export function prices(overrides: Partial<PricesResponse> = {}): PricesResponse 
         priceCents: 231.9,
       }),
     ],
+    nearest: [],
     ...overrides,
   };
 }

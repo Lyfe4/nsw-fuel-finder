@@ -5,6 +5,7 @@ import {
   roundPosition,
   serializeSearch,
   type ResultsLayout,
+  type ResultsSort,
   type SearchState,
 } from './searchState';
 
@@ -89,6 +90,23 @@ export function useSearchState() {
     );
   }, []);
 
+  // Sort and filters adjust the results on screen, like the fuel: replaced.
+  const setSort = useCallback((sort: ResultsSort) => {
+    navigate({ ...current(), sort }, 'replace');
+  }, []);
+
+  const setBrands = useCallback((brands: string[]) => {
+    navigate({ ...current(), brands }, 'replace');
+  }, []);
+
+  const setHideOld = useCallback((hideOld: boolean) => {
+    navigate({ ...current(), hideOld }, 'replace');
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    navigate({ ...current(), brands: [], hideOld: false }, 'replace');
+  }, []);
+
   // Replace, not push: Back undoes a search, not every station looked at or
   // every flip between list and map (see docs/decisions.md).
   const setView = useCallback((view: ResultsLayout) => {
@@ -125,6 +143,10 @@ export function useSearchState() {
     historyHref,
     setFuel,
     setRadius,
+    setSort,
+    setBrands,
+    setHideOld,
+    clearFilters,
     searchLocation,
     searchNearby,
     setView,

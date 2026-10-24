@@ -24,6 +24,12 @@ export interface StationPrice {
   priceCents: number;
   /** When the station reported this price, ISO 8601 UTC. */
   priceUpdatedAt: string;
+  /**
+   * Cents a litre since the station's last price yesterday (Sydney time):
+   * -2 is two cents cheaper. 0 when unchanged; null when we have no price for
+   * it yesterday (a new station, or yesterday's history could not be read).
+   */
+  changeCents: number | null;
 }
 
 /** The point distances are measured from. */
@@ -48,7 +54,18 @@ export interface PricesResponse {
   origin: SearchOrigin;
   /** Cheapest first; ties broken by distance, then name. */
   stations: StationPrice[];
+  /**
+   * Only when `stations` is empty: the NEAREST_COUNT nearest stations selling
+   * this fuel, at any distance up to NEAREST_MAX_KM, nearest first. A field
+   * of its own, so a page still running older code ignores it and shows its
+   * empty state, rather than listing stations 60 km away as "within 5 km".
+   */
+  nearest: StationPrice[];
 }
+
+/** How many stations `nearest` lists, and how far it looks. */
+export const NEAREST_COUNT = 10;
+export const NEAREST_MAX_KM = 100;
 
 /** GET /api/places?query=... */
 export interface PlaceSuggestionsResponse {
