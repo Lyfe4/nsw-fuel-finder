@@ -1,0 +1,221 @@
+{
+  "fuelType": "U91",
+  "fetchedAt": "2026-10-24T05:30:35.326Z",
+  "stale": false,
+  "origin": {
+    "latitude": -33.39645713913043,
+    "longitude": 151.32466334347825,
+    "label": "2250"
+  },
+  "stations": [
+    {
+      "stationCode": "20140",
+      "name": "Metro Petroleum Gosford",
+      "brand": "Metro Fuel",
+      "address": "57 CENTRAL COAST HWY, WEST GOSFORD NSW 2250",
+      "latitude": -33.42695,
+      "longitude": 151.32893,
+      "distanceKm": 3.41,
+      "priceCents": 233.9,
+      "priceUpdatedAt": "2026-10-23T10:21:13Z"
+    },
+    {
+      "stationCode": "229",
+      "name": "7-Eleven Gosford West",
+      "brand": "7-Eleven",
+      "address": "55 Central Coast Highway, Gosford West NSW 2250",
+      "latitude": -33.427077,
+      "longitude": 151.33001,
+      "distanceKm": 3.44,
+      "priceCents": 235.9,
+      "priceUpdatedAt": "2026-10-20T05:48:29Z"
+    },
+    {
+      "stationCode": "18323",
+      "name": "Ampol Foodary Gosford West",
+      "brand": "Ampol Foodary",
+      "address": "283 MANNS RD, WEST GOSFORD NSW 2250",
+      "latitude": -33.4166261,
+      "longitude": 151.3242562,
+      "distanceKm": 2.24,
+      "priceCents": 236.9,
+      "priceUpdatedAt": "2026-10-24T01:27:28Z"
+    },
+    {
+      "stationCode": "17799",
+      "name": "United Petroleum Wyoming",
+      "brand": "United",
+      "address": "459 Pacific Hwy, WYOMING NSW 2250",
+      "latitude": -33.4103967,
+      "longitude": 151.3477896,
+      "distanceKm": 2.65,
+      "priceCents": 236.9,
+      "priceUpdatedAt": "2026-10-23T21:45:19Z"
+    },
+    {
+      "stationCode": "2263",
+      "name": "Ampol Foodary Wyoming",
+      "brand": "Ampol Foodary",
+      "address": "465 Pacific Hwy, WYOMING NSW 2250",
+      "latitude": -33.409462,
+      "longitude": 151.349979,
+      "distanceKm": 2.76,
+      "priceCents": 236.9,
+      "priceUpdatedAt": "2026-10-23T20:17:28Z"
+    },
+    {
+      "stationCode": "382",
+      "name": "BP Wyoming",
+      "brand": "BP",
+      "address": "481 Pacific Highway, Wyoming NSW 2250",
+      "latitude": -33.408004,
+      "longitude": 151.351119,
+      "distanceKm": 2.77,
+      "priceCents": 236.9,
+      "priceUpdatedAt": "2026-10-23T20:36:01Z"
+    },
+    {
+      "stationCode": "20653",
+      "name": "OTR Kariong",
+      "brand": "Shell",
+      "address": "6-8 CENTRAL COAST HWY, KARIONG NSW 2250",
+      "latitude": -33.43436375,
+      "longitude": 151.2963821,
+      "distanceKm": 4.97,
+      "priceCents": 238.8,
+      "priceUpdatedAt": "2026-10-22T02:00:54Z"
+    },
+    {
+      "stationCode": "819",
+      "name": "Ampol Foodary Gosford West (East Bound)",
+      "brand": "Ampol Foodary",
+      "address": "69-71 Pacific Highway, Gosford West NSW 2250",
+      "latitude": -33.427346,
+      "longitude": 151.321314,
+      "distanceKm": 3.45,
+      "priceCents": 238.9,
+      "priceUpdatedAt": "2026-10-23T03:37:26Z"
+    },
+    {
+      "stationCode": "874",
+      "name": "Ampol Foodary Gosford West (West Bound)",
+      "brand": "Ampol Foodary",
+      "address": "30A Pacific Hwy, Gosford West NSW 2250",
+      "latitude": -33.427704,
+      "longitude": 151.319141,
+      "distanceKm": 3.51,
+      "priceCents": 238.9,
+      "priceUpdatedAt": "2026-10-23T03:42:25Z"
+    },
+    {
+      "stationCode": "18217",
+      "name": "EG Ampol Lisarow",
+      "brand": "EG Ampol",
+      "address": "900 Pacific Highway, LISAROW NSW 2250",
+      "latitude": -33.3839775,
+      "longitude": 151.3632246,
+      "distanceKm": 3.84,
+      "priceCents": 238.9,
+      "priceUpdatedAt": "2026-10-24T03:17:26Z"
+    },
+    {
+      "stationCode": "177",
+      "name": "7-Eleven Lisarow",
+      "brand": "7-Eleven",
+      "address": "911 Pacific Highway, Lisarow NSW 2250",
+      "latitude": -33.385396,
+      "longitude": 151.365375,
+      "distanceKm": 3.97,
+      "priceCents": 238.9,
+      "priceUpdatedAt": "2026-10-24T02:18:14Z"
+    },
+    {
+      "stationCode": "20193",
+      "name": "Caltex East Gosford",
+      "brand": "Caltex",
+      "address": "42 VICTORIA ST, EAST GOSFORD NSW 2250",
+      "latitude": -33.43804611,
+      "longitude": 151.35330364,
+      "distanceKm": 5.33,
+      "priceCents": 239.9,
+      "priceUpdatedAt": "2026-10-19T00:21:14Z"
+    },
+    {
+      "stationCode": "20621",
+      "name": "BP Somersby Truck Stop",
+      "brand": "BP",
+      "address": "51 SMITHS RD, SOMERSBY NSW 2250",
+      "latitude": -33.35715536,
+      "longitude": 151.28786829,
+      "distanceKm": 5.55,
+      "priceCents": 239.9,
+      "priceUpdatedAt": "2026-10-20T00:47:30Z"
+    },
+    {
+      "stationCode": "1401",
+      "name": "Caltex Peats Ridge",
+      "brand": "Caltex",
+      "address": "1112 Peatsridge Rd, Peats Ridge NSW 2250",
+      "latitude": -33.316296,
+      "longitude": 151.23423,
+      "distanceKm": 12.25,
+      "priceCents": 239.9,
+      "priceUpdatedAt": "2026-10-16T03:02:34Z"
+    },
+    {
+      "stationCode": "27",
+      "name": "Shell Reddy Express Erina",
+      "brand": "Reddy Express",
+      "address": "211 The Entrance Rd (Cnr Bonnal Rd), Erina NSW 2250",
+      "latitude": -33.435578,
+      "longitude": 151.385108,
+      "distanceKm": 7.1,
+      "priceCents": 240.8,
+      "priceUpdatedAt": "2026-10-22T01:15:51Z"
+    },
+    {
+      "stationCode": "17249",
+      "name": "Ampol Foodary Erina",
+      "brand": "Ampol Foodary",
+      "address": "155 The Entrance Rd, ERINA NSW 2250",
+      "latitude": -33.4382424,
+      "longitude": 151.3793547,
+      "distanceKm": 6.88,
+      "priceCents": 240.9,
+      "priceUpdatedAt": "2026-10-19T01:12:26Z"
+    },
+    {
+      "stationCode": "171",
+      "name": "7-Eleven Erina",
+      "brand": "7-Eleven",
+      "address": "214 The Entrance Road, Erina NSW 2250",
+      "latitude": -33.434942,
+      "longitude": 151.387952,
+      "distanceKm": 7.27,
+      "priceCents": 240.9,
+      "priceUpdatedAt": "2026-10-23T00:44:46Z"
+    },
+    {
+      "stationCode": "1815",
+      "name": "Independent Kulnura",
+      "brand": "Independent",
+      "address": "1154 George Downes Dr, KULNURA NSW 2250",
+      "latitude": -33.2201883,
+      "longitude": 151.2146419,
+      "distanceKm": 22.11,
+      "priceCents": 249.9,
+      "priceUpdatedAt": "2026-10-21T00:01:03Z"
+    },
+    {
+      "stationCode": "17987",
+      "name": "Kulnura General Store",
+      "brand": "Metro Fuel",
+      "address": "Kulnura LPO 4 Greta Rd, KULNURA NSW 2250",
+      "latitude": -33.2249339,
+      "longitude": 151.2226611,
+      "distanceKm": 21.3,
+      "priceCents": 254.9,
+      "priceUpdatedAt": "2026-10-15T04:41:17Z"
+    }
+  ]
+}

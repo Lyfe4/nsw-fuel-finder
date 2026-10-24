@@ -1,0 +1,93 @@
+{
+  "fetchedAt": "2026-10-24T05:30:35.326Z",
+  "stale": false,
+  "stations": [
+    {
+      "stationCode": "18323",
+      "name": "Ampol Foodary Gosford West",
+      "brand": "Ampol Foodary",
+      "address": "283 MANNS RD, WEST GOSFORD NSW 2250",
+      "latitude": -33.4166261,
+      "longitude": 151.3242562,
+      "prices": {
+        "U91": {
+          "priceCents": 236.9,
+          "updatedAt": "2026-10-24T01:27:28Z"
+        },
+        "E10": {
+          "priceCents": 234.9,
+          "updatedAt": "2026-10-24T01:27:28Z"
+        },
+        "P98": {
+          "priceCents": 263.9,
+          "updatedAt": "2026-10-24T01:27:28Z"
+        },
+        "P95": {
+          "priceCents": 253.9,
+          "updatedAt": "2026-10-24T01:27:28Z"
+        },
+        "PDL": {
+          "priceCents": 290.9,
+          "updatedAt": "2026-10-23T17:52:26Z"
+        }
+      }
+    },
+    {
+      "stationCode": "20140",
+      "name": "Metro Petroleum Gosford",
+      "brand": "Metro Fuel",
+      "address": "57 CENTRAL COAST HWY, WEST GOSFORD NSW 2250",
+      "latitude": -33.42695,
+      "longitude": 151.32893,
+      "prices": {
+        "U91": {
+          "priceCents": 233.9,
+          "updatedAt": "2026-10-23T10:21:13Z"
+        },
+        "E10": {
+          "priceCents": 231.9,
+          "updatedAt": "2026-10-23T19:00:07Z"
+        },
+        "P98": {
+          "priceCents": 257.9,
+          "updatedAt": "2026-10-20T09:26:48Z"
+        },
+        "P95": {
+          "priceCents": 245.9,
+          "updatedAt": "2026-10-20T09:26:48Z"
+        },
+        "PDL": {
+          "priceCents": 283.9,
+          "updatedAt": "2026-10-23T19:00:07Z"
+        }
+      }
+    },
+    {
+      "stationCode": "229",
+      "name": "7-Eleven Gosford West",
+      "brand": "7-Eleven",
+      "address": "55 Central Coast Highway, Gosford West NSW 2250",
+      "latitude": -33.427077,
+      "longitude": 151.33001,
+      "prices": {
+        "U91": {
+          "priceCents": 235.9,
+          "updatedAt": "2026-10-20T05:48:29Z"
+        },
+        "E10": {
+          "priceCents": 233.9,
+          "updatedAt": "2026-10-20T05:48:29Z"
+        },
+        "P98": {
+          "priceCents": 261.9,
+          "updatedAt": "2026-10-20T05:48:29Z"
+        },
+        "PDL": {
+          "priceCents": 289.9,
+          "updatedAt": "2026-10-24T03:45:20Z"
+        }
+      }
+    }
+  ],
+  "missing": []
+}
