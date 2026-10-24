@@ -399,6 +399,8 @@ The closed control is styled with tokens; the open list is the OS's.
 
 ### Phase 1: no router; URL search params instead
 
+> **Revisited in round 6 for the history view: still no router. See "No router: history= in the URL".**
+
 **Decision:** no TanStack Router. A small `useSearchState` hook reads and
 writes `URLSearchParams`:
 
@@ -553,6 +555,8 @@ changes. jsdom cannot compute contrast, so axe's contrast rule is off in
 tests and the token test covers it instead.
 
 ### Empty results offer "Search within 25 km"
+
+> **Replaced in round 6 by the distance select. See "Distance steps".**
 
 **Decision:** when nothing sells the fuel within the radius, the empty state
 offers one button that widens the radius to 25 km. The radius is stored in
@@ -1121,3 +1125,198 @@ initial JS was 311.2 kB; this round added 5.5 kB (dark mode, the batches).
   desktop) for sideways scrolling, with screenshots to look over.
 - **Screen readers:** checked through Chromium's accessibility tree. Not
   checked with NVDA, VoiceOver or TalkBack in this round.
+
+## 2026-10-24: Round 6 (Phase 4 extras)
+
+### Distance steps: 2, 5, 10 and 25 km, default 5
+
+**Measured** on 24 Oct across all 637 NSW and ACT postcodes, Unleaded 91,
+counting stations within each distance of the place:
+
+| Radius | Empty | Under 3 | Median | Over 50 |
+| ------ | ----- | ------- | ------ | ------- |
+| 2 km   | 132   | 349     | 2      | 0       |
+| 3 km   | 105   | 283     | 3      | 0       |
+| 5 km   | 70    | 231     | 6      | 28      |
+| 10 km  | 44    | 167     | 13     | 191     |
+| 15 km  | 40    | 140     | 23     | 250     |
+| 25 km  | 19    | 93      | 60     | 327     |
+
+**Decision:** a native `<select>` labelled "Within", beside Fuel, offering
+2, 5, 10 and 25 km, kept in the URL with `replaceState` (like fuel, it adjusts a
+search rather than starting one). Default stays 5 km. It replaces the "Search
+within 25 km" buttons; an empty result now says so and offers "Choose a larger
+distance", which moves focus to the select.
+**Why these steps:** 2 km is for a city centre, where 5 km can mean 60
+stations; it is empty for a fifth of postcodes, so it is not the default. 10
+and 25 are for the country. 15 km was left out: it finds barely fewer empty
+results than 10 (40 postcodes against 44) while doubling the median list. A
+URL radius that is not a step (an old link with `radius=7`) becomes the next
+step up, so it still covers what was asked.
+**Why a select:** four real choices, a picker every phone already has, and
+the same pattern as Fuel. A slider would have offered 25 positions of which
+four are useful, and is fiddly with a thumb and with arrow keys.
+
+### Favourites: on this device, priced through `/api/stations`
+
+**Decision:**
+
+- Saved in `localStorage` (`fuel-finder:favourites:v1`) as `{ code, name }`, at
+  most 50, with the theme's pattern: every access in a `try`, junk ignored,
+  another tab's change picked up through the `storage` event.
+- A new `GET /api/stations?codes=…` answers from the snapshot the API already
+  holds: every fuel each station sells, plus the codes it no longer lists.
+  Codes are sorted, so the same favourites share one edge cache entry.
+- A "Favourites" panel (a native `<details>`) above the results, cheapest
+  first for the chosen fuel. It is open when there is no search and closed
+  once there is one, so it never pushes results down on a phone.
+- The star is a toggle button named "Favourite, Metro Gosford", with
+  `aria-pressed` for the state.
+
+**Why an endpoint:** the search results only hold stations near the current
+search, and favourites can be anywhere. Searching around each one would be a
+request per favourite. Looking stations up by code in the snapshot already in
+memory is one cached request and no API.NSW call.
+**Why that name, not "Add Metro Gosford to favourites":** a toggle's name
+must stay the same while `aria-pressed` carries the state. "Add … to
+favourites, pressed" reads as the opposite of what is true. The visible word
+is "Favourite", so the name also contains the label (WCAG 2.5.3).
+**Gone stations:** stored with their name, so "FuelCheck no longer lists this
+station" can still say which one, with Remove beside it. Removing moves focus to
+the next row's Remove, or the panel's summary.
+
+### Price history before our own: FuelCheck's monthly files
+
+**Evaluated:**
+
+- **Format.** One file a month on data.nsw.gov.au (dataset `fuel-check`), as
+  XLSX or CSV depending on the month, 3-17 MB, about 150,000 rows. Columns:
+  station name, address, suburb, postcode, brand, fuel, time, price. **One row
+  per price change, not per day.** The newest file is September 2026,
+  published 14 Oct; October will appear in early November.
+- **Time zone.** Sydney wall-clock. A change our snapshot recorded at
+  04:40:07 UTC on 17 Sep is 14:40:07 in the file. XLSX stores Excel serial days,
+  and CSV stores "2026-03-01 00:05:26".
+- **Matching.** The files have no station code. Matched to our snapshot's
+  stations by normalised address, then by name within the postcode; anything
+  ambiguous is left out rather than guessed. July to September 2026: 2,490 of
+  2,529 stations and **99.2% of changes** matched. The rest are mostly stations
+  since closed or renamed.
+- **Licence.** CC BY-SA, version not stated on the portal. Obligations: credit
+  the source (title, author, link, licence), say it was changed, and share
+  adaptations under the same licence. Our daily low/high/last is an
+  adaptation, and showing it on a public site is sharing it. So the history
+  view and the site footer credit "NSW FuelCheck price history (NSW Fair
+  Trading)" with links, say we worked out the daily figures, and license them
+  under CC BY-SA 4.0. `/api/history` carries the same line in a `licence`
+  field. The app's code stays MIT; the licence covers the data.
+
+**Decision:** backfill the last three published months (1 Jul to 30 Sep 2026) with `pnpm history:backfill` (`scripts/build-history-backfill.mjs`):
+
+- it finds the files through the CKAN API by name, so it is reproducible and
+  rerunnable when the next month appears;
+- it reads the month before the window too, only for the price each station
+  opened on;
+- each day's row is [low, high, last], counting the price in force at
+  midnight, so a quiet day still has a row;
+- `--upload` writes one file per station to `history/v2/backfill/{code}` in
+  Blobs (done for 2,393 stations: about 14 kB each, 1 min 44 s, no API.NSW
+  calls).
+
+The parsing is in `scripts/lib/fuelcheck-history.mjs`, tested from
+`netlify/lib/history/backfill.test.ts` against the schema the API reads. XLSX
+is unzipped with fflate, a small dependency-free dev dependency; the sheet XML
+is read directly.
+**Known gap:** 1 to 22 October has no data until FuelCheck publishes October.
+The chart shades it "No data" and the text names the dates. Rerunning the
+script then fills it.
+
+### History storage: per-station files, folded a slice at a time
+
+**Decision:** the chart reads two small files per station:
+`history/v2/backfill/{code}` (published, written once) and
+`history/v2/live/{code}` (ours). Each scheduled run folds finished days from
+our existing daily files (`history/v1/DAY`) into the next 200 stations' live
+files, tracking progress in `history/v2/progress`. With about 2,400 stations
+and a run every 30 minutes, every station has yesterday by around 6 am Sydney
+time. Later runs find nothing to do for one small read. `/api/history` reads
+the two files (eventual consistency: they change once a day), takes the last
+120 days, and joins them, with the published history winning for any day
+both have (it has every change; ours has what a 30-minute snapshot saw).
+**Why not a monthly roll-up:** one file per month holds every station.
+Reading three or four months for one chart is megabytes, not kilobytes.
+**Why slices:** folding all 2,400 stations in one run is about 4,800 Blobs
+operations inside a scheduled function's 30-second limit, on the run that also
+fetches prices. A slice is about 400, 16 at a time. The fold runs after the
+snapshot is safely written and can never fail the run. A missed slice is
+picked up next time, and a station that fell behind catches up at most 14
+days at once.
+**Why two files, not one:** the job and the backfill script never write the
+same key, so neither can overwrite the other. The CC BY-SA data also stays
+visibly separate from ours.
+**Deployment reality:** Netlify re-invokes a failed scheduled run, so two runs
+can overlap. Both would read the same progress and write the same rows for the
+same slice: the fold is idempotent, so the worst case is the work done twice.
+
+### The chart: hand-drawn SVG, a slider for the keyboard
+
+**Decision:** a 2px line for each day's last price over a light band from
+low to high, in the accent colour, drawn as SVG at the container's real
+width. Gaps break the line and are shaded "No data". Around it:
+
+- a sentence first: "Lowest in the last 116 days: 157.9 cents a litre on Wed,
+  1 July. Highest: 246.9 on Tue, 22 Sept.";
+- where each stretch came from, and which days are missing;
+- every day in a `<table>` inside a closed `<details>`.
+
+With fewer than three days the chart is left out and the words and table carry
+it. The crosshair follows the pointer and the arrow keys, and it shows only
+while the chart is in use: parked on the last day it read as an extra axis
+line. Lazy-loaded: 8.4 kB raw, 3.3 kB gzipped, budget 16 kB.
+**Why `role="slider"`:** moving a crosshair a day at a time with the arrow
+keys, Home and End is a slider, and screen readers already know how to say
+one. Its `aria-valuetext` is the day's prices ("Sat, 24 Oct: last 241.9, low
+241.9, high 241.9 cents a litre"), so the visible readout below is not a live
+region as well. A focusable `role="group"` with key handlers was tried first,
+and the jsx-a11y lint rules rightly refused it.
+**Why no chart library:** one series and a band. The libraries considered
+(Recharts, Chart.js, uPlot) are 45-100 kB gzipped for what is about 200
+lines of SVG here, and they would need their own accessibility work anyway.
+
+### No router: `history=` in the URL
+
+**Decision:** a station's history opens over the results from a link on its
+name (in the list, the map's card and the favourites), at
+`?…&history=972`. It is pushed, so Back closes it, while every other change
+on the screen still replaces. The results and the map stay mounted
+underneath, hidden, so closing returns to the same scroll position and the
+same map. "Back to results" goes Back when this page opened the view, and
+replaces when it came from a shared link. Focus goes to the view's heading on
+opening, and back to the station's link on closing.
+**Why no router:** this is the "revisit if Phase 4 adds a real second screen"
+from Phase 1. The history view is linkable, shareable and reached with Back,
+which is everything a router would give. It is still one search screen with
+one overlay, so a router would add a dependency and route files for one URL
+parameter.
+**Found in the browser:** the favourites panel links to the same station, and
+focus was returned to that copy, inside the closed `<details>`, where it
+cannot be focused. jsdom has no layout and passed. Links in a closed
+`<details>` are now skipped, and a test that fails without the fix covers it.
+**Station links:** the link's name is the station's own, because it sits in
+the station's heading and anything added would be read as part of every
+heading. Its destination is a shared `aria-describedby`: "Metro Gosford,
+link, opens its price history".
+
+### Bundle sizes, round 6
+
+| Payload            | Round 5 | Round 6 | Budget |
+| ------------------ | ------- | ------- | ------ |
+| Initial JS         | 316.7   | 324.2   | 332    |
+| Initial CSS        | 15.6    | 17.1    | 18     |
+| History view chunk | n/a     | 8.4     | 16     |
+| Map chunk          | 1,016.0 | 1,015.9 | 1,100  |
+| MapLibre worker    | 496.4   | 496.4   | 540    |
+
+The initial bundle grew 7.5 kB: the distance select, favourites, the history
+link and the lazy wrapper. It is still inside the round 5 budget, which was not
+raised.
