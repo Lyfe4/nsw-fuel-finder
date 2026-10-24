@@ -42,6 +42,54 @@
   status = 200
   force = true
 
+# SECURITY HEADERS, on every response. Checked by netlify/lib/securityHeaders.test.ts
+# (the inline script's hash still matches index.html) and in a real browser by
+# `pnpm check:browser`, which fails on any CSP violation in the console.
+#
+# Content-Security-Policy, directive by directive:
+#   default-src 'self'      Anything not named below: this origin only.
+#   script-src              Our own bundle, plus two inline scripts by exact
+#                           SHA-256 hash, never 'unsafe-inline' or 'unsafe-eval':
+#                             1. index.html's first-paint theme script;
+#                             2. the script inside Netlify's free-plan badge (its
+#                                iframe is srcdoc, so it inherits this policy).
+#                           Netlify's badge loader itself is same-origin
+#                           (/.netlify/scripts/hud), so 'self' covers it. If
+#                           Netlify changes the badge, its hash changes, the
+#                           badge stops drawing, and check:browser fails on
+#                           the console violation; update hash 2 from it.
+#   style-src 'unsafe-inline'  The app needs no inline styles (React and
+#                           MapLibre style elements through the CSSOM, which
+#                           CSP does not govern). Netlify's badge does: its
+#                           stylesheet embeds the window's width and height,
+#                           so its hash differs at every window size and cannot
+#                           be listed. Inline styles can't run code; scripts
+#                           stay locked down. Measured, not assumed: see
+#                           docs/decisions.md, "Security headers".
+#   img-src                 Our icons; data: and blob: for images MapLibre
+#                           decodes in memory; OpenFreeMap's sprites.
+#   connect-src             /api, and OpenFreeMap's style, tiles, fonts and
+#                           sprites (fetched by the page and by MapLibre's worker).
+#   worker-src 'self'       MapLibre's worker is our own hashed asset, loaded as a
+#                           module worker from this origin (setWorkerUrl in
+#                           src/features/map/mapStyle.ts). MapLibre only falls
+#                           back to blob: workers for a cross-origin worker URL.
+#   frame-ancestors 'none'  Nobody may frame the site (clickjacking).
+#   object-src, base-uri, form-action: the usual locks.
+# Referrer-Policy: other sites (OpenFreeMap, the credited sources) get our
+#   origin, never the page URL, whose query carries a search or rounded position.
+# Permissions-Policy: geolocation for this origin only ("Use my location");
+#   every other powerful feature off.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'sha256-8leFtmYHobOnJ2TTLagqipvI3y5hDqTTeH8jSY8hBhA=' 'sha256-BkKP2XO6WOEc3kXOiLr2ZoY83hamalKjPY9xBcbXVuw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self'; child-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Cross-Origin-Opener-Policy = "same-origin"
+
 # Vite names every built asset after a hash of its contents, so a file at a
 # given /assets/ URL never changes. Netlify's default (max-age=0,
 # must-revalidate) makes a returning visitor ask about each one again; the

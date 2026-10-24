@@ -31,8 +31,17 @@ function check(name, ok, detail = '') {
 }
 
 /** A page with the device in `scheme`, and `stored` as the remembered choice (or none). */
-async function open(browser, { scheme = 'light', stored = null, viewport, mobile = false }) {
+/**
+ * `keepCsp` for the first-paint checks, which must run under the real policy.
+ * Everything else injects axe as an inline script, which the site's CSP rightly
+ * refuses, so those pages bypass it (the smoke check covers the CSP itself).
+ */
+async function open(
+  browser,
+  { scheme = 'light', stored = null, viewport, mobile = false, keepCsp = false },
+) {
   const context = await browser.newContext({
+    bypassCSP: !keepCsp,
     colorScheme: scheme,
     viewport: viewport ?? { width: 1280, height: 800 },
     ...(mobile ? { isMobile: true, hasTouch: true } : {}),
@@ -71,7 +80,7 @@ try {
     ['dark', 'light', 'light'],
     ['light', null, 'light'],
   ]) {
-    const { context, page } = await open(browser, { scheme, stored });
+    const { context, page } = await open(browser, { scheme, stored, keepCsp: true });
     // Refuse the app's own scripts: what is left is what paints first.
     await page.route(/\/(assets|src)\/.*\.(js|tsx?)(\?.*)?$/, (route) => route.abort());
     await page.goto(`${BASE}/`);

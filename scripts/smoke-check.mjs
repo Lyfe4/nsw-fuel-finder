@@ -52,6 +52,17 @@ async function badgeBox(page) {
   });
 }
 
+/**
+ * Runs in the page before anything else: every CSP refusal, kept for the
+ * checks. The console also logs them, but this names the directive and URL.
+ */
+function recordViolations() {
+  window.__cspViolations = [];
+  document.addEventListener('securitypolicyviolation', (event) => {
+    window.__cspViolations.push(`${event.violatedDirective} ${event.blockedURI}`);
+  });
+}
+
 const overlaps = (a, b) =>
   Boolean(a && b) &&
   a.x < b.x + b.width &&
@@ -63,6 +74,7 @@ const browser = await chromium.launch();
 try {
   // --- Wide screen: list and map side by side --------------------------------
   const wide = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await wide.addInitScript(recordViolations);
   const page = await wide.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -127,6 +139,9 @@ try {
   // sticky map's attribution, and the page's last line, must stay clear of it.
   const badge = await badgeBox(page);
   if (badge) {
+    // Its own script positions the visible box; if the CSP refused it (a new
+    // badge version, so a new hash), the box would have no size.
+    check('Netlify’s badge draws under the CSP', badge.width > 0 && badge.height > 0);
     const attribution = await page.locator('.maplibregl-ctrl-attrib').boundingBox();
     check('the badge does not cover the map attribution', !overlaps(badge, attribution));
     await page.evaluate(() => {
@@ -266,10 +281,13 @@ try {
   await star.click();
 
   check('no console errors on the wide screen', errors.length === 0, errors.join(' | '));
+  const violations = await page.evaluate(() => window.__cspViolations ?? []);
+  check('no Content-Security-Policy violations', violations.length === 0, violations.join(' | '));
   await wide.close();
 
   // --- Phone: one at a time, map loaded only on demand -----------------------
   const phone = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true });
+  await phone.addInitScript(recordViolations);
   const mobile = await phone.newPage();
   await mobile.goto(`${BASE}/?fuel=U91&query=2250`);
   await mobile.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
@@ -290,6 +308,13 @@ try {
   check(
     'the switch fits at 375px',
     await mobile.evaluate(() => document.documentElement.scrollWidth <= 375),
+  );
+  await mobile.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
+  const phoneViolations = await mobile.evaluate(() => window.__cspViolations ?? []);
+  check(
+    'no Content-Security-Policy violations on the phone map',
+    phoneViolations.length === 0,
+    phoneViolations.join(' | '),
   );
   await phone.close();
 } finally {
