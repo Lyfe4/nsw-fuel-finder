@@ -15,9 +15,9 @@ A portfolio project about live data, built as a deliberate contrast to
 touches the network. Here everything depends on someone else's API, quota and
 uptime, and the interesting work is making that dependable.
 
-| Phone, light                                                              | Phone, dark                                                                    | Price history                                                              |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| ![Results as a list on a phone](docs/screenshots/phone-light-results.png) | ![Results as a list on a phone, dark](docs/screenshots/phone-dark-results.png) | ![A station's daily price chart](docs/screenshots/phone-light-history.png) |
+| Phone, light                                                              | Phone, dark                                                                    | Price history                                                              | Filters                                                                        |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| ![Results as a list on a phone](docs/screenshots/phone-light-results.png) | ![Results as a list on a phone, dark](docs/screenshots/phone-dark-results.png) | ![A station's daily price chart](docs/screenshots/phone-light-history.png) | ![The filters open, one brand ticked](docs/screenshots/phone-dark-filters.png) |
 
 ## How it works
 
@@ -64,6 +64,16 @@ in Blobs stops the job before a third failed sign-in, and `/api/status`
 reports, in plain English, any gap between what the job wrote and what the
 API serves. A stall of exactly that kind happened once, and is written up in
 the log.
+
+**Answers, not just a list.** A sentence over the results says the cheapest,
+the average and what the difference is worth on a 50 L fill. Each station
+says how far its price has moved today ("↓ 2.0 today", worked out from our
+own history, shown only where it moved) and has directions in the phone's
+own maps app. The list can be sorted nearest first and filtered by brand or
+by price age, all in the URL, all on the device: the API never sees them, so
+they cost no request. A search that finds nothing within the distance lists
+the nearest stations up to 100 km instead of stopping. From 1440 px the
+search form sits in a column of its own and stays in view.
 
 **Accessibility as a requirement, not a pass at the end.** Native controls
 wherever they fit: the fuel, distance and theme pickers are `<select>`s, which
@@ -120,6 +130,9 @@ The browser check fails on any policy violation.
 - **As fresh as retailers report.** Stations must report a change within 30
   minutes, and the snapshot adds up to 30 more. A price untouched for 14 days
   or more is flagged.
+- **"Today" is against our own records.** A price's move today compares it
+  with the last price our 30-minute snapshot saw yesterday, so a change made
+  and undone between two snapshots is not seen.
 - **History has a gap from 1 to 22 October 2026.** The published history
   currently ends on 30 September, and our own starts on 23 October. The gap is
   shaded "No data" until FuelCheck publishes October (see Maintenance).
@@ -153,10 +166,10 @@ pnpm dev:netlify          # the app and the functions together, at :8888
 | `pnpm lint`              | ESLint, including jsx-a11y and type-aware rules                             |
 | `pnpm build`             | The production build                                                        |
 | `pnpm bundle:check`      | Bundle budgets, after a build                                               |
-| `pnpm check:browser URL` | Real-browser smoke check (Playwright): search, map, history, CSP violations |
+| `pnpm check:browser URL` | Real-browser smoke check (Playwright): search, map, filters, history, CSP   |
 | `pnpm check:a11y URL`    | axe with colour contrast in both themes, first paint, five screen sizes     |
 | `pnpm serve:headers`     | The build with production's security headers, to test a CSP change first    |
-| `pnpm screenshots`       | These screenshots and the social card, from committed fixtures              |
+| `pnpm screenshots`       | These screenshots and the social card, from committed fixtures (`--record`) |
 | `pnpm history:backfill`  | Rebuild history from FuelCheck's monthly files (`--upload` writes to Blobs) |
 
 CI runs typecheck, lint, format, tests, build and the bundle budget on every

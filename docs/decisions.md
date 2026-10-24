@@ -1401,3 +1401,284 @@ can differ in the basemap alone.
 > **Early November 2026:** run `pnpm history:backfill --months 4 --upload` once
 > FuelCheck publishes October, to fill the 1-22 October gap. It writes to
 > production Blobs, so ask first. Also in the README's Maintenance section.
+
+## 2026-10-24: Round 8 (UX enhancements)
+
+### Triage
+
+**Measured** from production's 07:00 UTC snapshot on 24 Oct (2,398 stations,
+2,050 selling Unleaded 91) and the day file for 23 Oct, across all 637
+postcodes and 4,678 suburbs and localities. Read only; no API.NSW calls.
+
+| Distance | Empty postcodes | Median list | Largest list | Brands (median / max) |
+| -------- | --------------- | ----------- | ------------ | --------------------- |
+| 5 km     | 239             | 2           | 68           | 2 / 17                |
+| 10 km    | 152             | 10          | 196          | 6 / 24                |
+| 25 km    | 39              | 52          | 577          | 12 / 33               |
+| 50 km    | 7               | 115         | 754          | 18 / 38               |
+
+(Measured from each postcode's centre only, so more come back empty than in
+the app, which also counts stations whose address is in the postcode.)
+
+- 555 localities have no station within 25 km; for them the nearest is a
+  median 33 km away and the tenth nearest 57 km.
+- Since yesterday's last price, 234 of 2,047 Unleaded 91 stations (11%) have
+  changed: 54 up, 180 down. Median change 2.0 cents, 90th percentile 5.0.
+  Diesel, E10 and Premium 98 are similar.
+- A station sells a median of 4 fuels, at most 7.
+- 265 of 2,050 Unleaded 91 prices (13%) have not changed for 14 days or more.
+
+| Candidate                                  | Call               | Why                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Clear (×) button in the suburb box         | Build              | Escape already clears, but nobody on a phone knows that. Small, and returns focus to the box.                                                                                                                                                                                                                                                                                              |
+| 50 km distance step                        | **Skip**           | In Sydney it is 698 to 754 stations (2000, 2150, 2170): a ~190 kB answer and 750 dots for a distance nobody in a city drives. The people 25 km fails are served better by the nearest-stations fallback below, which reaches 100 km without adding a step everyone sees. And 50 km each way to save 10 cents a litre on 50 L ($5) costs more in fuel than it saves.                        |
+| Nearest stations when a search finds none  | Build              | 555 localities find nothing at 25 km, and the old answer was a dead end. The nearest 10, up to 100 km, in distance order, says where fuel actually is. A separate `nearest` field, so a page still running the old code shows its old empty state, never far stations as "within 5 km".                                                                                                    |
+| Recent searches                            | **Later**          | The only place that does not clutter the form is inside the suburb box's suggestion list, which means changing a combobox whose keyboard and screen-reader behaviour is tested and still waiting on the phone tests; opening a list on focus is also a pattern many screen-reader users find noisy. Favourites and shareable URLs already cover "my usual". Revisit after the phone tests. |
+| Summary strip (cheapest, average, saving)  | Build              | A fixed 50 L fill, said in the sentence. A tank-size control would be one more field for a number that only scales the saving.                                                                                                                                                                                                                                                             |
+| Price change since yesterday               | Build              | 11% of stations change on a given day, by 2 to 5 cents, so it is shown only where it changed. Worked out by `/api` from yesterday's day file, which it already keeps: one ~260 kB Blobs read per warm instance per day, no API.NSW calls.                                                                                                                                                  |
+| Sort: cheapest or nearest                  | Build              | Cheap, client-side, kept in the URL.                                                                                                                                                                                                                                                                                                                                                       |
+| Brand filter, and hide prices 14+ days old | Build              | 12 brands is the median at 25 km, 33 the most, so it needs counts and must stay out of the way: a closed "Filters" disclosure. Brands as FuelCheck names them: "Ampol", "Ampol Foodary" and "EG Ampol" are different operators with different apps and cards, and grouping them would be a guess. 13% of prices are 14+ days old, so the old-price filter is worth a checkbox.             |
+| Directions link                            | Build              | Apple Maps on Apple devices, Google's universal directions URL elsewhere (it opens the Google Maps app where installed). Coordinates, not the address, so it cannot geocode to the wrong place.                                                                                                                                                                                            |
+| Every fuel the station sells               | Build              | `/api/history` already returns the station with every fuel, so it goes in the history view, which is already the station's own page. No new call of any kind.                                                                                                                                                                                                                              |
+| Search controls that stay visible          | Build, ≥90rem only | From 1440 px the form moves to a sticky column of its own, beside the list and map, so it never competes with the sticky map. Between 960 and 1440 px it stays where it is: a sticky ~300 px form above the sticky map would leave the map a slit on a 768 px-tall laptop.                                                                                                                 |
+| Very wide screens                          | Build              | The same change: from 1440 px the page grows to 112rem with the form beside the results; the list column keeps a readable measure and the map takes the rest.                                                                                                                                                                                                                              |
+| Motion                                     | Build              | Only what explains a change: cards fading up into place, sort and filter changes animating the reorder (View Transitions, where supported), a pop on the favourite star. Transform and opacity only, never from invisible, all off under reduced motion.                                                                                                                                   |
+
+### Nearest stations when a search finds none
+
+**Decision:** when nothing within the distance sells the fuel, `/api/nearby`
+and `/api/location` also send `nearest`: the 10 nearest that do, up to 100
+km, nearest first. The page heads them "Nearest stations, 73–88 km away" and
+says why before the list: "None sell Unleaded 91 within 25 km of Mount Hope
+NSW 2877, so these are the nearest 4 that do, nearest first." No sort,
+filters or saving sum: ten far-flung stations do not need them. Only when
+nothing is within 100 km is it a dead end, which says so and suggests another
+fuel; "Choose a larger distance" is gone, since every distance is now covered.
+**Why a separate field:** a page still running the old code (an open tab
+over a deploy) ignores it and shows its old empty state, rather than listing
+stations 70 km away as "within 25 km".
+**Why 100 km:** beyond it a list helps nobody. Lord Howe Island is 580 km
+from the nearest station.
+**Nearby searches:** the API only has the position rounded to ~1 km and
+searches 0.8 km past the radius to make up for it. If everything it found is
+really just outside the radius, those are the nearest, measured again from
+the precise position; otherwise the API's own `nearest`, measured again.
+
+### Change since yesterday
+
+**Decision:** each station's price says how far it has moved today:
+"↓ 2.0 today" under the price, in the list and on the map's card. Nothing
+when it has not moved, which is most stations on most days, so the movers
+stand out. Screen readers hear "down 2.0 cents a litre since yesterday"; the
+arrow is hidden from them. Cheaper is in the accent colour, dearer in the
+warning colour, but the arrow and the words carry it without colour.
+**Where it comes from:** `/api` compares the snapshot with yesterday's last
+price in our own day file (`history/v1/DAY`, Sydney day). Each warm instance
+reads that file once a day (about 260 kB, eventual consistency, since a
+finished day never changes) and keeps it. A failed or missing read leaves
+every change unknown (`null`), is retried after five minutes, and never fails
+a search. No API.NSW calls.
+**"today", not "since yesterday", on screen:** they mean the same thing (the
+move since yesterday's last price is the move made today) and "today" fits
+the price column at 320 px.
+
+### The price summary
+
+**Decision:** one sentence over the list: "Cheapest 233.9, average 239.9
+cents a litre. Filling 50 litres at the cheapest saves $3.02 on the
+average." Of the stations shown, after filters. The mean, not the median: it
+is what "average" means to most people, and outliers barely move it when
+there are many stations. The saving is left out under 50 cents, and the
+whole sentence with fewer than two stations.
+**One sentence for screen readers too.** The visible copy has its three
+numbers in bold. Chromium's accessibility tree showed it as five fragments,
+and VoiceOver on iOS stops at every inline element when swiping. So the
+visible copy is `aria-hidden` and a visually hidden copy carries the same
+words as plain text. Checked in Chromium: one paragraph, one string.
+
+### Sort and filters
+
+**Decision:**
+
+- **Sort** is a native select, "Cheapest first" or "Nearest first", like
+  Fuel and Within. In the URL as `sort=distance`; the list's name follows
+  ("Stations, nearest first"), and so does the status ("Listing the nearest
+  20"). The "Cheapest" badge stays on the cheapest, wherever it now sits.
+- **Filters** are in a closed `<details>`, whose summary says what is in
+  force: "Filters: all brands", "Filters: BP and Shell", "Filters: 3 brands,
+  recent prices only". So a closed panel never hides that the list is
+  filtered. Inside: native checkboxes in a fieldset, in CSS columns, each
+  with its count, and "Hide prices not updated for 14 days or more (n)".
+  Counts are of what is left after the old-price filter, so they add up to
+  the list. In the URL as repeated `brand=` and `old=hide`.
+- **Kept across searches**, like the fuel: someone with a Shell card wants
+  Shell in the next suburb too. A brand ticked earlier that is not in these
+  results is still listed, at 0, so it can be unticked.
+- **When filters leave nothing**, the heading says "0 of 19 stations within
+  5 km of ..." and the page says "None of the 19 stations match your
+  filters", with a Clear filters button that moves focus to the heading
+  before it goes.
+- **The panel's own Clear filters button is never disabled.** A focused
+  button that disables itself drops focus to the page; with nothing to clear
+  it does nothing.
+- **Brands as FuelCheck names them.** All 63 brand names in the snapshot
+  pass the URL check (letters, digits, spaces and `&'.()+-`, up to 40), from
+  "7-Eleven" to "PK's" and "Mobil 1 Carlingford Car Care".
+
+The API never sees sort or filters: the results are already on the page, so
+there is no extra request, no extra function invocation and no cache miss.
+
+### Directions
+
+**Decision:** a "Directions" link on every station (list, map card and the
+station's own page) that opens in a new tab: Apple Maps on iPhone and iPad,
+Google's universal directions URL everywhere else, which opens the Google
+Maps app where it is installed. iPadOS asks for desktop sites and says
+"Macintosh"; a Mac with touch points is an iPad, a real Mac has none.
+By coordinates, not the address: FuelCheck addresses are sometimes a highway
+and a town. The start is wherever the maps app says you are; our page never
+passes the user's position on. `rel="noopener noreferrer"`. Its name is
+"Directions to Metro Gosford, opens in a new tab", starting with the visible
+word (WCAG 2.5.3). Found in the tests: the space before "to" was inside the
+visually hidden text and was trimmed from the name ("Directionsto"); it is
+now outside.
+
+### The clear button
+
+**Decision:** a × inside the suburb box, only when there is text, named
+"Clear suburb or postcode". It empties the box and puts focus back in it,
+ready to type, since the button itself is about to go. It is its own Tab stop
+after the box. Clearing is not a search: the results stay until the next one.
+
+### Every fuel at a station
+
+**Decision:** in the station's own page (the history view), above the chart:
+a table of every fuel it sells now, price and when it was updated, in the
+fuel picker's order, the charted one marked "(chart below)". `/api/history`
+already returns the station with every fuel, so it costs no request at all.
+Directions are there too.
+
+### Very wide screens, and search controls that stay in view
+
+**Decision:** from 90rem (1440 px) the page grows to 112rem and the search
+form moves to a 22rem column of its own on the left, beside the results. It
+sticks while the list scrolls, when the window is at least 40rem tall (so a
+short window can still reach the bottom of the form). From 100rem (1600 px)
+the list stops at 34rem and the map takes the rest: more map is useful,
+longer lines of station text are not. Between 960 and 1440 px nothing
+changes: there the form is above the list and the map, and making it sticky
+would leave the sticky map a slit on a 768 px-tall laptop. Captured in
+[wide-light-results.png](screenshots/wide-light-results.png).
+
+### Motion
+
+**Decision:** three animations, transform and opacity only, all inside
+`prefers-reduced-motion: no-preference`:
+
+- **New cards** (a search's results, "Show more") rise 6 px and fade from
+  half opacity, over 180 ms. Never from invisible, so the price is readable
+  from the first frame.
+- **Sorting and filtering** slide each card from its old place to its new
+  one (FLIP: measure, change, measure, animate the difference as a
+  transform), for the first 40 cards, over 220 ms.
+- **Saving a favourite** gives the star a quick grow and settle, only after a
+  press (stars already saved when the list appears stay still).
+
+**View Transitions, tried and dropped.** The first version wrapped sort and
+filter changes in `document.startViewTransition`. In the browser:
+
+1. Its overlay covers the page for the length of the transition and takes
+   every click. Ticking a second brand within 200 ms of the first did
+   nothing and dropped focus to `<body>`. (`pointer-events: none` on the
+   overlay fixes that.)
+2. It applies the change a frame late, in its callback. A React-controlled
+   checkbox snaps back to unticked until then, which Playwright reported as
+   "clicking the checkbox did not change its state", and a screen reader can
+   announce the old state. Nothing fixes that while the change is deferred.
+
+The FLIP version changes the page at once, as before, and animates only the
+cards' pixels, with nothing over the page. It also works in every browser,
+not just those with View Transitions.
+
+**Measured** in Chromium against the build: layout shift (CLS) 0 on load,
+and 0 after sorting and filtering with real keyboard and mouse input. With
+reduced motion, no animation runs at all.
+
+**Found by the smoke check:** the map check that clicks a station's dot
+began failing about half the time. The cause was the check, not the app: it
+clicked a card's button during the card's 180 ms entrance, Playwright found
+it "not stable", and retried with a forced scroll alignment that moved the
+page, so the sticky map was no longer where the check expected. The check now
+waits for the cards to settle; 4 of 4 runs pass (as the old build did).
+
+### Library behaviour this relies on
+
+- **`<details>`/`<summary>`:** the summary is the toggle, keyboard included;
+  `display: list-item` keeps the browser's marker, which is what says it opens.
+- **React controlled inputs:** a checkbox or select shows React's value right
+  after the change event. Delay the state update (as View Transitions did)
+  and it shows the old value meanwhile.
+- **`Element.animate`:** Web Animations, everywhere we support; skipped if
+  missing. Transforms do not count as layout shift.
+- **CSS `columns`:** fills top to bottom, so reading and Tab order (DOM order)
+  match what is seen.
+- **`position: sticky`** only sticks within its grid area, which is why the
+  form spans both rows of its column.
+- **`Intl.NumberFormat('en-AU', { currency: 'AUD' })`:** "$3.02".
+- **`URLSearchParams.getAll('brand')`** for repeated parameters; brands are
+  sorted when written, so one filter is one URL.
+- **The browser's own cache** keeps a prices answer for 60 s (`max-age=60`),
+  so for a minute after a deploy new code can receive an old answer without
+  `nearest` or `changeCents`. `fetchPrices` fills them in (`[]`, `null`).
+- **Playwright** retries a click on an element that is not stable, with a
+  forced scroll alignment. Checks that measure positions wait for animations.
+
+### Bundle sizes, round 8
+
+| Payload            | Round 7 | Round 8 | Budget        |
+| ------------------ | ------- | ------- | ------------- |
+| Initial JS         | 324.2   | 333.9   | 350 (was 332) |
+| Initial CSS        | 17.1    | 20.6    | 22 (was 18)   |
+| History view chunk | 8.4     | 9.3     | 16            |
+| Map chunk          | 1,015.9 | 1,015.9 | 1,100         |
+| MapLibre worker    | 496.4   | 496.4   | 540           |
+
+Initial JS grew 9.7 kB raw (3.0 kB gzipped) and CSS 3.5 kB raw (0.7 kB
+gzipped), for sort, filters, the summary, today's change, directions, the
+clear button and the motion. **Both budgets raised on purpose**, in
+`scripts/check-bundle-budget.js`: all of it is on screen with the first
+results, so a lazy chunk would only delay it. The new budgets are 5 to 7% over
+the new sizes again: room for a small feature, not for a library.
+
+### Testing this round
+
+- **Unit and integration:** the API's nearest list and its 100 km cap,
+  change since yesterday (cheaper, dearer, same, unknown, unreadable), the
+  day-file cache and its retry; sort, filters and their URL; counts, a
+  chosen brand at 0, no-match and its focus; the summary as one spoken
+  sentence; today's change in words; directions per platform; the clear
+  button by mouse and keyboard; every fuel at a station; the reorder
+  animation (and none with reduced motion); axe on each new state.
+- **Real browser** (against the build, with production's headers and this
+  checkout's `/api` on production's snapshot): `pnpm check:a11y` covers the
+  filters open, no-match and nearest states in both themes with contrast on,
+  and 1600 px; `pnpm check:browser` covers the summary, sort, a brand filter
+  (focus kept), directions, every fuel, nearest stations, the clear button
+  and the very wide layout.
+- **Screen readers:** checked through Chromium's accessibility tree only.
+  NVDA, VoiceOver and TalkBack are on the phone test list.
+
+### Suggestions for later
+
+1. **Offline at the pump.** Country service stations often have one bar of
+   signal. A small service worker caching the app shell and the last results
+   would show the last prices, clearly marked with their time, instead of an
+   error. The manifest is already there; this is the missing half of "add to
+   home screen".
+2. **Where prices are heading.** Sydney's prices move in a cycle of a few
+   weeks. With today's changes already in the answer, the summary could say
+   "Most stations here cut prices today" (or raised them), which is the
+   question behind "fill up now or wait?". One line, no new data.
+3. **Remember the last search** instead of recent searches: open on the last
+   place searched (stored on this device, with a way to forget it), which is
+   what most returning visitors want and needs no new control on the form.

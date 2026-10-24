@@ -330,6 +330,9 @@ interface PricesResponse {
   stale: boolean;
   origin: { latitude: number; longitude: number; label: string | null };
   stations: StationPrice[]; // cheapest first, then nearest, then name
+  // Round 8. Only when stations is empty: the 10 nearest selling this fuel,
+  // up to 100 km, nearest first. A field of its own so older pages ignore it.
+  nearest: StationPrice[];
 }
 
 interface StationPrice {
@@ -342,6 +345,9 @@ interface StationPrice {
   distanceKm: number; // from origin
   priceCents: number;
   priceUpdatedAt: string; // ISO UTC
+  // Round 8. Cents since the station's last price yesterday (Sydney day):
+  // -2 is cheaper. 0 unchanged; null when there is no price for yesterday.
+  changeCents: number | null;
 }
 
 interface PlaceSuggestionsResponse {
@@ -370,6 +376,17 @@ Caching:
 - Suggestions: an hour in the browser, a day at the edge. They only change
   with a deploy, and a deploy purges the CDN.
 - Errors are `no-store`.
+
+### Change since yesterday (round 8)
+
+`changeCents` comes from our own day file for the Sydney day before the
+snapshot's (`history/v1/YYYY-MM-DD`, the day's [low, high, last] for every
+station and fuel), not from API.NSW, which has no history. Each warm `/api`
+instance reads it once (about 260 kB, eventual consistency: a finished day
+never changes) and keeps it until the day moves on. A failed or missing read
+leaves every change `null` and is retried after five minutes; it never fails
+a search. Measured on 24 Oct: 11% of Unleaded 91 stations had moved since the
+day before, by a median of 2.0 cents.
 
 ### Place lookup (round 3)
 
