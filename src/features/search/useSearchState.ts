@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
-import { parseSearch, roundPosition, serializeSearch, type SearchState } from './searchState';
+import {
+  parseSearch,
+  roundPosition,
+  serializeSearch,
+  type ResultsLayout,
+  type SearchState,
+} from './searchState';
 
 import type { FuelTypeCode } from '../../../shared/fuelTypes';
 
@@ -52,14 +58,43 @@ export function useSearchState() {
     navigate({ ...current(), radius }, 'replace');
   }, []);
 
+  // A new place starts with nothing selected: the old station is rarely in
+  // the new results, and when it is, keeping it would be a surprise.
   const searchLocation = useCallback((query: string) => {
     const trimmed = query.trim().replace(/\s+/g, ' ');
-    if (trimmed) navigate({ ...current(), place: { kind: 'location', query: trimmed } }, 'push');
+    if (trimmed) {
+      navigate(
+        { ...current(), place: { kind: 'location', query: trimmed }, station: null },
+        'push',
+      );
+    }
   }, []);
 
   const searchNearby = useCallback((lat: number, lng: number) => {
-    navigate({ ...current(), place: { kind: 'nearby', ...roundPosition(lat, lng) } }, 'push');
+    navigate(
+      { ...current(), place: { kind: 'nearby', ...roundPosition(lat, lng) }, station: null },
+      'push',
+    );
   }, []);
 
-  return { ...state, setFuel, setRadius, searchLocation, searchNearby };
+  // Replace, not push: Back undoes a search, not every station looked at or
+  // every flip between list and map (see docs/decisions.md).
+  const setView = useCallback((view: ResultsLayout) => {
+    navigate({ ...current(), view }, 'replace');
+  }, []);
+
+  const selectStation = useCallback((station: string | null, view?: ResultsLayout) => {
+    const now = current();
+    navigate({ ...now, station, view: view ?? now.view }, 'replace');
+  }, []);
+
+  return {
+    ...state,
+    setFuel,
+    setRadius,
+    searchLocation,
+    searchNearby,
+    setView,
+    selectStation,
+  };
 }

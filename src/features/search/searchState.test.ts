@@ -4,7 +4,13 @@ import { parseSearch, serializeSearch } from './searchState';
 
 describe('parseSearch', () => {
   it('defaults to Unleaded 91, 5 km and no search', () => {
-    expect(parseSearch('')).toEqual({ fuel: 'U91', radius: 5, place: null });
+    expect(parseSearch('')).toEqual({
+      fuel: 'U91',
+      radius: 5,
+      place: null,
+      view: 'list',
+      station: null,
+    });
   });
 
   it('reads a suburb search with the API’s own parameter names', () => {
@@ -12,6 +18,8 @@ describe('parseSearch', () => {
       fuel: 'E10',
       radius: 10,
       place: { kind: 'location', query: 'Erina NSW 2250' },
+      view: 'list',
+      station: null,
     });
   });
 
@@ -30,6 +38,8 @@ describe('parseSearch', () => {
     ['half a position', '?lat=-33.87', { place: null }],
     ['a position that is not a number', '?lat=x&lng=y', { place: null }],
     ['an empty query', '?query=%20%20', { place: null }],
+    ['an unknown view', '?view=satellite', { view: 'list' }],
+    ['a station code with odd characters', '?station=%3Cscript%3E', { station: null }],
   ])('falls back on %s', (_, search, expected) => {
     expect(parseSearch(search)).toMatchObject(expected);
   });
@@ -39,6 +49,23 @@ describe('parseSearch', () => {
       kind: 'location',
       query: '2250',
     });
+  });
+});
+
+describe('view and station', () => {
+  it('reads the map view and a selected station', () => {
+    expect(parseSearch('?query=2250&view=map&station=2263')).toMatchObject({
+      view: 'map',
+      station: '2263',
+    });
+  });
+
+  it('writes them last, and leaves the list view out as the default', () => {
+    const state = parseSearch('?query=2250&station=2263');
+    expect(serializeSearch(state)).toBe('fuel=U91&query=2250&station=2263');
+    expect(serializeSearch({ ...state, view: 'map' })).toBe(
+      'fuel=U91&query=2250&view=map&station=2263',
+    );
   });
 });
 
@@ -55,6 +82,8 @@ describe('serializeSearch', () => {
         fuel: 'U91',
         radius: 25,
         place: { kind: 'nearby', lat: -33.87, lng: 151.21 },
+        view: 'list',
+        station: null,
       }),
     ).toBe('fuel=U91&lat=-33.87&lng=151.21&radius=25');
   });

@@ -10,6 +10,11 @@ import { roundTo } from '../../../shared/geo';
  *
  *   /?fuel=U91&query=Erina%20NSW%202250
  *   /?fuel=E10&lat=-33.87&lng=151.21&radius=10
+ *   /?fuel=U91&query=2250&view=map&station=2263
+ *
+ * `view` and `station` are how the results are shown, not what was
+ * searched: the map or the list on a phone, and the station picked out on
+ * both. They are in the URL so a shared link opens on the same station.
  */
 
 export const DEFAULT_FUEL: FuelTypeCode = 'U91';
@@ -19,11 +24,20 @@ export const MAX_RADIUS_KM = 25;
 export type SearchPlace =
   { kind: 'nearby'; lat: number; lng: number } | { kind: 'location'; query: string };
 
+export type ResultsLayout = 'list' | 'map';
+
 export interface SearchState {
   fuel: FuelTypeCode;
   radius: number;
   place: SearchPlace | null;
+  /** Which of the two a narrow screen shows. Wide screens show both. */
+  view: ResultsLayout;
+  /** The selected station's code, whether or not it is in the results. */
+  station: string | null;
 }
+
+/** Station codes are short numbers today; this is loose enough to outlive that. */
+const STATION_CODE = /^[\w-]{1,32}$/;
 
 /** Never throws: a hand-edited or stale URL falls back to sensible defaults. */
 export function parseSearch(search: string): SearchState {
@@ -51,10 +65,14 @@ export function parseSearch(search: string): SearchState {
       ? { kind: 'nearby', ...roundPosition(lat, lng) }
       : null;
 
-  return { fuel, radius, place };
+  const view: ResultsLayout = params.get('view') === 'map' ? 'map' : 'list';
+  const stationParam = params.get('station') ?? '';
+  const station = STATION_CODE.test(stationParam) ? stationParam : null;
+
+  return { fuel, radius, place, view, station };
 }
 
-export function serializeSearch({ fuel, radius, place }: SearchState): string {
+export function serializeSearch({ fuel, radius, place, view, station }: SearchState): string {
   const params = new URLSearchParams({ fuel });
   if (place?.kind === 'location') params.set('query', place.query);
   if (place?.kind === 'nearby') {
@@ -62,6 +80,8 @@ export function serializeSearch({ fuel, radius, place }: SearchState): string {
     params.set('lng', String(place.lng));
   }
   if (radius !== DEFAULT_RADIUS_KM) params.set('radius', String(radius));
+  if (view === 'map') params.set('view', 'map');
+  if (station) params.set('station', station);
   return params.toString();
 }
 
