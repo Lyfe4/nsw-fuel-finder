@@ -10,14 +10,22 @@ import type {
   ApiErrorBody,
   PlaceSuggestionsResponse,
   PricesResponse,
+  StationsResponse,
   StatusResponse,
+  HistoryResponse,
 } from '../../../shared/api';
 
 const ORIGIN = 'http://localhost:8888';
 const loaded = { snapshot: fixtureSnapshot, places: buildPlaceIndex(fixtureSnapshot.stations) };
 
 function setup(
-  options: { now?: number; unavailable?: boolean; lastRun?: unknown; lastRunFails?: boolean } = {},
+  options: {
+    now?: number;
+    unavailable?: boolean;
+    lastRun?: unknown;
+    lastRunFails?: boolean;
+    history?: { backfill: unknown; live: unknown };
+  } = {},
 ) {
   const getSnapshot = vi.fn(() =>
     options.unavailable
@@ -38,6 +46,7 @@ function setup(
                   fetchedAt: fixtureSnapshot.fetchedAt,
                 },
           ),
+    getHistory: () => Promise.resolve(options.history ?? { backfill: null, live: null }),
     now: () => options.now ?? FIXTURE_FETCHED_AT + 60_000,
   });
   const get = async (path: string, init?: RequestInit) => {
@@ -337,5 +346,125 @@ describe('GET /api/status', () => {
     expect((body as StatusResponse).problems).toEqual([
       'Could not read the last run record: Failed to decode token: Token expired',
     ]);
+  });
+});
+
+describe('GET /api/stations', () => {
+  const code = () => fixtureSnapshot.stations[0]?.code ?? '';
+
+  it('returns the asked-for stations with every fuel they sell, in order, and names the missing', async () => {
+    const { get } = setup();
+    const { response, body } = await get(`/api/stations?codes=nope,${code()}`);
+    expect(response.status).toBe(200);
+    const result = body as StationsResponse;
+    expect(result.stations.map((s) => s.stationCode)).toEqual([code()]);
+    expect(result.missing).toEqual(['nope']);
+    expect(Object.keys(result.stations[0]?.prices ?? {}).length).toBeGreaterThan(0);
+    expect(result.fetchedAt).toBe(fixtureSnapshot.fetchedAt);
+    expect(response.headers.get('Netlify-CDN-Cache-Control')).toContain('s-maxage=60');
+  });
+
+  it('refuses no codes, too many codes, and things that are not codes', async () => {
+    const { get, getSnapshot } = setup();
+    const many = Array.from({ length: 51 }, (_, i) => String(i)).join(',');
+    for (const query of ['', `codes=${many}`, 'codes=<script>']) {
+      const { response } = await get(`/api/stations?${query}`);
+      expect(response.status).toBe(400);
+    }
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/history', () => {
+  const station = () => fixtureSnapshot.stations[0]?.code ?? '';
+  const file = (
+    source: 'fuelcheck-monthly' | 'snapshots',
+    rows: [string, number, number, number][],
+    through: string,
+  ) => ({
+    version: 2,
+    code: station(),
+    source,
+    from: rows[0]?.[0] ?? through,
+    through,
+    fuels: { U91: rows },
+  });
+
+  it('joins the published history and our own, published first, with both credited', async () => {
+    const { get } = setup({
+      history: {
+        backfill: file(
+          'fuelcheck-monthly',
+          [
+            ['2026-09-29', 200, 205, 201],
+            ['2026-09-30', 201, 201, 201],
+          ],
+          '2026-09-30',
+        ),
+        live: file(
+          'snapshots',
+          [
+            ['2026-09-30', 1, 1, 1],
+            ['2026-10-20', 210, 212, 211],
+          ],
+          '2026-10-20',
+        ),
+      },
+    });
+    const { response, body } = await get(`/api/history?station=${station()}&fuel=U91`);
+    expect(response.status).toBe(200);
+    const result = body as HistoryResponse;
+    expect(result.days).toEqual([
+      ['2026-09-29', 200, 205, 201],
+      ['2026-09-30', 201, 201, 201],
+      ['2026-10-20', 210, 212, 211],
+    ]);
+    expect(result.sources).toEqual([
+      { kind: 'fuelcheck-monthly', from: '2026-09-29', through: '2026-09-30' },
+      { kind: 'snapshots', from: '2026-10-20', through: '2026-10-20' },
+    ]);
+    expect(result.licence).toContain('CC BY-SA');
+    expect(result.station.stationCode).toBe(station());
+    expect(response.headers.get('Netlify-CDN-Cache-Control')).toContain('s-maxage=600');
+  });
+
+  it('keeps only the last 120 days, and is empty (not an error) with no history yet', async () => {
+    const old = file(
+      'fuelcheck-monthly',
+      [
+        ['2026-06-01', 190, 190, 190],
+        ['2026-06-24', 191, 191, 191],
+      ],
+      '2026-06-24',
+    );
+    const { get } = setup({ history: { backfill: old, live: null } });
+    const { body } = await get(`/api/history?station=${station()}&fuel=U91`);
+    expect((body as HistoryResponse).days.map(([day]) => day)).toEqual(['2026-06-24']);
+
+    const empty = setup();
+    const { response, body: none } = await empty.get(`/api/history?station=${station()}&fuel=U91`);
+    expect(response.status).toBe(200);
+    expect((none as HistoryResponse).days).toEqual([]);
+  });
+
+  it('ignores a history file that is for another station or unreadable', async () => {
+    const { get } = setup({
+      history: {
+        backfill: {
+          ...file('fuelcheck-monthly', [['2026-10-01', 1, 1, 1]], '2026-10-01'),
+          code: 'other',
+        },
+        live: 'junk',
+      },
+    });
+    const { body } = await get(`/api/history?station=${station()}&fuel=U91`);
+    expect((body as HistoryResponse).days).toEqual([]);
+  });
+
+  it('is a 404 for a station FuelCheck no longer lists, and a 400 for bad input', async () => {
+    const { get } = setup();
+    expect((await get('/api/history?station=99999999&fuel=U91')).response.status).toBe(404);
+    expect((await get('/api/history?station=&fuel=U91')).response.status).toBe(400);
+    expect((await get(`/api/history?station=${station()}&fuel=XX`)).response.status).toBe(400);
   });
 });

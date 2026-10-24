@@ -25,6 +25,7 @@
     "bundle:check": "node scripts/check-bundle-budget.js",
     "check:browser": "node scripts/smoke-check.mjs",
     "check:a11y": "node scripts/a11y-check.mjs",
+    "history:backfill": "node scripts/build-history-backfill.mjs",
     "prepare": "husky"
   },
   "dependencies": {
@@ -54,6 +55,7 @@
     "eslint-plugin-import-x": "^4.17.1",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "fflate": "0.8.3",
     "globals": "^17.13.0",
     "husky": "^9.1.7",
     "jsdom": "^30.1.3",

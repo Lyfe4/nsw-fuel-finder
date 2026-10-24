@@ -2,8 +2,9 @@ import { ApiError, errorResponse, json } from './http';
 import { resolvePlace } from './places';
 import { searchNearby, searchPlace } from './search';
 import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
+import { historyBody, parseStationCode, parseStationCodes, stationsBody } from './stations';
 import { statusReport } from './status';
-import { parseLocationQuery, parseNearbyQuery } from './validate';
+import { parseFuelType, parseLocationQuery, parseNearbyQuery } from './validate';
 import { suggestPlaces } from '../../lib/places/gazetteer';
 import { STALE_AFTER_MS } from '../../lib/snapshot/format';
 
@@ -40,7 +41,16 @@ const SUGGESTION_CACHE = {
   cdn: 'public, durable, s-maxage=86400',
 } as const;
 
-const ROUTES = ['nearby', 'location', 'places', 'status'] as const;
+/**
+ * History changes once a day, when the scheduled job folds yesterday in, so
+ * ten minutes at the edge costs nothing in freshness.
+ */
+const HISTORY_CACHE = {
+  browser: 'public, max-age=600',
+  cdn: 'public, durable, s-maxage=600, stale-while-revalidate=600',
+} as const;
+
+const ROUTES = ['nearby', 'location', 'places', 'status', 'stations', 'history'] as const;
 type Route = (typeof ROUTES)[number];
 
 // Reached through the /api/* rewrite or, in `netlify dev`, directly.
@@ -55,7 +65,15 @@ export interface HandlerDeps {
   /** The latest scheduled run summary (meta/last-run), read strongly. */
   getLastRun: () => Promise<unknown>;
   getSnapshot: () => Promise<LoadedSnapshot>;
+  /** One station's two history files (published, and our own); each null when absent. */
+  getHistory: (code: string) => Promise<{ backfill: unknown; live: unknown }>;
   now: () => number;
+}
+
+function cached(body: unknown, cache: { browser: string; cdn: string }): Response {
+  const response = json(body, 200, cache.browser);
+  response.headers.set('Netlify-CDN-Cache-Control', cache.cdn);
+  return response;
 }
 
 function respond(
@@ -115,6 +133,18 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
 
   // Validate before touching the snapshot: bad input is a 400 even when the
   // snapshot is missing.
+  if (route === 'stations') {
+    const codes = parseStationCodes(params);
+    const { snapshot } = await deps.getSnapshot();
+    const stale = deps.now() - Date.parse(snapshot.fetchedAt) > STALE_AFTER_MS;
+    return cached(stationsBody(snapshot, codes, stale), CACHE);
+  }
+  if (route === 'history') {
+    const code = parseStationCode(params);
+    const fuel = parseFuelType(params);
+    const [{ snapshot }, files] = await Promise.all([deps.getSnapshot(), deps.getHistory(code)]);
+    return cached(historyBody(snapshot, code, fuel, files), HISTORY_CACHE);
+  }
   if (route === 'nearby') {
     const query = parseNearbyQuery(params);
     const loaded = await deps.getSnapshot();

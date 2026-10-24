@@ -42,3 +42,7 @@ pnpm-debug.log*
 
 # Editor/agent workspace config is per machine.
 .claude/
+
+# Price history backfill: downloaded FuelCheck files and generated output
+# (scripts/build-history-backfill.mjs). Reproducible, so not committed.
+.history-backfill/

@@ -106,3 +106,50 @@ export interface ApiErrorBody {
  * history, logs and shared links - never carries anyone's exact position.
  */
 export const COORDINATE_DECIMALS = 2;
+
+/** A station and every fuel it sells now, for favourites and the history view. */
+export interface StationSummary {
+  stationCode: string;
+  name: string;
+  brand: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  /** By fuel code; a fuel the station does not sell is absent. */
+  prices: Partial<Record<string, { priceCents: number; updatedAt: string }>>;
+}
+
+/** GET /api/stations?codes=1,2,3 */
+export interface StationsResponse {
+  fetchedAt: string;
+  stale: boolean;
+  /** In the order asked for. */
+  stations: StationSummary[];
+  /** Asked for but not in the snapshot: closed, renumbered, or never real. */
+  missing: string[];
+}
+
+/** One day of one fuel at one station: cents a litre, low, high and the day's last. */
+export type HistoryDayRow = [day: string, low: number, high: number, last: number];
+
+/** Where a stretch of history came from, for the credit shown beside it. */
+export interface HistorySource {
+  kind: 'fuelcheck-monthly' | 'snapshots';
+  /** First and last day this source covers for this station and fuel. */
+  from: string;
+  through: string;
+}
+
+/** GET /api/history?station=972&fuel=U91 */
+export interface HistoryResponse {
+  fuelType: string;
+  station: StationSummary;
+  /** Oldest first. Days with no data have no row. */
+  days: HistoryDayRow[];
+  sources: HistorySource[];
+  /** Licence of the history data, which is adapted from CC BY-SA open data. */
+  licence: string;
+}
+
+/** Most favourites /api/stations answers for at once. */
+export const MAX_STATION_CODES = 50;

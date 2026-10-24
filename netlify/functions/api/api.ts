@@ -17,5 +17,13 @@ const source = createSnapshotSource({ store, now });
 export default createHandler({
   getSnapshot: () => source.get(),
   getLastRun: () => store.getJSON(KEYS.lastRun, 'strong'),
+  // Eventual: history changes once a day, and a minute's lag does not matter.
+  getHistory: async (code) => {
+    const [backfill, live] = await Promise.all([
+      store.getJSON(KEYS.historyBackfill(code), 'eventual'),
+      store.getJSON(KEYS.historyLive(code), 'eventual'),
+    ]);
+    return { backfill, live };
+  },
   now,
 });

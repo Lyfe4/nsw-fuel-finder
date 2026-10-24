@@ -39,6 +39,9 @@ export const KEYS = {
   authFailure: 'auth/failure',
   lastRun: 'meta/last-run',
   historyDay: (day: string) => `history/v1/${day}`,
+  historyLive: (code: string) => `history/v2/live/${code}`,
+  historyBackfill: (code: string) => `history/v2/backfill/${code}`,
+  historyProgress: 'history/v2/progress',
 } as const;
 
 /** Netlify Blobs. */

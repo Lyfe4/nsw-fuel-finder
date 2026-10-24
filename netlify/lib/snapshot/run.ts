@@ -1,5 +1,6 @@
 import { buildSnapshot, type BuildStats } from './build';
 import { historyDaySchema, historyDayFor, updateHistoryDay } from './history';
+import { foldHistory, type FoldResult } from '../history/fold';
 import { KEYS } from '../store';
 import { createUpstreamClient, type UpstreamDeps } from '../upstream/client';
 import { UpstreamError } from '../upstream/errors';
@@ -17,6 +18,8 @@ export interface RunSummary {
   fetchedAt?: string;
   calls: { token: number; prices: number };
   stats?: BuildStats;
+  /** This run's share of folding yesterday into per-station history (see history/fold.ts). */
+  history?: FoldResult | { error: string } | null;
   error?: { kind: string; message: string };
 }
 
@@ -63,7 +66,18 @@ export async function runSnapshot(deps: UpstreamDeps): Promise<RunSummary> {
       updateHistoryDay(existing.success ? existing.data : null, snapshot),
     );
 
-    summary = { ok: true, startedAt, fetchedAt: snapshot.fetchedAt, calls, stats };
+    // After the snapshot is safely written, and never able to fail the run:
+    // a missed slice is picked up by the next run.
+    const history = await foldHistory(
+      deps.store,
+      historyDayFor(snapshot),
+      snapshot.stations.map((station) => station.code),
+    ).catch((error: unknown) => {
+      console.error('Folding history failed', error);
+      return { error: error instanceof Error ? error.message : String(error) };
+    });
+
+    summary = { ok: true, startedAt, fetchedAt: snapshot.fetchedAt, calls, stats, history };
   } catch (error) {
     const kind = error instanceof UpstreamError ? error.kind : 'internal';
     const message = error instanceof Error ? error.message : String(error);
