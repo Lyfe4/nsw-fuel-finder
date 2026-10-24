@@ -22,7 +22,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "bundle:check": "node scripts/check-bundle-budget.js",
     "check:browser": "node scripts/smoke-check.mjs",
+    "check:a11y": "node scripts/a11y-check.mjs",
     "prepare": "husky"
   },
   "dependencies": {

@@ -45,3 +45,7 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # The first load held near its size, and the lazy map under a ceiling.
+      - name: Bundle budget
+        run: pnpm bundle:check

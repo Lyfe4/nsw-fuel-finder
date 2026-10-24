@@ -31,6 +31,34 @@ function check(name, ok, detail = '') {
 
 const station = (url) => new URL(url).searchParams.get('station');
 
+/** The part of Netlify's badge iframe that is drawn (it clips itself), or null. */
+async function badgeBox(page) {
+  await page
+    .waitForFunction(
+      () => document.getElementById('nl-badge-frame')?.dataset.nlReady === '1',
+      null,
+      {
+        timeout: 10_000,
+      },
+    )
+    .catch(() => undefined);
+  return page.evaluate(() => {
+    const frame = document.getElementById('nl-badge-frame');
+    if (!frame) return null;
+    const rect = frame.getBoundingClientRect();
+    const [left, top, right, bottom] = (frame.style.clipPath.match(/[\d.]+/g) ?? []).map(Number);
+    if (bottom === undefined) return null;
+    return { x: rect.x + left, y: rect.y + top, width: right - left, height: bottom - top };
+  });
+}
+
+const overlaps = (a, b) =>
+  Boolean(a && b) &&
+  a.x < b.x + b.width &&
+  b.x < a.x + a.width &&
+  a.y < b.y + b.height &&
+  b.y < a.y + a.height;
+
 const browser = await chromium.launch();
 try {
   // --- Wide screen: list and map side by side --------------------------------
@@ -59,6 +87,8 @@ try {
     'map shows with OpenStreetMap attribution in its corner',
     await page.locator('.maplibregl-ctrl-attrib').isVisible(),
   );
+  await page.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
+  check('the "Loading map…" placeholder clears once the map has drawn', true);
 
   // Suburb search, typed and submitted with Enter.
   const search = page.getByRole('combobox', { name: /suburb or postcode/i });
@@ -92,6 +122,24 @@ try {
     'the card beside the map names the station',
     (await page.locator(`h3:has-text("${name}")`).count()) === 2,
   );
+
+  // Netlify's free-plan badge (production only) is pinned bottom-right. The
+  // sticky map's attribution, and the page's last line, must stay clear of it.
+  const badge = await badgeBox(page);
+  if (badge) {
+    const attribution = await page.locator('.maplibregl-ctrl-attrib').boundingBox();
+    check('the badge does not cover the map attribution', !overlaps(badge, attribution));
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    const lastLine = await page.locator('footer p').last().boundingBox();
+    check('the badge does not cover the last line of the page', !overlaps(badge, lastLine));
+    await page.evaluate(() => {
+      window.scrollTo(0, 700);
+    });
+  } else {
+    console.log('      (no Netlify badge on this site; badge checks skipped)');
+  }
 
   // Let the pan to the station finish before the map changes size.
   await page.waitForTimeout(1500);
@@ -127,6 +175,35 @@ try {
     'and the list item is highlighted again',
     await second.getByText('Shown on map').isVisible(),
   );
+  // Dark mode swaps the basemap, and the stations are drawn on it again.
+  const darkStyle = page.waitForRequest(/tiles\.openfreemap\.org\/styles\/dark/);
+  await page.getByRole('combobox', { name: 'Theme' }).selectOption('dark');
+  await darkStyle;
+  await page.waitForLoadState('networkidle');
+  check(
+    'choosing Dark darkens the page and loads the dark basemap',
+    (await page.evaluate(() => document.documentElement.dataset.theme)) === 'dark',
+  );
+  check(
+    'the station is still selected on the dark map',
+    station(page.url()) === picked && (await second.getByText('Shown on map').isVisible()),
+  );
+  await page.getByRole('combobox', { name: 'Theme' }).selectOption('system');
+
+  // A big search lists 20, and more on request.
+  await page.goto(`${BASE}/?fuel=U91&query=2150&radius=25`);
+  await list.getByRole('listitem').first().waitFor();
+  check(
+    'a 25 km Sydney search lists 20 at first',
+    (await list.getByRole('listitem').count()) === 20,
+  );
+  await page.getByRole('button', { name: 'Show 20 more' }).click();
+  check('"Show 20 more" lists 40', (await list.getByRole('listitem').count()) === 40);
+  check(
+    'and focus moves to the 21st station',
+    await page.evaluate(() => document.activeElement?.tagName === 'H3'),
+  );
+
   check('no console errors on the wide screen', errors.length === 0, errors.join(' | '));
   await wide.close();
 
