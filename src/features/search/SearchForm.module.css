@@ -12,6 +12,13 @@
   gap: var(--space-1);
 }
 
+/* Fuel and distance side by side: the fuel takes the room, the distance only what it needs. */
+.choices {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+}
+
 .label {
   font-weight: var(--font-weight-bold);
 }

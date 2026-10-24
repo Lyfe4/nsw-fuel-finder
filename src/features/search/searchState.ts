@@ -11,15 +11,35 @@ import { roundTo } from '../../../shared/geo';
  *   /?fuel=U91&query=Erina%20NSW%202250
  *   /?fuel=E10&lat=-33.87&lng=151.21&radius=10
  *   /?fuel=U91&query=2250&view=map&station=2263
+ *   /?fuel=U91&query=2250&history=2263
  *
  * `view` and `station` are how the results are shown, not what was
  * searched: the map or the list on a phone, and the station picked out on
  * both. They are in the URL so a shared link opens on the same station.
+ * `history` is the station whose price history is open, over the results:
+ * a view of its own, so opening it is a new history entry and Back closes it.
  */
 
 export const DEFAULT_FUEL: FuelTypeCode = 'U91';
+/**
+ * The distances offered, in km. From a survey of every NSW and ACT postcode
+ * (docs/decisions.md, "Distance steps"): 2 km for a dense city centre, 5 as
+ * the default, 10 and 25 for the country. 15 was left out: it found barely
+ * fewer empty results than 10 (40 postcodes against 44).
+ */
+export const RADIUS_STEPS = [2, 5, 10, 25] as const;
 export const DEFAULT_RADIUS_KM = 5;
 export const MAX_RADIUS_KM = 25;
+
+/**
+ * A radius from the URL as one of the steps. Any other whole number from 1 to
+ * 25 (an old or hand-edited link) becomes the next step up, so it still
+ * covers what was asked for.
+ */
+function toStep(radius: number): number {
+  if (!Number.isInteger(radius) || radius < 1 || radius > MAX_RADIUS_KM) return DEFAULT_RADIUS_KM;
+  return RADIUS_STEPS.find((step) => step >= radius) ?? MAX_RADIUS_KM;
+}
 
 export type SearchPlace =
   { kind: 'nearby'; lat: number; lng: number } | { kind: 'location'; query: string };
@@ -34,6 +54,8 @@ export interface SearchState {
   view: ResultsLayout;
   /** The selected station's code, whether or not it is in the results. */
   station: string | null;
+  /** The station whose price history is open, if any. */
+  history: string | null;
 }
 
 /** Station codes are short numbers today; this is loose enough to outlive that. */
@@ -46,11 +68,7 @@ export function parseSearch(search: string): SearchState {
   const fuelParam = params.get('fuel')?.toUpperCase() ?? '';
   const fuel = isFuelTypeCode(fuelParam) ? fuelParam : DEFAULT_FUEL;
 
-  const radiusParam = Number(params.get('radius'));
-  const radius =
-    Number.isInteger(radiusParam) && radiusParam >= 1 && radiusParam <= MAX_RADIUS_KM
-      ? radiusParam
-      : DEFAULT_RADIUS_KM;
+  const radius = params.has('radius') ? toStep(Number(params.get('radius'))) : DEFAULT_RADIUS_KM;
 
   const query = params.get('query')?.trim();
   const lat = Number(params.get('lat'));
@@ -68,11 +86,20 @@ export function parseSearch(search: string): SearchState {
   const view: ResultsLayout = params.get('view') === 'map' ? 'map' : 'list';
   const stationParam = params.get('station') ?? '';
   const station = STATION_CODE.test(stationParam) ? stationParam : null;
+  const historyParam = params.get('history') ?? '';
+  const history = STATION_CODE.test(historyParam) ? historyParam : null;
 
-  return { fuel, radius, place, view, station };
+  return { fuel, radius, place, view, station, history };
 }
 
-export function serializeSearch({ fuel, radius, place, view, station }: SearchState): string {
+export function serializeSearch({
+  fuel,
+  radius,
+  place,
+  view,
+  station,
+  history,
+}: SearchState): string {
   const params = new URLSearchParams({ fuel });
   if (place?.kind === 'location') params.set('query', place.query);
   if (place?.kind === 'nearby') {
@@ -82,6 +109,7 @@ export function serializeSearch({ fuel, radius, place, view, station }: SearchSt
   if (radius !== DEFAULT_RADIUS_KM) params.set('radius', String(radius));
   if (view === 'map') params.set('view', 'map');
   if (station) params.set('station', station);
+  if (history) params.set('history', history);
   return params.toString();
 }
 

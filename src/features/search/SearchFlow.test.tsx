@@ -216,6 +216,8 @@ describe('searching by suburb or postcode', () => {
     await user.tab();
     expect(screen.getByRole('combobox', { name: 'Fuel' })).toHaveFocus();
     await user.tab();
+    expect(screen.getByRole('combobox', { name: 'Within' })).toHaveFocus();
+    await user.tab();
     expect(placeInput()).toHaveFocus();
     await user.tab();
     expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus();

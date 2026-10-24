@@ -4,13 +4,18 @@ import { Button } from '@/components/Button/Button';
 
 import { PlaceCombobox } from './PlaceCombobox';
 import styles from './SearchForm.module.css';
+import { RADIUS_STEPS } from './searchState';
 import { FUEL_TYPES, isFuelTypeCode, type FuelTypeCode } from '../../../shared/fuelTypes';
 
 export interface SearchFormProps {
   fuel: FuelTypeCode;
+  radius: number;
   currentQuery: string;
   locating: boolean;
   onFuelChange: (fuel: FuelTypeCode) => void;
+  onRadiusChange: (radius: number) => void;
+  /** The distance select, so an empty result can point to it. */
+  radiusSelectRef?: Ref<HTMLSelectElement>;
   onSearchPlace: (query: string) => void;
   onUseLocation: () => void;
   placeInputRef?: Ref<HTMLInputElement>;
@@ -18,14 +23,18 @@ export interface SearchFormProps {
 
 export function SearchForm({
   fuel,
+  radius,
   currentQuery,
   locating,
   onFuelChange,
+  onRadiusChange,
+  radiusSelectRef,
   onSearchPlace,
   onUseLocation,
   placeInputRef,
 }: SearchFormProps) {
   const fuelId = useId();
+  const radiusId = useId();
   const locationNoteId = useId();
   const [typed, setTyped] = useState(currentQuery);
   const [empty, setEmpty] = useState(false);
@@ -52,28 +61,55 @@ export function SearchForm({
       onSubmit={submit}
       noValidate
     >
-      <div className={styles.field}>
-        <label htmlFor={fuelId} className={styles.label}>
-          Fuel
-        </label>
+      <div className={styles.choices}>
+        <div className={styles.field}>
+          <label htmlFor={fuelId} className={styles.label}>
+            Fuel
+          </label>
+          {/*
+           * Native, not a custom listbox: nine options, and every phone shows
+           * its own picker for a native select (see docs/decisions.md).
+           */}
+          <select
+            id={fuelId}
+            className={styles.select}
+            value={fuel}
+            onChange={(event) => {
+              if (isFuelTypeCode(event.target.value)) onFuelChange(event.target.value);
+            }}
+          >
+            {FUEL_TYPES.map(({ code, name }) => (
+              <option key={code} value={code}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
         {/*
-         * Native, not a custom listbox: nine options, and every phone shows
-         * its own picker for a native select (see docs/decisions.md).
+         * A native select, like the fuel: four distances, each one a real
+         * choice, and no slider to drag 1 km at a time with a thumb or arrow
+         * keys. Applies at once, like the fuel, and is kept in the URL.
          */}
-        <select
-          id={fuelId}
-          className={styles.select}
-          value={fuel}
-          onChange={(event) => {
-            if (isFuelTypeCode(event.target.value)) onFuelChange(event.target.value);
-          }}
-        >
-          {FUEL_TYPES.map(({ code, name }) => (
-            <option key={code} value={code}>
-              {name}
-            </option>
-          ))}
-        </select>
+        <div className={styles.field}>
+          <label htmlFor={radiusId} className={styles.label}>
+            Within
+          </label>
+          <select
+            id={radiusId}
+            className={styles.select}
+            value={radius}
+            ref={radiusSelectRef}
+            onChange={(event) => {
+              onRadiusChange(Number(event.target.value));
+            }}
+          >
+            {RADIUS_STEPS.map((step) => (
+              <option key={step} value={step}>
+                {step} km
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className={styles.placeRow}>

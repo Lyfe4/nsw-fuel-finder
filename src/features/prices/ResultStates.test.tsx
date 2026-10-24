@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { announced, placeInput, renderApp, results } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
-import { apiError, FETCHED_AT, fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
+import { apiError, FETCHED_AT, fakeApi, json, prices } from '@/lib/testing/fakeApi';
 
 describe('result states', () => {
-  it('empty: says so, and offers the widest search without a new history entry', async () => {
+  it('empty: says so, and points to the distance, which searches wider without a new history entry', async () => {
     const api = fakeApi({
       location: (params) =>
         json(params.get('radius') === '25' ? prices() : prices({ stations: [] })),
@@ -22,12 +22,45 @@ describe('result states', () => {
     expect(announced()).toBe('No stations found selling Unleaded 91.');
     await expectNoAxeViolations(container);
 
-    await user.click(screen.getByRole('button', { name: 'Search within 25 km' }));
-    // The button is gone once it works; focus went to the results heading, not <body>.
-    expect(screen.getByRole('heading', { level: 2 })).toHaveFocus();
+    const length = window.history.length;
+    await user.click(screen.getByRole('button', { name: 'Choose a larger distance' }));
+    const distance = screen.getByRole('combobox', { name: 'Within' });
+    expect(distance).toHaveFocus();
+    await user.selectOptions(distance, '25 km');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     expect(api.calls('location').at(-1)).toMatchObject({ radius: '25' });
     expect(window.location.search).toBe('?fuel=U91&query=Erina&radius=25');
+    expect(window.history.length).toBe(length);
+  });
+
+  it('empty at the largest distance: no button to a larger one', async () => {
+    fakeApi({ location: () => json(prices({ stations: [] })) });
+    renderApp('/?query=Erina&radius=25');
+    expect(
+      await within(results()).findByText('Try another fuel, or a different place.'),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Choose a larger distance' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('distance: offers 2, 5, 10 and 25 km, starts at 5, and keeps the choice in the URL', async () => {
+    const api = fakeApi();
+    const { user } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    const distance = screen.getByRole('combobox', { name: 'Within' });
+    expect(
+      within(distance)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['2 km', '5 km', '10 km', '25 km']);
+    expect(distance).toHaveValue('5');
+    await user.selectOptions(distance, '2 km');
+    expect(window.location.search).toBe('?fuel=U91&query=Erina&radius=2');
+    expect(
+      await screen.findByRole('heading', { name: '2 stations within 2 km of Erina NSW 2250' }),
+    ).toBeVisible();
+    expect(api.calls('location').at(-1)).toMatchObject({ radius: '2' });
   });
 
   it('ambiguous: lists the places, and a choice searches it', async () => {
@@ -136,26 +169,6 @@ describe('result states', () => {
     expect(
       await screen.findByRole('heading', { name: '2 stations within 5 km of postcode 2880' }),
     ).toBeInTheDocument();
-  });
-
-  it('few: offers the wider search beside one or two stations', async () => {
-    const api = fakeApi({
-      location: (params) =>
-        json(params.get('radius') === '25' ? prices() : prices({ stations: [station()] })),
-    });
-    const { user, container } = renderApp('/?query=Erina');
-
-    expect(
-      await within(results()).findByText('Only 1 station sells Unleaded 91 within 5 km.'),
-    ).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-    await user.click(screen.getByRole('button', { name: 'Search within 25 km' }));
-    expect(screen.getByRole('heading', { level: 2 })).toHaveFocus();
-    await waitFor(() => {
-      expect(api.calls('location').at(-1)).toMatchObject({ radius: '25' });
-    });
-    expect(await screen.findByRole('heading', { level: 2, name: /^2 stations/ })).toBeVisible();
-    expect(screen.queryByText(/^Only \d+ stations? sells?/)).not.toBeInTheDocument();
   });
 
   it('refresh: a newer snapshot for the same search, on coming back to the tab, is announced', async () => {

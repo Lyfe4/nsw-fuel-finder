@@ -10,6 +10,7 @@ describe('parseSearch', () => {
       place: null,
       view: 'list',
       station: null,
+      history: null,
     });
   });
 
@@ -20,6 +21,7 @@ describe('parseSearch', () => {
       place: { kind: 'location', query: 'Erina NSW 2250' },
       view: 'list',
       station: null,
+      history: null,
     });
   });
 
@@ -35,6 +37,10 @@ describe('parseSearch', () => {
     ['an unknown fuel', '?fuel=EV', { fuel: 'U91' }],
     ['a radius out of range', '?radius=500', { radius: 5 }],
     ['a radius that is not a whole number', '?radius=2.5', { radius: 5 }],
+    // Not one of the steps (an old or hand-edited link): the next step up.
+    ['a radius between steps', '?radius=7', { radius: 10 }],
+    ['a radius below the smallest step', '?radius=1', { radius: 2 }],
+    ['an empty radius', '?radius=', { radius: 5 }],
     ['half a position', '?lat=-33.87', { place: null }],
     ['a position that is not a number', '?lat=x&lng=y', { place: null }],
     ['an empty query', '?query=%20%20', { place: null }],
@@ -84,6 +90,7 @@ describe('serializeSearch', () => {
         place: { kind: 'nearby', lat: -33.87, lng: 151.21 },
         view: 'list',
         station: null,
+        history: null,
       }),
     ).toBe('fuel=U91&lat=-33.87&lng=151.21&radius=25');
   });

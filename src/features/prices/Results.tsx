@@ -23,7 +23,8 @@ export interface ResultsProps {
   onRetry: () => void;
   onRetryLocation: () => void;
   onPickCandidate: (candidate: string) => void;
-  onWiden: () => void;
+  /** Move focus to the distance select: the way out of an empty result. */
+  onChooseDistance: () => void;
   /** Move focus to the suburb box: the way out of most problems. */
   onSearchInstead: () => void;
   /** Identifies the search, so a new one starts the list from the top. */
@@ -48,9 +49,6 @@ export function where(data: PricesResponse): string {
   return /^\d{4}$/.test(label) ? `of postcode ${label}` : `of ${label}`;
 }
 
-/** Fewer than this many stations, and a wider search is offered beside them. */
-const FEW_STATIONS = 3;
-
 export function Results({
   view,
   fuelName,
@@ -61,7 +59,7 @@ export function Results({
   onRetry,
   onRetryLocation,
   onPickCandidate,
-  onWiden,
+  onChooseDistance,
   onSearchInstead,
   searchKey,
   refreshed,
@@ -132,22 +130,13 @@ export function Results({
           <p>
             No stations sell {fuelName} within {radius} km {where(view.data)}.
           </p>
-          {radius < maxRadius && (
-            <Button variant="primary" onClick={onWiden}>
-              Search within {maxRadius} km
+          {radius < maxRadius ? (
+            <Button variant="primary" onClick={onChooseDistance}>
+              Choose a larger distance
             </Button>
+          ) : (
+            <p>Try another fuel, or a different place.</p>
           )}
-        </div>
-      )}
-
-      {view.kind === 'results' && view.stations.length < FEW_STATIONS && radius < maxRadius && (
-        <div className={styles.few}>
-          <p>
-            Only {view.stations.length}{' '}
-            {view.stations.length === 1 ? 'station sells' : 'stations sell'} {fuelName} within{' '}
-            {radius} km.
-          </p>
-          <Button onClick={onWiden}>Search within {maxRadius} km</Button>
         </div>
       )}
 
