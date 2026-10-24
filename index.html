@@ -3,12 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NSW Fuel Finder</title>
+    <title>NSW Fuel Finder: live fuel prices near you, cheapest first</title>
     <meta
       name="description"
-      content="Live NSW fuel prices near you, cheapest first for the fuel you use."
+      content="Live NSW and ACT fuel prices near you, cheapest first for the fuel you use, on a list and a map, with four months of price history. Free, no account."
     />
-    <!-- Kept in step with the theme by src/features/theme/useTheme.ts. -->
+    <!--
+      %SITE_URL% is the site's primary address, filled in at build from
+      Netlify's URL (vite.config.ts), so a custom domain needs no code change.
+    -->
+    <link rel="canonical" href="%SITE_URL%/" />
+
+    <!-- Link previews: Open Graph, read by Facebook, LinkedIn, Slack and most others. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="NSW Fuel Finder" />
+    <meta property="og:title" content="NSW Fuel Finder: live fuel prices near you" />
+    <meta
+      property="og:description"
+      content="Live NSW and ACT fuel prices, cheapest first, on a list and a map, with price history."
+    />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="NSW Fuel Finder showing nearby stations cheapest first beside a map of their prices."
+    />
+    <meta property="og:locale" content="en_AU" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <!--
+      The browser's own chrome (Android's address bar, an installed page's
+      title bar). One tag, set by the script below before first paint and kept
+      in step by src/features/theme/useTheme.ts.
+    -->
     <meta name="theme-color" content="#f6f7f9" />
     <!--
       The map's style, tiles and fonts come from here. Opening the connection
@@ -21,7 +54,12 @@
       on <html> before the stylesheet applies, so a dark-mode visitor never
       sees a white flash while the app loads. src/features/theme/theme.ts owns
       the key and keeps the attribute current afterwards; theme.test.ts runs
-      this script to hold the two together. Storage can throw, hence the try.
+      this script to hold the two together.
+
+      The Content-Security-Policy in netlify.toml allows this script by its
+      SHA-256 hash, not by allowing inline scripts in general. Any change to
+      it, whitespace included, changes the hash: netlify/lib/securityHeaders.test.ts
+      fails until netlify.toml has the new one. Storage can throw, hence the try.
     -->
     <script>
       (function () {
@@ -36,6 +74,8 @@
           theme = dark ? 'dark' : 'light';
         }
         document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0f1216' : '#f6f7f9');
       })();
     </script>
   </head>

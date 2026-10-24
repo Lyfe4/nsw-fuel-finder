@@ -1,0 +1,5 @@
+# Everything here is public, and there is nothing a crawler should not see.
+# /api/* answers searches; crawling it would only spend function invocations.
+User-agent: *
+Allow: /
+Disallow: /api/
