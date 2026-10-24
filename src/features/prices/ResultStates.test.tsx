@@ -155,6 +155,18 @@ describe('result states', () => {
     expect(api.calls('location')).toHaveLength(2);
   });
 
+  it('rate limited (429): says to wait, and does not retry by itself', async () => {
+    // Netlify's edge answers a rate-limited request itself, not with our JSON.
+    const api = fakeApi({ location: () => new Response('Too Many Requests', { status: 429 }) });
+    renderApp('/?query=Erina');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'A lot of searches are coming from your network right now. Please wait a minute and try again.',
+    );
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    expect(api.calls('location')).toHaveLength(1);
+  });
+
   it('offline: says to check the connection', async () => {
     fakeApi({ location: () => Promise.reject(new TypeError('Failed to fetch')) });
     renderApp('/?query=Erina');

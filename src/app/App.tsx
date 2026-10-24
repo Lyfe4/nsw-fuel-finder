@@ -55,6 +55,10 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             Map tiles from <a href="https://openfreemap.org/">OpenFreeMap</a>, map data ©{' '}
             <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
           </p>
+          <p>
+            No account, cookies or tracking; your location stays rounded and unstored.{' '}
+            <a href="/privacy.html">Privacy</a>
+          </p>
         </footer>
       </div>
     </QueryClientProvider>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy: NSW Fuel Finder</title>
+    <meta
+      name="description"
+      content="What NSW Fuel Finder does with your location and searches: no account, no cookies, no tracking."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!--
+      Plain HTML and the static pages' stylesheet, like 404.html: no script,
+      no inline styles, the same Content-Security-Policy as the app. Kept in
+      step with the code by hand; the README has the same note. Each point
+      names what makes it true, for whoever changes that code next.
+    -->
+    <link rel="stylesheet" href="/static-page.css" />
+  </head>
+  <body>
+    <main>
+      <p class="mark" aria-hidden="true">
+        <img src="/favicon.svg" alt="" width="48" height="48" />
+      </p>
+      <h1>Privacy</h1>
+      <p>No account, no cookies, no analytics and no tracking.</p>
+
+      <h2>Your location</h2>
+      <ul>
+        <!-- useGeolocation.ts, searchState.ts roundPosition, COORDINATE_DECIMALS -->
+        <li>
+          Your location is asked for only when you choose “Use my location”, and it is used in your
+          browser.
+        </li>
+        <li>
+          Only a position rounded to about 1 km is sent to this site, in the search and its address.
+          This site’s code does not store it or log it.
+        </li>
+      </ul>
+
+      <h2>Searches, favourites and settings</h2>
+      <ul>
+        <!-- router.ts: answered from the snapshot; nothing written per request -->
+        <li>
+          A suburb or postcode you search for is sent to this site to find prices; its code does not
+          store it.
+        </li>
+        <!-- favourites.ts, theme.ts: localStorage -->
+        <li>
+          Favourites and your light or dark choice are kept on this device. To show favourites’
+          prices, only their station numbers are sent.
+        </li>
+        <!-- netlify/functions/api/api.ts config.rateLimit -->
+        <li>
+          The site is hosted by Netlify, which handles every request and counts requests from each
+          internet address for a minute, to stop any one address overloading the site.
+        </li>
+      </ul>
+
+      <h2>Other services</h2>
+      <ul>
+        <!-- mapStyle.ts, LazyStationMap.tsx: nothing from OpenFreeMap before a map is shown -->
+        <li>
+          When the map is shown, your browser downloads it from OpenFreeMap, which sees your
+          internet address and the area on screen. Nothing is fetched from OpenFreeMap until then.
+        </li>
+        <!-- directions.ts -->
+        <li>
+          “Directions” opens Apple Maps or Google Maps with the station as the destination. Your
+          position is not passed on; the maps app finds it itself, if you let it.
+        </li>
+        <!-- netlify.toml Referrer-Policy -->
+        <li>Other sites linked from here are told only that you came from this site.</li>
+      </ul>
+
+      <p><a class="button" href="/">Search fuel prices</a></p>
+    </main>
+  </body>
+</html>

@@ -3,7 +3,7 @@
  * into the daily [low, high, last] history the app charts.
  *
  * Pure functions, kept apart from the command line (build-history-backfill.mjs)
- * so they can be tested: scripts/lib/fuelcheck-history.test.ts.
+ * so they can be tested: netlify/lib/history/backfill.test.ts.
  *
  * THE FILES (data.nsw.gov.au, dataset "fuel-check", CC BY-SA). One per month,
  * published a week or two after it ends, sometimes XLSX and sometimes CSV,

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   addDays,
   LIVE_DAYS_KEPT,
@@ -30,12 +32,13 @@ const CONCURRENCY = 16;
 /** A station that has fallen behind catches up at most this many days in one go. */
 const MAX_CATCH_UP_DAYS = 14;
 
-export interface FoldProgress {
+const foldProgressSchema = z.object({
   /** The day being folded in: yesterday, in Sydney. */
-  target: string;
+  target: z.string(),
   /** How many stations (in code order) have it. */
-  done: number;
-}
+  done: z.number().int().min(0),
+});
+export type FoldProgress = z.infer<typeof foldProgressSchema>;
 
 export interface FoldResult {
   target: string;
@@ -77,8 +80,9 @@ export async function foldHistory(
   if (target < LIVE_HISTORY_START) return null;
 
   const sorted = [...codes].sort((a, b) => a.localeCompare(b));
-  const saved = (await store.getJSON(KEYS.historyProgress, 'strong')) as FoldProgress | null;
-  const done = saved?.target === target ? saved.done : 0;
+  // Anything unreadable starts the day again: re-folding a station is harmless.
+  const saved = foldProgressSchema.safeParse(await store.getJSON(KEYS.historyProgress, 'strong'));
+  const done = saved.success && saved.data.target === target ? saved.data.done : 0;
   const slice = sorted.slice(done, done + STATIONS_PER_RUN);
   if (slice.length === 0) return { target, stations: 0, written: 0, remaining: 0 };
 

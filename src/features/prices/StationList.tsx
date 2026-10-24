@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef } from 'react';
 
 import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
@@ -67,12 +67,15 @@ export function StationList({
    * does nothing when it is already in view, as it is after "Show on map".
    * Skipped while the list is hidden (a phone showing the map).
    */
-  useEffect(() => {
+  // An effect event: reads the motion setting without making it a reason to scroll.
+  const reveal = useEffectEvent(() => {
     const item = selectedItem.current;
     if (!item || item.closest('[hidden]')) return;
     item.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
-    // Only on a new selection, not when motion settings change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+  // Only on a new selection, not when motion settings change.
+  useEffect(() => {
+    reveal();
   }, [selected]);
 
   const remaining = total - stations.length;

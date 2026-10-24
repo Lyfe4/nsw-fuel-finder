@@ -34,3 +34,11 @@
     transform: scale(1.45);
   }
 }
+
+/* "You already have 50 favourites...": on a line of its own, under the button. */
+.full {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

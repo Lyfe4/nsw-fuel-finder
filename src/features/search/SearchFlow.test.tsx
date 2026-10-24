@@ -109,6 +109,18 @@ describe('searching by suburb or postcode', () => {
     expect(api.calls('places').length).toBeLessThan(3);
   });
 
+  it('asks for suggestions in one form, so "Erina" and "erina" share a cache entry', async () => {
+    const api = fakeApi({
+      places: (params) => json(suggestions(params.get('query') ?? '', ['Erina NSW 2250'])),
+    });
+    const { user } = renderApp();
+
+    await user.type(placeInput(), 'ERINA  ');
+    await waitFor(() => {
+      expect(api.calls('places')).toEqual([{ query: 'erina' }]);
+    });
+  });
+
   it('closes the suggestions when typed text is submitted with Enter', async () => {
     fakeApi({
       places: (params) =>

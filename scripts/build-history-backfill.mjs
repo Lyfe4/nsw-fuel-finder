@@ -16,9 +16,16 @@
  * OUTPUT: .history-backfill/stations/{code}.json, one per matched station, in
  * the format of netlify/lib/history/stationHistory.ts, and report.json with
  * how stations were matched. `--upload` writes each to
- * `history/v2/backfill/{code}` in the site's store. That needs
+ * `history/v2/backfill/{code}` in the site's PRODUCTION store. That needs
  * NETLIFY_SITE_ID and NETLIFY_AUTH_TOKEN in the environment, and makes no
  * API.NSW calls.
+ *
+ * THE TOKEN. A Netlify personal access token can reach the whole account,
+ * not just this site. Make one for the upload (User settings > Applications >
+ * New access token, shortest expiry offered), pass it for this one command,
+ * and delete it afterwards:
+ *
+ *   NETLIFY_SITE_ID=... NETLIFY_AUTH_TOKEN=... pnpm history:backfill --months 4 --upload
  *
  * LICENCE: the source is CC BY-SA (NSW Fair Trading, via data.nsw.gov.au).
  * What this writes is an adaptation (daily low, high and last), shared under

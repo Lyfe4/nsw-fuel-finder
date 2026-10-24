@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 import {
+  callsRecordSchema,
+  MONTHLY_BUDGET,
+  MONTHLY_QUOTA,
+  sydneyMonth,
+} from '../../lib/snapshot/calls';
+import {
   SNAPSHOT_INTERVAL_MINUTES,
   STALE_AFTER_MS,
   type Snapshot,
@@ -33,8 +39,13 @@ const minutes = (ms: number) => Math.round(ms / 60_000);
 export function statusReport(input: {
   served: Snapshot | null;
   lastRun: unknown;
-  /** Set when the run record could not be read at all: not the same as "no runs". */
+  /**
+   * Set when the run record could not be read at all: not the same as "no
+   * runs". Logged by the caller; never published, as it can carry internals.
+   */
   lastRunError?: string;
+  /** This month's `meta/calls/YYYY-MM` record, or null. */
+  calls?: unknown;
   now: number;
 }): StatusResponse {
   const { served, now } = input;
@@ -43,13 +54,13 @@ export function statusReport(input: {
   const problems: string[] = [];
 
   if (input.lastRunError) {
-    problems.push(`Could not read the last run record: ${input.lastRunError}`);
+    problems.push('Could not read the last run record.');
   } else if (!lastRun) {
     problems.push('No scheduled run has been recorded.');
   } else {
+    // The kind only. The message stays in meta/last-run and the function log.
     if (!lastRun.ok) {
-      const { kind = 'unknown', message = '' } = lastRun.error ?? {};
-      problems.push(`The last scheduled run failed (${kind}): ${message}`);
+      problems.push(`The last scheduled run failed (${lastRun.error?.kind ?? 'unknown'}).`);
     }
     const sinceRun = now - Date.parse(lastRun.startedAt);
     if (sinceRun > STALE_AFTER_MS) {
@@ -76,8 +87,19 @@ export function statusReport(input: {
     }
   }
 
+  const month = sydneyMonth(new Date(now));
+  const record = callsRecordSchema.safeParse(input.calls);
+  const calls = record.success && record.data.month === month ? record.data : null;
+  const callCount = calls ? calls.token + calls.prices : 0;
+  if (callCount > MONTHLY_BUDGET) {
+    problems.push(
+      `${String(callCount)} API.NSW calls so far in ${month}, over the ${String(MONTHLY_BUDGET)} planned (the quota is ${String(MONTHLY_QUOTA)}).`,
+    );
+  }
+
   return {
     healthy: problems.length === 0,
+    callsThisMonth: { month, calls: callCount, budget: MONTHLY_BUDGET },
     problems,
     checkedAt: new Date(now).toISOString(),
     served: served ? { fetchedAt: served.fetchedAt, stations: served.stations.length } : null,

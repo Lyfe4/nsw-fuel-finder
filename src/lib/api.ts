@@ -12,8 +12,12 @@ import type {
 export class ApiRequestError extends Error {
   /** HTTP status, or 0 when the request never got a response (offline, DNS, abort). */
   readonly status: number;
-  /** The API's error code, or 'network' / 'unexpected' for failures that are not its. */
-  readonly code: ApiErrorCode | 'network' | 'unexpected';
+  /**
+   * The API's error code, or one for failures that are not its: 'network'
+   * (no response), 'rate_limited' (Netlify's edge refused the request, 429)
+   * or 'unexpected'.
+   */
+  readonly code: ApiErrorCode | 'network' | 'rate_limited' | 'unexpected';
   readonly candidates: readonly string[];
 
   constructor(
@@ -53,6 +57,11 @@ async function getJson<T>(path: string, params: Record<string, string>, signal?:
     throw new ApiRequestError(0, 'network', 'Could not reach the server.');
   }
 
+  // The rate limit on /api/* (netlify/functions/api/api.ts) is applied by
+  // Netlify's edge, whose 429 is not our JSON.
+  if (response.status === 429) {
+    throw new ApiRequestError(429, 'rate_limited', 'Too many requests from this network.');
+  }
   const body: unknown = await response.json().catch(() => null);
   if (response.ok && body !== null) return body as T;
   if (isErrorBody(body)) {

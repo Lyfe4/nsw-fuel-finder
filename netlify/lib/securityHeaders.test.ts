@@ -46,6 +46,17 @@ describe('security headers', () => {
     expect(scripts).not.toContain("'unsafe-inline'");
     expect(scripts).not.toContain("'unsafe-eval'");
     expect(scripts.filter((source) => !source.startsWith("'sha256-"))).toEqual(["'self'"]);
+    // The theme script's, and no stale one left behind (the old badge's).
+    expect(scripts.filter((source) => source.startsWith("'sha256-"))).toHaveLength(1);
+  });
+
+  it('contacts no other site on load: OpenFreeMap only once a map is shown', () => {
+    const external = [...html.matchAll(/<(?:link|script)\b[^>]*\b(?:href|src)="(https?:[^"]+)"/g)];
+    expect(external.map((match) => match[1])).toEqual([]);
+  });
+
+  it('allows no inline styles', () => {
+    expect(csp.get('style-src')).toEqual(["'self'"]);
   });
 
   it('lets the map reach OpenFreeMap, and nothing else outside this site', () => {
@@ -59,6 +70,7 @@ describe('security headers', () => {
 
   it('refuses framing, plugins and a moved base', () => {
     expect(csp.get('frame-ancestors')).toEqual(["'none'"]);
+    expect(csp.get('frame-src')).toEqual(["'none'"]);
     expect(csp.get('object-src')).toEqual(["'none'"]);
     expect(csp.get('base-uri')).toEqual(["'self'"]);
     expect(header('X-Frame-Options')).toBe('DENY');
@@ -82,8 +94,15 @@ describe('colours written outside the token file', () => {
     );
   });
 
-  it('the 404 page uses the tokens’ colours', () => {
-    const css = readFileSync('public/404.css', 'utf8');
+  it('the privacy page the footer links to exists, and runs no script', () => {
+    const page = readFileSync('public/privacy.html', 'utf8');
+    expect(readFileSync('src/app/App.tsx', 'utf8')).toContain('href="/privacy.html"');
+    expect(page).toContain('<h1>Privacy</h1>');
+    expect(page).not.toMatch(/<script|style="/);
+  });
+
+  it('the static pages (404, privacy) use the tokens’ colours', () => {
+    const css = readFileSync('public/static-page.css', 'utf8');
     for (const name of [
       'grey-50',
       'grey-900',

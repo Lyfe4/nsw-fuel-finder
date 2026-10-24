@@ -51,6 +51,17 @@ describe('foldHistory', () => {
     });
   });
 
+  it('starts the day again from an unreadable progress record, rather than skipping stations', async () => {
+    const { store } = memoryStore({
+      [KEYS.historyDay('2026-10-24')]: day('2026-10-24', { U91: { '1': [199, 201, 199] } }),
+      [KEYS.historyProgress]: { target: '2026-10-24', done: 'lots' },
+    });
+
+    const result = await foldHistory(store, '2026-10-25', ['1']);
+
+    expect(result).toMatchObject({ stations: 1, written: 1, remaining: 0 });
+  });
+
   it('does a slice per run, carries on where the last run stopped, then does nothing', async () => {
     const codes = Array.from({ length: STATIONS_PER_RUN + 5 }, (_, i) => String(1000 + i));
     const { store } = memoryStore({

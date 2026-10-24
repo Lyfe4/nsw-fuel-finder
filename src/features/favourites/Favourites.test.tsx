@@ -63,6 +63,30 @@ describe('favourites', () => {
     expect(readFavourites()).toEqual([]);
   });
 
+  it('at 50 favourites, says why another cannot be added instead of ignoring the press', async () => {
+    store(
+      Array.from({ length: 50 }, (_, i) => ({
+        code: String(100 + i),
+        name: `Station ${String(i)}`,
+      })),
+    );
+    fakeApi({
+      location: () => json(prices({ stations: [ERINA] })),
+      stations: () => json(stationsResponse([])),
+    });
+    const { user, container } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+
+    const star = screen.getByRole('button', { name: 'Favourite, Ampol Foodary Erina' });
+    await user.click(star);
+    expect(star).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'You already have 50 favourites, the most this device keeps. Remove one to add this station.',
+    );
+    expect(readFavourites()).toHaveLength(50);
+    await expectNoAxeViolations(container);
+  });
+
   it('lists favourites with today’s prices for the chosen fuel, cheapest first, from /api/stations', async () => {
     store([
       { code: '1', name: 'Ampol Foodary Erina' },

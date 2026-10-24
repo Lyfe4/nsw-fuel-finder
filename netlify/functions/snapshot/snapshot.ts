@@ -9,10 +9,36 @@
  */
 import { randomUUID } from 'node:crypto';
 
-import { runSnapshot } from '../../lib/snapshot/run';
+import { runSnapshot, worthRetrying } from '../../lib/snapshot/run';
 import { blobStore } from '../../lib/store';
 
-export default async (): Promise<Response> => {
+/** The part of Netlify's per-invocation context this reads. */
+interface InvocationContext {
+  deploy?: { context?: string };
+}
+
+/**
+ * Only production (and `netlify dev`, whose store is local) runs the job.
+ * The Blobs store is site-wide, so a deploy preview shares production's: a
+ * "Run now" on a preview's function in the Netlify UI would otherwise
+ * overwrite production's run record from a deploy without credentials. An
+ * unknown or missing context runs, so a change on Netlify's side can never
+ * silently stop production's snapshots.
+ */
+export function runsIn(context: InvocationContext | undefined): boolean {
+  const deploy = context?.deploy?.context;
+  return deploy !== 'deploy-preview' && deploy !== 'branch-deploy';
+}
+
+export default async (_request: Request, context?: InvocationContext): Promise<Response> => {
+  if (!runsIn(context)) {
+    const message = `Not run: the snapshot job runs in production only (this is a ${String(context?.deploy?.context)}).`;
+    console.info(message);
+    return new Response(JSON.stringify({ ok: false, skipped: message }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const summary = await runSnapshot({
     fetch: (input, init) => fetch(input, init),
     now: () => Date.now(),
@@ -29,8 +55,9 @@ export default async (): Promise<Response> => {
   if (summary.ok) console.info('snapshot ok', JSON.stringify(summary));
   else console.error('snapshot failed', JSON.stringify(summary));
 
+  // 502 asks Netlify to run it again; only for a failure a retry can fix.
   return new Response(JSON.stringify(summary), {
-    status: summary.ok ? 200 : 502,
+    status: worthRetrying(summary) ? 502 : 200,
     headers: { 'Content-Type': 'application/json' },
   });
 };

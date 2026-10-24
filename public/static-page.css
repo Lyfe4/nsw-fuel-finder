@@ -1,9 +1,9 @@
 /*
- * The 404 page's own styles. It cannot share the app's bundle (its file names
- * are hashed per build), so the few colours it needs are copied from
- * src/styles/tokens.css: the light and dark backgrounds, text and accent.
- * It follows the device setting only: without script it cannot read the
- * theme stored by the app.
+ * The static pages' own styles: 404.html and privacy.html. They cannot share
+ * the app's bundle (its file names are hashed per build), so the few colours
+ * they need are copied from src/styles/tokens.css: the light and dark
+ * backgrounds, text and accent. They follow the device setting only: without
+ * script they cannot read the theme stored by the app.
  */
 :root {
   color-scheme: light dark;
@@ -48,7 +48,9 @@ main {
 }
 
 h1,
-p {
+h2,
+p,
+ul {
   margin: 0;
 }
 
@@ -57,8 +59,25 @@ h1 {
   line-height: 1.2;
 }
 
-p {
+h2 {
+  margin-top: 0.5rem;
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+
+p,
+ul {
   color: var(--muted);
+}
+
+ul {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+a:not(.button) {
+  color: var(--accent);
 }
 
 .mark img {

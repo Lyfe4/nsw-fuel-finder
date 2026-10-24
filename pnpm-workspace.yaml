@@ -7,3 +7,9 @@
 allowBuilds:
   esbuild: true
   unrs-resolver: true
+
+# Install no version published less than a day ago (minutes). Most malicious
+# releases are found and pulled within hours; this keeps them out of a fresh
+# install or a Dependabot update until then. Raise it per package with
+# minimumReleaseAgeExclude if an urgent security fix cannot wait.
+minimumReleaseAge: 1440

@@ -31,25 +31,19 @@ function check(name, ok, detail = '') {
 
 const station = (url) => new URL(url).searchParams.get('station');
 
-/** The part of Netlify's badge iframe that is drawn (it clips itself), or null. */
-async function badgeBox(page) {
-  await page
-    .waitForFunction(
-      () => document.getElementById('nl-badge-frame')?.dataset.nlReady === '1',
-      null,
-      {
-        timeout: 10_000,
-      },
-    )
-    .catch(() => undefined);
-  return page.evaluate(() => {
-    const frame = document.getElementById('nl-badge-frame');
-    if (!frame) return null;
-    const rect = frame.getBoundingClientRect();
-    const [left, top, right, bottom] = (frame.style.clipPath.match(/[\d.]+/g) ?? []).map(Number);
-    if (bottom === undefined) return null;
-    return { x: rect.x + left, y: rect.y + top, width: right - left, height: bottom - top };
-  });
+/**
+ * Whether Netlify's free-plan badge is on the page. Netlify stopped serving it
+ * (round 9), and the CSP was tightened to match: it no longer allows the
+ * badge's inline styles or script. If Netlify starts serving it again, it
+ * would be silently broken, so this check fails instead and says why.
+ */
+function badgePresent(page) {
+  return page.evaluate(() =>
+    Boolean(
+      document.getElementById('nl-badge-frame') ??
+      document.querySelector('script[src*="/.netlify/scripts/hud"]'),
+    ),
+  );
 }
 
 /**
@@ -78,13 +72,6 @@ const settled = (page) =>
         .map((a) => a.finished),
     ),
   );
-
-const overlaps = (a, b) =>
-  Boolean(a && b) &&
-  a.x < b.x + b.width &&
-  b.x < a.x + a.width &&
-  a.y < b.y + b.height &&
-  b.y < a.y + a.height;
 
 const browser = await chromium.launch();
 try {
@@ -152,26 +139,14 @@ try {
     (await page.locator(`h3:has-text("${name}")`).count()) === 2,
   );
 
-  // Netlify's free-plan badge (production only) is pinned bottom-right. The
-  // sticky map's attribution, and the page's last line, must stay clear of it.
-  const badge = await badgeBox(page);
-  if (badge) {
-    // Its own script positions the visible box; if the CSP refused it (a new
-    // badge version, so a new hash), the box would have no size.
-    check('Netlify’s badge draws under the CSP', badge.width > 0 && badge.height > 0);
-    const attribution = await page.locator('.maplibregl-ctrl-attrib').boundingBox();
-    check('the badge does not cover the map attribution', !overlaps(badge, attribution));
-    await page.evaluate(() => {
-      window.scrollTo(0, document.documentElement.scrollHeight);
-    });
-    const lastLine = await page.locator('footer p').last().boundingBox();
-    check('the badge does not cover the last line of the page', !overlaps(badge, lastLine));
-    await page.evaluate(() => {
-      window.scrollTo(0, 700);
-    });
-  } else {
-    console.log('      (no Netlify badge on this site; badge checks skipped)');
-  }
+  const badge = await badgePresent(page);
+  check(
+    'Netlify’s badge is not served (the CSP no longer allows it)',
+    !badge,
+    badge
+      ? 'it is back and the CSP blocks it: allow it again, or remove it; see docs/decisions.md, round 9'
+      : '',
+  );
 
   // Let the pan to the station finish before the map changes size.
   await page.waitForTimeout(1500);

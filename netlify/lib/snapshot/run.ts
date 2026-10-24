@@ -1,4 +1,5 @@
 import { buildSnapshot, type BuildStats } from './build';
+import { recordCalls } from './calls';
 import { historyDaySchema, historyDayFor, updateHistoryDay } from './history';
 import { foldHistory, type FoldResult } from '../history/fold';
 import { KEYS } from '../store';
@@ -48,7 +49,7 @@ export async function runSnapshot(deps: UpstreamDeps): Promise<RunSummary> {
     const previousCount = typeof previous?.stationCount === 'number' ? previous.stationCount : 0;
     if (stats.stations < previousCount * MIN_STATION_RATIO) {
       throw new UpstreamError(
-        'bad_response',
+        'partial_response',
         `Only ${String(stats.stations)} stations (previous snapshot had ${String(previousCount)}). ` +
           'Keeping the previous snapshot.',
       );
@@ -85,5 +86,21 @@ export async function runSnapshot(deps: UpstreamDeps): Promise<RunSummary> {
   }
 
   await deps.store.setJSON(KEYS.lastRun, summary);
+  // Counted whatever happened; a failed count never fails the run.
+  await recordCalls(deps.store, new Date(deps.now()), calls).catch((error: unknown) => {
+    console.error('Recording the call count failed', error);
+  });
   return summary;
+}
+
+/**
+ * Failures where trying again seconds later can work: a blip on either side.
+ * A 5xx from the scheduled function makes Netlify retry it (seen once, 4 s
+ * later), which spends another call; the rest return 200 with `ok: false`,
+ * so they cost nothing extra and still show in /api/status.
+ */
+const RETRYABLE = new Set(['unavailable', 'timeout', 'bad_response', 'internal']);
+
+export function worthRetrying(summary: RunSummary): boolean {
+  return !summary.ok && RETRYABLE.has(summary.error?.kind ?? 'internal');
 }

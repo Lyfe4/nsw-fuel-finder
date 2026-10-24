@@ -80,6 +80,13 @@ export function stationsBody(
   return { fetchedAt: snapshot.fetchedAt, stale, stations, missing };
 }
 
+/** A station the snapshot no longer lists is a 404: there is nothing current to show beside its past. */
+export function assertListed(snapshot: Snapshot, code: string): void {
+  if (!snapshot.stations.some((station) => station.code === code)) {
+    throw new ApiError('not_found', 'FuelCheck no longer lists that station.');
+  }
+}
+
 /**
  * The last HISTORY_WINDOW_DAYS of one fuel at one station: the published
  * history where it reaches, then our own. A station the snapshot no longer

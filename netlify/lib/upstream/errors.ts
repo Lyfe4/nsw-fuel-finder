@@ -11,7 +11,9 @@ export type UpstreamErrorKind =
   | 'unavailable'
   | 'timeout'
   | 'request_rejected'
-  | 'bad_response';
+  | 'bad_response'
+  /** A well-formed answer missing most stations: kept out of the snapshot. */
+  | 'partial_response';
 
 export class UpstreamError extends Error {
   readonly kind: UpstreamErrorKind;

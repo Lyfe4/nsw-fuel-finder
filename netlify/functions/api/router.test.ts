@@ -36,6 +36,9 @@ function setup(
       ? Promise.reject(new SnapshotUnavailableError('No price snapshot has been taken yet.'))
       : Promise.resolve(loaded),
   );
+  const getHistory = vi.fn(() =>
+    Promise.resolve(options.history ?? { backfill: null, live: null }),
+  );
   const handler = createHandler({
     getSnapshot,
     getLastRun: () =>
@@ -50,7 +53,8 @@ function setup(
                   fetchedAt: fixtureSnapshot.fetchedAt,
                 },
           ),
-    getHistory: () => Promise.resolve(options.history ?? { backfill: null, live: null }),
+    getCalls: () => Promise.resolve(null),
+    getHistory,
     getDay: (day) => {
       requestedDays.push(day);
       return Promise.resolve(options.day ?? null);
@@ -62,7 +66,7 @@ function setup(
     const body: unknown = await response.json();
     return { response, body };
   };
-  return { get, getSnapshot, requestedDays };
+  return { get, getSnapshot, getHistory, requestedDays };
 }
 
 beforeEach(() => {
@@ -353,11 +357,11 @@ describe('routing and failures', () => {
     expect((await get(path)).response.status).toBe(404);
   });
 
-  it('is reachable at the function path netlify dev exposes', async () => {
+  it('answers only at /api/*, the path its rate limit covers', async () => {
     const { get } = setup();
     expect(
       (await get('/.netlify/functions/api/location?query=2715&fuel=U91')).response.status,
-    ).toBe(200);
+    ).toBe(404);
   });
 
   it('refuses anything but GET with a 405 and an Allow header', async () => {
@@ -409,13 +413,12 @@ describe('GET /api/status', () => {
     expect((body as StatusResponse).served).toBeNull();
   });
 
-  it('is 503 and names the error when the run record cannot be read', async () => {
+  it('is 503 when the run record cannot be read, without publishing why', async () => {
     const { get } = setup({ lastRunFails: true });
     const { response, body } = await get('/api/status');
     expect(response.status).toBe(503);
-    expect((body as StatusResponse).problems).toEqual([
-      'Could not read the last run record: Failed to decode token: Token expired',
-    ]);
+    expect((body as StatusResponse).problems).toEqual(['Could not read the last run record.']);
+    expect(JSON.stringify(body)).not.toContain('Token expired');
   });
 });
 
@@ -536,5 +539,36 @@ describe('GET /api/history', () => {
     expect((await get('/api/history?station=99999999&fuel=U91')).response.status).toBe(404);
     expect((await get('/api/history?station=&fuel=U91')).response.status).toBe(400);
     expect((await get(`/api/history?station=${station()}&fuel=XX`)).response.status).toBe(400);
+  });
+});
+
+/*
+ * The CDN keys a function's response on every query parameter by default, so
+ * `&x=1` would be a fresh function invocation each time. Each route names the
+ * parameters its answer depends on; anything else shares their cache entry.
+ */
+describe('cache keys', () => {
+  const code = () => fixtureSnapshot.stations[0]?.code ?? '';
+
+  it.each([
+    ['/api/nearby?lat=-33.42&lng=151.34&fuel=U91', 'query=fuel|lat|lng|radius'],
+    ['/api/location?query=2250&fuel=U91', 'query=fuel|query|radius'],
+    ['/api/places?query=gos', 'query=query'],
+    [`/api/stations?codes=${code()}`, 'query=codes'],
+    [`/api/history?station=${code()}&fuel=U91`, 'query=fuel|station'],
+  ])('%s varies only on its own parameters', async (path, vary) => {
+    const { get } = setup();
+    const { response } = await get(path);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Netlify-Vary')).toBe(vary);
+  });
+});
+
+describe('Blobs reads an unknown station could cost', () => {
+  it('reads no history files for a station the snapshot does not have', async () => {
+    const { get, getHistory } = setup();
+    const { response } = await get('/api/history?station=no-such-station&fuel=U91');
+    expect(response.status).toBe(404);
+    expect(getHistory).not.toHaveBeenCalled();
   });
 });

@@ -6,12 +6,14 @@
  *   pnpm build && pnpm serve:headers
  *   pnpm check:browser http://localhost:4174      # fails on any CSP violation
  *
- * /api/* and Netlify's badge loader (/.netlify/*) are proxied to production,
- * and the badge's script tag is added to the page the way Netlify adds it, so
- * the policy is tested against everything it must allow. Reads only: the
- * proxied API calls make no API.NSW calls and write nothing. Unmatched paths
- * get public/404.html with a 404, as on Netlify. No compression or caching,
- * so not a performance test.
+ * /api/* is proxied to production, so the map and history have real data.
+ * Reads only: the proxied API calls make no API.NSW calls and write nothing.
+ * Unmatched paths get public/404.html with a 404, as on Netlify. No
+ * compression or caching, so not a performance test.
+ *
+ * `--with-badge` adds Netlify's old free-plan badge the way Netlify used to
+ * (and proxies its loader, /.netlify/*), to check that check:browser flags
+ * it if Netlify ever starts serving it again: the policy no longer allows it.
  */
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -33,12 +35,13 @@ const types = {
   '.webmanifest': 'application/manifest+json',
   '.txt': 'text/plain',
 };
+const withBadge = process.argv.includes('--with-badge');
 const BADGE = `<script async src="/.netlify/scripts/hud?variant=public" data-nf-variant="public" data-netlify-site-id="160725a2-0eff-4352-b586-5f6ad2fad975" data-app-host="app.netlify.com" data-account-tier="free"></script>`;
 
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.netlify/')) {
+  if (url.pathname.startsWith('/api/') || (withBadge && url.pathname.startsWith('/.netlify/'))) {
     const upstream = await fetch(PROD + url.pathname + url.search);
     res.statusCode = upstream.status;
     res.setHeader('content-type', upstream.headers.get('content-type') ?? 'text/plain');
@@ -54,7 +57,7 @@ createServer(async (req, res) => {
   res.statusCode = status;
   res.setHeader('content-type', types[extname(file)] ?? 'application/octet-stream');
   let body = readFileSync(file);
-  if (file.endsWith('index.html'))
+  if (withBadge && file.endsWith('index.html'))
     body = Buffer.from(body.toString().replace('</html>', `</html>\n${BADGE}`));
   res.end(body);
 }).listen(4174, () => console.log('serving on http://localhost:4174'));
