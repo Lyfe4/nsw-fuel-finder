@@ -58,8 +58,9 @@ describe('searching by suburb or postcode', () => {
     ]);
     // The price reads as words, not as "¢/L".
     expect(within(list).getAllByText('cents a litre')).toHaveLength(2);
+    // The fixture's snapshot is 2:30 pm on 23 Oct; any later day adds the date.
     expect(
-      within(results()).getByText('Unleaded 91 · prices as of 2:30 pm', { exact: false }),
+      within(results()).getByText(/^Unleaded 91 · prices as of (\w+, \d+ \w+, )?2:30 pm$/),
     ).toBeInTheDocument();
   });
 
