@@ -1846,7 +1846,10 @@ custom path is retried by the CLI as `.html`, `.htm`, `/index.html` and
 `/index.htm` before it answers, so locally one 404 is five function runs and
 reads "No such endpoint". Netlify staff say production does not do this
 (answers.netlify.com, "Netlify is invoking 404 functions 4 extra times").
-Checked on this round's deploy preview.
+Confirmed on the deploy preview and on production: an unknown station and an
+unknown place each come back with their own message ("FuelCheck no longer
+lists that station.", "We couldn't find Zzzyzx in NSW or the ACT."), not "No
+such endpoint".
 
 ### Not moving to a team of its own (accepted risk)
 
@@ -1948,3 +1951,33 @@ now fails if `index.html` names any other site.
   token request is an unknown outcome.
 - **React 19 `useEffectEvent`:** reads the latest props without being a
   dependency; only to be called from effects.
+
+### Verified after the merge
+
+Pull request #1, squash-merged as `6215c49` at 09:04 UTC; production served
+it about 10 seconds later.
+
+- **Cache keys:** `?query=…&junk=1`, the parameters reordered, and `&utm_source=x`
+  on a prices search were all Durable or Edge hits; a different letter case is
+  still a miss, as documented.
+- **Rate limit:** the deploy lists the rule (`sliding_window`, 120 per 60 s,
+  keyed on ip and domain). 140 cached requests in one second all got 200,
+  because enforcement takes a few seconds to start; within seconds every
+  request from that address got 429 (no body), and 200 again after about 30 s.
+- **Routing:** `/.netlify/functions/api/status` is the static 404 page; 404s
+  from the API carry their own message (see the `netlify dev` quirk above).
+- **CSP:** `pnpm check:browser` on production, 45 of 45, no violations, and
+  "Netlify's badge is not served" passes. `pnpm check:a11y`, 34 of 34.
+- **Lighthouse** (12.8.2, a results page for 2250): 100 / 100 / 100 / 100 on
+  mobile and desktop. Mobile LCP 1.4 s, CLS 0; desktop LCP 0.3 s, CLS 0.053.
+  The footer shift from the round 8 backlog is still there: this round did
+  not touch it.
+- **/api/status** shows `callsThisMonth`. The first scheduled run under the new code (09:30 UTC) succeeded and wrote `meta/calls/2026-10`: `callsThisMonth` 1 (one price call, the token was stored). The count starts there, so it leaves out October's ~70 earlier calls; the API.NSW dashboard stays the authority until November.
+
+**Deploy previews and the Netlify Drawer.** `check:browser` on the deploy
+preview failed 3 checks, all from the Netlify Drawer that previews inject
+(`/.netlify/scripts/cdp`): an inline `style` attribute and a frame from
+`app.netlify.com`, both refused by the policy. Production has no Drawer. It
+was already broken before this round (`child-src 'self'` refused its frame).
+Either turn the Drawer off for previews (Site configuration > Build & deploy >
+Deploy Previews > Netlify Drawer) or read those 3 as preview-only.
