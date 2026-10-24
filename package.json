@@ -27,6 +27,7 @@
     "check:a11y": "node scripts/a11y-check.mjs",
     "serve:headers": "node scripts/serve-with-headers.mjs",
     "history:backfill": "node scripts/build-history-backfill.mjs",
+    "auth:reset": "node scripts/auth-reset.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "assets:icons": "node scripts/generate-icons.mjs",
     "prepare": "husky"

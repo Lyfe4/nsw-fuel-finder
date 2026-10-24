@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createUpstreamClient } from './client';
 import { UpstreamError } from './errors';
 import { fakeUpstream, jsonResponse } from '../__fixtures__/fakeUpstream';
+import token from '../__fixtures__/token.json';
 import { KEYS, memoryStore } from '../store';
 
 const HOUR = 60 * 60_000;
@@ -63,7 +64,7 @@ describe('the token, persisted in Blobs', () => {
     expect(upstream.tokenCalls()).toHaveLength(2);
   });
 
-  it('is replaced once when a data call says it is invalid', async () => {
+  it('is replaced once when a data call says a stored token is invalid', async () => {
     const upstream = fakeUpstream({
       prices: [
         () =>
@@ -76,38 +77,156 @@ describe('the token, persisted in Blobs', () => {
         () => jsonResponse({ stations: [], prices: [] }),
       ],
     });
+    await upstream.store.setJSON(KEYS.token, { token: 'revoked', expiresAt: Date.UTC(2027, 0) });
     await createUpstreamClient(upstream.deps).fetchStatewidePrices();
 
-    expect(upstream.tokenCalls()).toHaveLength(2);
-    expect(upstream.priceCalls()).toHaveLength(2);
-  });
-
-  it('is not retried a second time if the fresh token is refused too', async () => {
-    const upstream = fakeUpstream({ prices: [() => jsonResponse({}, 401)] });
-    const error = await failure(createUpstreamClient(upstream.deps).fetchStatewidePrices());
-
-    expect(error.kind).toBe('request_rejected');
+    expect(upstream.tokenCalls()).toHaveLength(1);
     expect(upstream.priceCalls()).toHaveLength(2);
   });
 });
 
+/*
+ * API.NSW denies access after three consecutive failed identifications. Each
+ * test here is a way we could have made that third attempt.
+ */
 describe('the lockout guard', () => {
-  it('never makes a third consecutive failed attempt', async () => {
+  it('stops after a single rejection, so a later try cannot be the third failure', async () => {
     const upstream = fakeUpstream({ token: [refused] });
     const client = createUpstreamClient(upstream.deps);
 
     expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_rejected');
-    // Within the hour: not even asked.
+    upstream.advance(30 * 24 * HOUR);
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_locked');
+
+    expect(upstream.tokenCalls()).toHaveLength(1);
+  });
+
+  it('is not reset by changing the secret, so fixing a typo cannot lock the account', async () => {
+    const upstream = fakeUpstream({ token: [refused] });
+    await failure(createUpstreamClient(upstream.deps).fetchStatewidePrices());
+
+    const retyped = createUpstreamClient({
+      ...upstream.deps,
+      credentials: () => ({ apiKey: 'test-api-key', apiSecret: 'corrected-secret' }),
+    });
+    upstream.advance(2 * HOUR);
+    expect((await failure(retyped.fetchStatewidePrices())).kind).toBe('credentials_locked');
+    expect(upstream.tokenCalls()).toHaveLength(1);
+  });
+
+  it('counts a token request that timed out, since API.NSW may have refused it', async () => {
+    const upstream = fakeUpstream({
+      token: [
+        () => {
+          throw new DOMException('The operation timed out.', 'TimeoutError');
+        },
+        refused,
+      ],
+    });
+    const client = createUpstreamClient(upstream.deps);
+
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('timeout');
+    // Not again within the hour...
     upstream.advance(30 * 60_000);
     expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_locked');
-    // After the hour: one more try, which fails...
+    // ...then one more try, refused: two possible failures, and no third.
     upstream.advance(31 * 60_000);
     expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_rejected');
-    // ...and then never again with these credentials, however long we wait.
     upstream.advance(30 * 24 * HOUR);
     expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_locked');
 
     expect(upstream.tokenCalls()).toHaveLength(2);
+  });
+
+  it('stops after two token requests in a row with no answer', async () => {
+    const upstream = fakeUpstream({
+      token: [
+        () => {
+          throw new TypeError('fetch failed');
+        },
+      ],
+    });
+    const client = createUpstreamClient(upstream.deps);
+
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('unavailable');
+    upstream.advance(61 * 60_000);
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('unavailable');
+    upstream.advance(30 * 24 * HOUR);
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_locked');
+
+    expect(upstream.tokenCalls()).toHaveLength(2);
+  });
+
+  it('still counts a rejection whose record could not be written', async () => {
+    const { store } = memoryStore();
+    const upstream = fakeUpstream({ token: [refused] }, store);
+    const flaky = {
+      ...store,
+      setJSON: (key: string, value: unknown) => {
+        // Blobs fails once the token request has gone out.
+        if (key === KEYS.authFailure && upstream.tokenCalls().length > 0) {
+          return Promise.reject(new Error('Blobs unavailable'));
+        }
+        return store.setJSON(key, value);
+      },
+    };
+    await failure(createUpstreamClient({ ...upstream.deps, store: flaky }).fetchStatewidePrices());
+
+    upstream.advance(5 * 60_000);
+    expect((await failure(createUpstreamClient(upstream.deps).fetchStatewidePrices())).kind).toBe(
+      'credentials_locked',
+    );
+    expect(upstream.tokenCalls()).toHaveLength(1);
+  });
+
+  it('treats an unreadable failure record as locked, not as no failures', async () => {
+    const upstream = fakeUpstream();
+    await upstream.store.setJSON(KEYS.authFailure, { credentials: 'old-format', failures: 1 });
+
+    expect((await failure(createUpstreamClient(upstream.deps).fetchStatewidePrices())).kind).toBe(
+      'credentials_locked',
+    );
+    expect(upstream.fetch).not.toHaveBeenCalled();
+  });
+
+  it('stops when the data call refuses a token fetched moments before', async () => {
+    const upstream = fakeUpstream({ prices: [() => jsonResponse({}, 401)] });
+    const client = createUpstreamClient(upstream.deps);
+
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_rejected');
+    upstream.advance(30 * 24 * HOUR);
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_locked');
+
+    // One token, one refused data call, and nothing after: not 3 calls every run.
+    expect(upstream.tokenCalls()).toHaveLength(1);
+    expect(upstream.priceCalls()).toHaveLength(1);
+  });
+
+  it('stops when the data call refuses a stored token and then a fresh one', async () => {
+    const upstream = fakeUpstream({ prices: [() => jsonResponse({}, 401)] });
+    await upstream.store.setJSON(KEYS.token, { token: 'old', expiresAt: Date.UTC(2027, 0) });
+    const client = createUpstreamClient(upstream.deps);
+
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_rejected');
+    upstream.advance(HOUR);
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('credentials_locked');
+
+    expect(upstream.tokenCalls()).toHaveLength(1);
+    expect(upstream.priceCalls()).toHaveLength(2);
+  });
+
+  it('does not count an outage as a rejection', async () => {
+    const upstream = fakeUpstream({
+      token: [() => jsonResponse({}, 503), () => jsonResponse({}, 503), () => jsonResponse(token)],
+    });
+    const client = createUpstreamClient(upstream.deps);
+
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('unavailable');
+    expect((await failure(client.fetchStatewidePrices())).kind).toBe('unavailable');
+    await client.fetchStatewidePrices();
+
+    expect(upstream.tokenCalls()).toHaveLength(3);
+    expect(await upstream.store.getJSON(KEYS.authFailure, 'strong')).toBeNull();
   });
 
   it('holds across cold starts, because the count is in Blobs', async () => {
@@ -124,21 +243,26 @@ describe('the lockout guard', () => {
     expect(second.tokenCalls()).toHaveLength(0);
   });
 
-  it('is reset by changing the credentials', async () => {
+  it('starts a new count for a different API key', async () => {
     const upstream = fakeUpstream({ token: [refused] });
     await failure(createUpstreamClient(upstream.deps).fetchStatewidePrices());
 
-    const fixed = createUpstreamClient({
+    const newApp = createUpstreamClient({
       ...upstream.deps,
-      credentials: () => ({ apiKey: 'test-api-key', apiSecret: 'corrected-secret' }),
+      credentials: () => ({ apiKey: 'another-api-key', apiSecret: 'another-secret' }),
     });
-    await failure(fixed.fetchStatewidePrices());
+    await failure(newApp.fetchStatewidePrices());
     expect(upstream.tokenCalls()).toHaveLength(2);
   });
 
   it('is cleared by a success', async () => {
     const upstream = fakeUpstream({
-      token: [refused, () => jsonResponse({ access_token: 't', expires_in: '43199' })],
+      token: [
+        () => {
+          throw new DOMException('The operation timed out.', 'TimeoutError');
+        },
+        () => jsonResponse({ access_token: 't', expires_in: '43199' }),
+      ],
     });
     const client = createUpstreamClient(upstream.deps);
     await failure(client.fetchStatewidePrices());
