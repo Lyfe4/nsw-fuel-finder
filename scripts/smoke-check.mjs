@@ -204,6 +204,67 @@ try {
     await page.evaluate(() => document.activeElement?.tagName === 'H3'),
   );
 
+  // Distance: four steps, in the URL.
+  const within = page.getByRole('combobox', { name: 'Within' });
+  check(
+    'the distance offers 2, 5, 10 and 25 km',
+    (await within.locator('option').allTextContents()).join() === '2 km,5 km,10 km,25 km',
+  );
+  await within.selectOption('10');
+  await page.waitForURL(/radius=10/);
+  await list.getByRole('listitem').first().waitFor();
+  check('choosing 10 km searches again, kept in the URL', true);
+
+  // Favourites: star the cheapest, see it in the panel with a price.
+  // Chromium names it "Favourite , <station>" (a space for the hidden span).
+  const star = list.getByRole('button', { name: /^Favourite/ }).first();
+  await star.click();
+  check(
+    'the star is a pressed toggle once saved',
+    (await star.getAttribute('aria-pressed')) === 'true',
+  );
+  check(
+    'the favourites panel counts it',
+    await page.getByText('Favourites (1)', { exact: true }).isVisible(),
+  );
+
+  // Price history: from the station's name, published history and our own joined.
+  const firstLink = list.locator('[data-history-link]').first();
+  await firstLink.click();
+  await page.waitForURL(/history=/);
+  const historyHeading = page.getByRole('heading', { level: 2, name: /^Price history: / });
+  await historyHeading.waitFor();
+  check(
+    'the history view opens with focus on its heading',
+    await historyHeading.evaluate((el) => el === document.activeElement),
+  );
+  await page.getByText(/^Lowest in the last \d+ days/).waitFor({ timeout: 15_000 });
+  check('it says the lowest and highest in words', true);
+  const slider = page.getByRole('slider');
+  check('the chart is there, as a slider over the days', await slider.isVisible());
+  check(
+    'the published FuelCheck history is credited',
+    await page
+      .getByRole('region', { name: /^Price history/ })
+      .getByRole('link', { name: 'NSW FuelCheck price history' })
+      .isVisible(),
+  );
+  await slider.focus();
+  await page.keyboard.press('Home');
+  check(
+    'Home goes to the first day',
+    (await slider.getAttribute('aria-valuenow')) === '1',
+    (await slider.getAttribute('aria-valuetext')) ?? '',
+  );
+  await page.goBack();
+  await page.waitForURL((url) => !url.searchParams.has('history'));
+  check(
+    'Back closes it, and focus returns to the station link',
+    await firstLink.evaluate((el) => el === document.activeElement),
+  );
+  // Leave no favourite behind in this browser profile.
+  await star.click();
+
   check('no console errors on the wide screen', errors.length === 0, errors.join(' | '));
   await wide.close();
 

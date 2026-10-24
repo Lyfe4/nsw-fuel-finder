@@ -6,6 +6,7 @@
  *   the search screen. The entry module plus every chunk index.html
  *   preloads, and the stylesheets it links. This is the budget that matters
  *   to every visitor, so it is held close to where it is.
+ * - THE HISTORY VIEW's chunk: the price chart, lazy like the map.
  * - THE LARGEST LAZY CHUNK, and MapLibre's WORKER: the map. Off the critical
  *   path (src/features/map/LazyStationMap.tsx), but a phone opening the map
  *   on a slow connection pays for them, so they have ceilings too. A lazy
@@ -34,6 +35,11 @@ const INITIAL_CSS_BUDGET = 18 * 1024;
 const LAZY_CHUNK_BUDGET = 1100 * 1024;
 // MapLibre's self-contained worker, measured at 496.4 kB raw / 141.4 kB gzipped.
 const WORKER_BUDGET = 540 * 1024;
+// The price history view (chart, table, summary): its own chunk, fetched when
+// a station's history is first opened. Measured at 8.4 kB raw / 3.3 kB
+// gzipped in round 6. Hand-drawn SVG, no chart library; 16 kB leaves room to
+// grow, not room for a library to slip in.
+const HISTORY_CHUNK_BUDGET = 16 * 1024;
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = join(repoRoot, 'dist');
@@ -93,9 +99,10 @@ const lazyChunks = assets
   .map((name) => ({ url: `/assets/${name}`, raw: statSync(join(assetsDir, name)).size }))
   .toSorted((a, b) => b.raw - a.raw);
 const workers = assets.filter((name) => name.startsWith('maplibre-gl-worker-'));
-if (lazyChunks.length === 0 || workers.length === 0) {
-  console.error('bundle-budget: FAIL - no lazy map chunk or MapLibre worker in dist/assets.');
-  console.error('The map is meant to be lazy (LazyStationMap.tsx). Has code splitting broken?');
+const history = assets.filter((name) => name.startsWith('HistoryView-') && name.endsWith('.js'));
+if (lazyChunks.length === 0 || workers.length === 0 || history.length === 0) {
+  console.error('bundle-budget: FAIL - no lazy map chunk, MapLibre worker or history chunk.');
+  console.error('The map and the history view are meant to be lazy. Has code splitting broken?');
   process.exit(1);
 }
 
@@ -103,6 +110,11 @@ const js = measure('Initial JavaScript', initial.js, INITIAL_JS_BUDGET);
 const css = measure('Initial CSS', initial.css, INITIAL_CSS_BUDGET);
 const [largest] = lazyChunks;
 const lazy = measure('Largest lazy chunk', [largest.url], LAZY_CHUNK_BUDGET);
+const historyView = measure(
+  'History view chunk',
+  history.map((name) => `/assets/${name}`),
+  HISTORY_CHUNK_BUDGET,
+);
 const worker = measure(
   'MapLibre worker',
   workers.map((name) => `/assets/${name}`),
@@ -118,5 +130,7 @@ if (failures.length > 0) {
 console.warn(
   `bundle-budget: OK - headroom ${kb(INITIAL_JS_BUDGET - js)} initial JS, ${kb(
     INITIAL_CSS_BUDGET - css,
-  )} initial CSS, ${kb(LAZY_CHUNK_BUDGET - lazy)} map chunk, ${kb(WORKER_BUDGET - worker)} worker.`,
+  )} initial CSS, ${kb(LAZY_CHUNK_BUDGET - lazy)} map chunk, ${kb(WORKER_BUDGET - worker)} worker, ${kb(
+    HISTORY_CHUNK_BUDGET - historyView,
+  )} history.`,
 );

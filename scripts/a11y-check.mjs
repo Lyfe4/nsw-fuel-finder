@@ -112,6 +112,30 @@ try {
     await page.goto(`${BASE}/?fuel=U91&query=2150&radius=25`);
     await page.getByRole('button', { name: 'Show 20 more' }).waitFor();
     await axe(page, `${theme}, long list with "Show more"`);
+
+    // A station's price history, its table open, and favourites with one saved.
+    await page
+      .getByRole('button', { name: /^Favourite/ })
+      .first()
+      .click();
+    // The list's link: the closed favourites panel now has one too.
+    await page
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .locator('[data-history-link]')
+      .first()
+      .click();
+    await page.getByRole('heading', { level: 2, name: /^Price history: / }).waitFor();
+    await page
+      .getByText(/^Lowest |^No .* price history/)
+      .first()
+      .waitFor();
+    const table = page.getByText('Daily prices as a table');
+    if (await table.isVisible()) await table.click();
+    await axe(page, `${theme}, price history`);
+    await page.screenshot({ path: join(SHOTS, `history-${theme}.png`), fullPage: true });
+    await page.goto(`${BASE}/`);
+    await page.getByRole('list', { name: /^Favourites/ }).waitFor();
+    await axe(page, `${theme}, favourites`);
     await context.close();
 
     const phone = await open(browser, {
