@@ -799,6 +799,8 @@ a browser at 2150/25 km: readable.
 
 ### Price colours relative to the results
 
+> **Colours replaced in round 5 by a colour-blind-safe blue, grey and orange. See "Price colours: blue, grey, orange".**
+
 **Decision:** cheapest third, middle third and dearest third of the stations
 shown, as `--color-price-low/mid/high` tokens (green, amber, red). Ties share
 a band. The map reads the tokens at runtime, because it draws on a canvas.
@@ -930,3 +932,192 @@ The map now calls `resize()` before panning.
   Patchbay; not in CI, because it needs a running site). It covers postcode
   and suburb search, list to map, map to list, card close, a 375 px phone
   layout, MapLibre not downloaded for the list, and no console errors.
+
+## 2026-10-24: Round 5 (Phase 3 polish)
+
+### Dark mode: the device's setting, a remembered override, no flash
+
+**Decision:**
+
+- `tokens.css` has a second block, `:root[data-theme='dark']`, that re-points
+  every semantic colour. `tokens.test.ts` fails if it misses one, and checks
+  every contrast pair in both themes.
+- A small inline script in `index.html` sets `data-theme` before the
+  stylesheet applies: the stored choice, or the device setting. The app
+  (`src/features/theme`) keeps it current afterwards, including when the
+  device switches while the page is open, and across tabs (`storage` event).
+- A native select in the header: "Match device", "Light", "Dark". Stored in
+  `localStorage` (`fuel-finder:theme:v1`); every read and write is in a
+  `try`, and a throwing or junk value means "match device".
+- The map uses OpenFreeMap's Dark style in dark mode, and swaps style when
+  the theme changes.
+
+**Why:**
+
+- The attribute is always set, so CSS needs only one dark block, not one
+  under `prefers-color-scheme` and another for the override.
+- A select, not a toggle: a toggle has no way back to "follow the device"
+  once pressed.
+- Verified in Chromium with the app's scripts blocked (`pnpm check:a11y`):
+  the first paint is already the right theme in all four combinations of
+  device setting and stored choice.
+
+**Library behaviour this relies on (MapLibre 6.14):** `setStyle(url)` diffs
+by default, and a diff between two OpenFreeMap styles drops our own layers
+and fires no `style.load` to add them back. So it is
+`setStyle(url, { diff: false })`, and our layers are added on every
+`style.load` (the first style included) rather than once on `load`.
+
+### Price colours: blue, grey, orange
+
+**Decision:** the price bands are blue (cheapest third), grey (middle) and
+orange (dearest third), in both themes. `tokens.test.ts` simulates
+protanopia, deuteranopia and tritanopia (Machado et al. 2009) and requires
+every pair of bands to stay at least ΔE 20 apart; each band also needs 3:1
+against the basemap's land, water and parks in both themes.
+**Why:** the old green/amber/red measured ΔE 5.8 between amber and red with
+deuteranopia, the most common colour blindness: practically one colour. Blue
+and orange is the one hue pair that survives all three; grey sits between
+them in lightness as well as hue. The new palette measures ΔE 23 or more in
+every case.
+**Not by colour alone:** the cheapest stations say "Cheapest" in words, in
+the list (a badge) and on the map ("Cheapest 209.9", whose label wins any
+collision). Not when every price is the same. The search centre moved from a
+blue ring, which would now read as a cheap station, to a ring around a dot:
+told apart by shape.
+
+### Long lists: 20 at a time
+
+**Decision:** the list shows the cheapest 20, with "Show 20 more" and a
+polite "Showing 40 of 561 stations" status under it. "Show more" moves focus
+to the first new station's heading. The status region's summary says
+"Listing the cheapest 20". A new search starts from 20 again; a refresh of the
+same search does not. A station picked on the map beyond the batch is listed,
+with everything cheaper, and stays listed after Close so focus can return to
+its button. The map still shows every station.
+**Why:** a 25 km search around 2150 returns 561 stations, which was 561 Tab
+stops before the footer. Twenty is a screen or two on a phone and more than
+anyone compares.
+**Alternatives:** virtualising the list (keeps the Tab stops, breaks find in
+page and screen-reader list navigation); "Show all" (one press back to 561
+Tab stops).
+
+### Default radius stays 5 km, with a wider search offered sooner
+
+**Measured** on 24 Oct across all 637 NSW and ACT postcodes, Unleaded 91:
+
+| Radius | Empty | Under 3 stations | Median | Over 50 |
+| ------ | ----- | ---------------- | ------ | ------- |
+| 5 km   | 70    | 231              | 6      | 28      |
+| 10 km  | 44    | 167              | 13     | 192     |
+| 25 km  | 19    | 93               | 60     | 327     |
+
+**Decision:** keep 5 km. When a search finds only one or two stations, offer
+"Search within 25 km" beside them, as the empty state already did.
+**Why:** 10 km would halve the empty rural results but turn 192 postcodes,
+mostly in Sydney, Newcastle and Wollongong, into lists of over 50 stations,
+most of them further than anyone drives for fuel. The people 5 km fails are
+in the country, and one button reaches them. A real distance filter is
+Phase 4.
+
+### Old prices: flagged at 14 days
+
+**Decision:** a price not updated for 14 days or more reads "Price not
+updated for 32 days", in bold, in the warning colour.
+**Why:** measured across the same 637 searches: 6.7% of prices shown were
+over 7 days old, 1.9% over 14 and 0.5% over 30. NSW stations must report a
+change within 30 minutes, so an old price is usually just unchanged, but a
+fortnight is unusual. At 7 days one station in fifteen would be flagged and
+the flag would stop meaning anything.
+
+### Smaller fixes
+
+- **"which place?"** is a question, not an error: accent-coloured, said once
+  by the polite results status, no longer `role="alert"`.
+- **"within 5 km of postcode 2880"**: a four-digit origin label (a postcode
+  searched on its own) gets the word.
+- **Loading:** grey station-shaped cards while prices load (hidden from
+  screen readers, which hear "Loading prices…"), and "Loading map…" over the
+  map until its first complete render, or "The map couldn't load" if MapLibre
+  reports an error first. Reduced motion stops the pulse; `global.css` also
+  sets `animation-iteration-count: 1` there, since an infinite animation cut
+  to 0.01 ms flickers.
+- **Silent refreshes:** when coming back to the tab brings a newer snapshot
+  for the same search, the status region says "Prices updated, as of 3:00 pm"
+  before the usual summary (`useRefreshed`). A new search's first answer is
+  not announced as an update.
+- **Escape in the suburb box:** kept as it was. The first Escape closes the
+  suggestions and keeps the text; a second clears it. That is the WAI-ARIA
+  combobox pattern and what a native search box does, and the text survives
+  the press people make to get the list out of the way. Now covered by a test.
+- **Netlify's badge:** the free plan injects a "Powered by Netlify" iframe,
+  fixed bottom-right, 181 by 48 px, with no way to hide it on this plan
+  (its script ignores a stored dismissal when `data-account-tier="free"`). It
+  is the last Tab stop and never takes focus. The page now ends with 4rem of
+  clearance and the sticky wide-screen map stops 4rem short of the bottom, so
+  neither the page's last line nor the map's attribution sits under it.
+  `pnpm check:browser` checks both against production.
+- **Phone Back:** unchanged. Back still undoes the last search, and list/map
+  and the selected station still use `replaceState`. Nothing found this round
+  argues for a change; waiting on the phone tests.
+
+### The map's first load
+
+**Measured** (Chromium, 390 px phone, 4× CPU slowdown, 9 Mbps): the map's
+own load is a chain: the 282 kB (gzipped) MapLibre chunk, then its 141 kB
+worker, then the style, then the tile index the style names, then tiles and
+fonts. Before this round the canvas sat blank for most of that.
+
+**Decision:**
+
+- "Loading map…" covers the canvas until MapLibre's `load` event.
+- While the chunk downloads, `warmMapResources()` fetches the worker, the
+  style, the tile index and the 0-255 range of every font the style uses.
+  All are public and cacheable (OpenFreeMap sends `Cache-Control: public,
+max-age`), so MapLibre's own requests are answered from the cache. Traced:
+  style, tile index and fonts came from cache.
+- `<link rel="preconnect">` to tiles.openfreemap.org.
+- `/assets/*` is served `Cache-Control: public, max-age=31536000, immutable`.
+  Vite hashes every asset name, so a returning visitor no longer revalidates
+  the 1.5 MB of map code (Netlify's default is `max-age=0, must-revalidate`).
+  `index.html` keeps the default, so deploys are seen at once.
+
+**Result, honestly:** at 150 ms latency the warm-up made no measurable
+difference (2.6-3.1 s with, 2.6-2.8 s without). At 300 ms, closer to a weak
+4G signal, it cut the first complete map from 3.6-3.8 s to 3.1-3.3 s. The
+local server sent `no-cache` for the worker, so production, with the
+immutable header, should do a little better. The ~8 s seen on a real phone
+was not reproduced here; the placeholder means it is no longer blank either
+way. To confirm on a phone.
+
+### Bundle budget
+
+**Decision:** `pnpm bundle:check` (`scripts/check-bundle-budget.js`, adapted
+from Patchbay's), in CI after the build. Raw sizes, kB of 1,024 bytes:
+
+| Payload            | Now     | Budget |
+| ------------------ | ------- | ------ |
+| Initial JS         | 316.7   | 332    |
+| Initial CSS        | 15.6    | 18     |
+| Largest lazy chunk | 1,016.0 | 1,100  |
+| MapLibre worker    | 496.4   | 540    |
+
+The initial budgets hold the first load near where it is (5% headroom); the
+map has its own ceilings because "lazy" is not "free" on a phone. Round 4's
+initial JS was 311.2 kB; this round added 5.5 kB (dark mode, the batches).
+
+### Testing this round
+
+- **Unit and integration:** tokens in both themes and under colour
+  blindness; the first-paint script run as index.html's own text; the theme
+  select, storage failures and another tab's change; map style swaps,
+  the loading overlay and the warm-up; batches, focus after "Show more", the
+  selected station beyond a batch; the badge, old prices, postcode wording,
+  the short-list offer, refresh announcements, Escape; axe in both themes.
+- **Real browser:** `pnpm check:browser` gained the map placeholder, dark
+  basemap, "Show more" and the Netlify badge checks. New `pnpm check:a11y`
+  runs axe with its contrast rule on (which jsdom cannot) in both themes, the
+  no-flash first paint, and every width (320, 375, landscape phone, tablet,
+  desktop) for sideways scrolling, with screenshots to look over.
+- **Screen readers:** checked through Chromium's accessibility tree. Not
+  checked with NVDA, VoiceOver or TalkBack in this round.
