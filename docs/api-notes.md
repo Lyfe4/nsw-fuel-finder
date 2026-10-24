@@ -240,8 +240,9 @@ Edge cases, all handled in `netlify/lib/snapshot/address.ts` and
 every 30 min (cron, UTC)                         every request
 netlify/functions/snapshot  ──writes──▶  Blobs  ◀──reads──  netlify/functions/api
   token (from Blobs, ~2 calls/day)              (30 s in-memory cache, strong fetchedAt check)
-  GET /prices (1 call)                          /api/nearby, /api/location
-  build snapshot + today's history              zero upstream calls
+  GET /prices (1 call)                          /api/nearby, location, places,
+  build snapshot + today's history                stations, history, status
+  fold a slice into per-station history         zero upstream calls; 120/min per IP
 ```
 
 ### Call budget
@@ -266,13 +267,17 @@ redeploys.
 The store is `fuel-finder`. It is site-wide, not deploy-scoped, so the snapshot and history
 outlive deploys.
 
-| Key                     | Contents                                                                               | Size                     |
-| ----------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| `snapshot/v1/latest`    | `{ version, fetchedAt, stations: [...] }`, with metadata `{ fetchedAt, stationCount }` | 875 kB (189 kB gzipped)  |
-| `history/v1/YYYY-MM-DD` | The Sydney day's `[min, max, last]` per station per fuel                               | 262 kB/day (~95 MB/year) |
-| `auth/token`            | `{ token, expiresAt }`                                                                 | tiny                     |
-| `auth/failure`          | `{ credentials (hash), failures, lastFailedAt }`                                       | tiny                     |
-| `meta/last-run`         | The last run's summary: ok/error, calls made, counts                                   | tiny                     |
+| Key                        | Contents                                                                               | Size                     |
+| -------------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
+| `snapshot/v1/latest`       | `{ version, fetchedAt, stations: [...] }`, with metadata `{ fetchedAt, stationCount }` | 875 kB (189 kB gzipped)  |
+| `history/v1/YYYY-MM-DD`    | The Sydney day's `[min, max, last]` per station per fuel                               | 262 kB/day (~95 MB/year) |
+| `auth/token`               | `{ token, expiresAt }`                                                                 | tiny                     |
+| `auth/failure`             | `{ version: 2, key (hash of the API key), rejected, unknown, lastAt, detail }`         | tiny                     |
+| `meta/last-run`            | The last run's summary: ok/error, calls made, counts                                   | tiny                     |
+| `meta/calls/YYYY-MM`       | API.NSW calls by Sydney month: `{ version, month, token, prices, runs }`               | tiny                     |
+| `history/v2/live/CODE`     | One station's daily `[day, low, high, last]` rows from our snapshots, by fuel          | up to ~25 kB             |
+| `history/v2/backfill/CODE` | The same from FuelCheck's monthly files (CC BY-SA), written by `history:backfill`      | ~15 kB                   |
+| `history/v2/progress`      | How far today's fold of yesterday into the live files has got                          | tiny                     |
 
 A snapshot station:
 
@@ -302,11 +307,12 @@ A history day:
 | What fails                                                                    | What happens                                                                                                                                                                                                                                 |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/prices` errors or times out                                                 | The run is logged in `meta/last-run`. The previous snapshot stays                                                                                                                                                                            |
-| `/prices` returns under half the previous station count                       | Treated as partial and not written                                                                                                                                                                                                           |
+| `/prices` returns under half the previous station count                       | `partial_response`, not written. The function returns 200, so Netlify does not retry it                                                                                                                                                      |
 | `/prices` returns a `null` body (seen once, 2026-10-23 16:00 UTC, after 10 s) | Logged as `bad_response`. The function returns 502, Netlify invoked it again 4 s later, and that run succeeded, costing 1 extra call. The lockout guard lives in Blobs, so a retry after a token rejection still never makes a third attempt |
-| Token rejected once                                                           | No token call for an hour                                                                                                                                                                                                                    |
-| Token rejected twice                                                          | **Never again with those credentials.** We never make the third attempt that would lock the account. Reset by changing either credential or deleting `auth/failure`                                                                          |
-| Data call says 401                                                            | Token dropped, one retry with a fresh token                                                                                                                                                                                                  |
+| Token request refused (401/403)                                               | **No automatic attempt again with that API key** (round 9). Changing the secret does not reset it; only `pnpm auth:reset` does, after a human has fixed the cause. Returns 200: a retry cannot help                                          |
+| Token request gets no answer (timeout, no connection, result not recorded)    | Counted as a possible rejection, written to `auth/failure` before the request goes out. One more try after an hour; a second in a row stops, as a refusal does                                                                               |
+| Data call says 401 with a stored token                                        | Token dropped, one retry with a fresh token                                                                                                                                                                                                  |
+| Data call says 401 with a token fetched in the same run                       | Treated as a refusal of the key (an app no longer subscribed, say): stops, as above, instead of 3 calls every run                                                                                                                            |
 | No snapshot yet                                                               | `/api/*` returns 503 `snapshot_unavailable` with `Retry-After: 60`                                                                                                                                                                           |
 | Snapshot older than 90 min (3 missed runs)                                    | Served with `stale: true`                                                                                                                                                                                                                    |
 | Blobs unreadable                                                              | A warm instance keeps serving its copy; a cold one returns 503                                                                                                                                                                               |
@@ -319,7 +325,16 @@ A history day:
 | `GET /api/nearby?lat&lng&fuel[&radius]` | `PricesResponse`. lat/lng rounded to 2 dp; radius 1–25 km, default 5                                         |
 | `GET /api/location?query&fuel[&radius]` | `PricesResponse` from the place's centre. `query` is a postcode, a suburb, or a suggestion label (see below) |
 | `GET /api/places?query`                 | `PlaceSuggestionsResponse`: up to 8 place labels for a partly typed name or postcode                         |
+| `GET /api/stations?codes`               | `StationsResponse`: up to 50 stations by code (favourites), every fuel each sells                            |
+| `GET /api/history?station&fuel`         | `HistoryResponse`: up to 120 days of daily low, high and last, with its sources and licence                  |
 | `GET /api/status`                       | `StatusResponse`: 200 if the pipeline is healthy, 503 with `problems` if not. Never cached                   |
+
+The function's only address is `/api/*`, set in its own `config` with the rate
+limit (120 requests a minute per IP address, then Netlify's 429). It is not
+also served at `/.netlify/functions/api`. Under `netlify dev`, a 404 from it is
+retried by the CLI as `.html`, `.htm` and `/index.html` before it answers, so a
+local 404 reads "No such endpoint"; production does not do this (checked on the
+round 9 deploy preview).
 
 `shared/api.ts`:
 
@@ -374,8 +389,16 @@ Caching:
   `Netlify-CDN-Cache-Control: public, durable, s-maxage=60, stale-while-revalidate=60`
   for the edge.
 - Suggestions: an hour in the browser, a day at the edge. They only change
-  with a deploy, and a deploy purges the CDN.
-- Errors are `no-store`.
+  with a deploy, and a deploy purges the CDN. The client sends the query
+  lower-cased with single spaces, so "Erina" and "erina" share an entry.
+- History: ten minutes in the browser and at the edge.
+- Errors and `/api/status` are `no-store`.
+- **Cache keys** (round 9): by default Netlify keys a function's response on
+  every query parameter, so `&x=1` was a fresh function run. Each route now
+  sends `Netlify-Vary: query=` with its own parameters (`fuel|lat|lng|radius`,
+  `fuel|query|radius`, `query`, `codes`, `fuel|station`), and any other
+  parameter shares their entry. The order of parameters never mattered;
+  names and values are case-sensitive.
 
 ### Change since yesterday (round 8)
 
@@ -500,8 +523,9 @@ secret (or `.env`'s, which are the same). Two consequences:
 - Every local run spends the same monthly quota as production.
 - The lockout guard counts failures **per store**. A local run cannot see a
   production `auth/failure`, and vice versa. If the credentials stop working,
-  production stops itself after 2 failures, but a local run in between could
-  be the third consecutive failure that API.NSW locks the account on. **If
+  production stops itself after 1 failure, but local runs each add their
+  own, and two of them would be the third consecutive failure that API.NSW
+  locks the account on. **If
   `/api/status` reports a failed run, do not run the snapshot locally until
   the cause is known.**
 

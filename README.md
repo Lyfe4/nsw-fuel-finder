@@ -60,9 +60,11 @@ site for everyone. Instead the call count is a constant set by the schedule:
 about 1,500 a month, whatever the traffic. The trade-off is freshness. A price
 can be up to 30 minutes older here than on FuelCheck, though in practice most
 prices are days old because retailers change them that rarely. A guard stored
-in Blobs stops the job before a third failed sign-in, and `/api/status`
-reports, in plain English, any gap between what the job wrote and what the
-API serves. A stall of exactly that kind happened once, and is written up in
+in Blobs stops the job after a single refused sign-in (or two that got no
+answer), well short of the three that lock the account, and only a person
+restarts it, with `pnpm auth:reset`. `/api/status` reports, in plain English,
+any gap between what the job wrote and what the API serves, and this month's
+API.NSW calls against the budget. A stall of exactly that kind happened once, and is written up in
 the log.
 
 **Answers, not just a list.** A sentence over the results says the cheapest,
@@ -118,11 +120,12 @@ history view arrived and still was not worth a dependency for one URL
 parameter.
 
 **Locked down where it matters.** A Content-Security-Policy allows scripts
-only from the site itself plus two inline scripts by exact hash: our
-no-flash theme script, and Netlify's free-plan badge. Inline styles are
-allowed, because the badge writes the window size into its stylesheet and no
-hash can match that. The map's worker is our own file, so it needs no `blob:`.
-The browser check fails on any policy violation.
+only from the site itself plus one inline script by exact hash (the no-flash
+theme script), and styles only from our own stylesheets. The map's worker is
+our own file, so it needs no `blob:`. The browser check fails on any policy
+violation. `/api/*` is rate limited at Netlify's edge (120 requests a minute
+per address), and tells the CDN which query parameters its answers depend on,
+so junk parameters cannot force a function to run.
 
 ## Known limitations
 
@@ -155,9 +158,12 @@ pnpm dev:netlify          # the app and the functions together, at :8888
 > **Careful with the snapshot job.** Running it locally
 > (`netlify functions:invoke snapshot`) makes real API.NSW calls from the same
 > monthly quota production uses. Three failed sign-ins in a row lock the
-> account. The job's guard stops after two, but a typo in `.env` still counts.
-> Nothing else here calls API.NSW. On Windows, `netlify dev` needs Developer
-> Mode on.
+> account. The job's guard stops after one, but a local run keeps its own
+> record, so it can add a second failure to production's. If `/api/status`
+> reports a failed run, do not run the job locally until the cause is known.
+> Nothing else here calls API.NSW. `netlify dev --offline` runs the app and
+> the API without the production credentials. On Windows, `netlify dev` needs
+> Developer Mode on.
 
 | Command                  | What it does                                                                |
 | ------------------------ | --------------------------------------------------------------------------- |
@@ -171,24 +177,51 @@ pnpm dev:netlify          # the app and the functions together, at :8888
 | `pnpm serve:headers`     | The build with production's security headers, to test a CSP change first    |
 | `pnpm screenshots`       | These screenshots and the social card, from committed fixtures (`--record`) |
 | `pnpm history:backfill`  | Rebuild history from FuelCheck's monthly files (`--upload` writes to Blobs) |
+| `pnpm auth:reset`        | Show the lockout guard's record and, if you type `reset`, clear it          |
 
 CI runs typecheck, lint, format, tests, build and the bundle budget on every
-push. The browser checks need a running site, so they are run by hand against
-`netlify dev` or production.
+pull request and every push to `main`. `main` is protected: each change
+arrives as a pull request that has passed CI, squash-merged so every commit
+on `main` builds on its own. Merging deploys production. Deploy previews have
+no API.NSW credentials and do not run the snapshot job. The browser checks
+need a running site, so they are run by hand against `pnpm serve:headers`, a
+deploy preview or production.
 
 ## Maintenance
 
 - **Early November 2026:** FuelCheck publishes October's history. Run
-  `pnpm history:backfill --months 4 --upload` to fill the 1-22 October gap
-  (it needs `NETLIFY_SITE_ID` and `NETLIFY_AUTH_TOKEN`, and writes to
-  production Blobs). Then once a quarter, or whenever a longer chart is wanted.
+  `pnpm history:backfill --months 4 --upload` to fill the 1-22 October gap.
+  It writes to production Blobs and needs `NETLIFY_SITE_ID` and
+  `NETLIFY_AUTH_TOKEN`. A Netlify personal access token reaches the whole
+  account, so make one just for this (User settings > Applications > New
+  access token) with the shortest expiry offered, and delete it when the
+  upload is done. Then once a quarter, or whenever a longer chart is wanted.
 - **If prices look stuck**, open `/api/status` first, then
-  `netlify logs --function snapshot`.
-- **If the Netlify badge stops drawing** (the smoke check reports a CSP
-  violation), Netlify has changed it: update its hash in `netlify.toml`.
-- **Keep watching the quota** on the API.NSW dashboard, about 1,500 calls a
-  month at this schedule, and Netlify's usage page: the team's sites share its
-  Legacy Free limits.
+  `netlify logs --function snapshot`. `credentials_locked` means the guard has
+  stopped the job: fix the cause (the key, the secret, or the app's Fuel API
+  subscription), then run `pnpm auth:reset` with the same kind of short-lived
+  token.
+- **If `check:browser` says Netlify's badge is back**, the policy is blocking
+  it: decide whether to allow it again (docs/decisions.md, round 9).
+- **An uptime monitor** checks `/api/status` every 15 minutes and alerts on
+  anything but 200. Each check is a function run, so not more often.
+- **Keep watching the quota** on the API.NSW dashboard (about 1,500 calls a
+  month at this schedule; `/api/status` shows our own count) and Netlify's
+  usage page. On Legacy Free, reaching any limit pauses every site on the
+  account until it is upgraded to a paid plan.
+
+## Privacy
+
+No account, no cookies, no analytics and no tracking. "Use my location" is
+used in your browser, and only a position rounded to about 1 km is sent to
+this site, whose code never stores or logs it; nor does it store searches.
+Favourites and your theme stay on this device. Netlify, the host, counts
+requests per internet address for a minute, to rate-limit the API. When the
+map is shown, your browser fetches tiles from OpenFreeMap, which sees your
+internet address and the area on screen; nothing is fetched from it before
+then. Directions open Apple or Google Maps with the station as the
+destination, and your position is not passed on. The same note is on the
+site at [/privacy.html](https://nsw-fuel-finder.netlify.app/privacy.html).
 
 ## Data and licences
 

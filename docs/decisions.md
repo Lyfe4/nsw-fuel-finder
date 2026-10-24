@@ -265,7 +265,8 @@ the second run made 0 token calls and 1 price call.
 - After the 2nd: none at all with those credentials.
 
 The count is keyed on a hash of the key and secret, so changing either
-resets it, and a success clears it.
+resets it, and a success clears it. (**Superseded in round 9**: that reset was
+itself a path to the third failure. See "The lockout guard, rebuilt".)
 **Why:** API.NSW denies access after 3 consecutive failed identifications.
 Run every 30 minutes, the old 5-minute backoff would have reached three
 failures in an hour. With this guard, the code never makes the third attempt;
@@ -1368,6 +1369,9 @@ and adds the badge tag as Netlify does. Under it:
 `check:browser` now fails on any `securitypolicyviolation`, and on a badge
 that does not draw. `netlify/lib/securityHeaders.test.ts` fails when the theme
 script's hash goes stale or the script policy loosens.
+(**Superseded in round 9**: Netlify no longer serves the badge, so its hash
+and `'unsafe-inline'` styles are gone. See "Content-Security-Policy,
+tightened".)
 **Known fragility:** when Netlify changes its badge, its script hash changes
 and the badge stops drawing. The smoke check reports it, and the fix is the new
 hash from the violation message. The owner's toolbar (shown to a logged-in
@@ -1694,3 +1698,253 @@ Decided with the owner after the deploy.
 | Recent searches                       | **Later**       | Pending the owner's phone and screen-reader tests of the suburb box.                                                                                                                                                                                                                                                                                    |
 | Open on the last search               | **Later**       | Same: pending the phone tests. The likelier of the two to be built, since it needs no new control.                                                                                                                                                                                                                                                      |
 | "Most stations cut prices today" line | Not yet decided | Left as a suggestion.                                                                                                                                                                                                                                                                                                                                   |
+
+## 2026-10-24: Round 9 (audit fixes)
+
+An independent, read-only audit (code, security, compliance) came before
+this round. Its findings, and what was decided with the owner:
+
+| ID     | Finding                                                                    | Call                                |
+| ------ | -------------------------------------------------------------------------- | ----------------------------------- |
+| H1     | Changing the secret reset the lockout count: a path to the third failure   | Fixed                               |
+| H2     | Junk query parameters bypassed the CDN; no rate limit; errors never cached | Fixed (a, b, c); team move rejected |
+| M1     | A data-call 401 with a fresh token cost 3 calls a run, for ever, unguarded | Fixed                               |
+| M2     | The guard failed open: timeouts, failed writes, unreadable records         | Fixed                               |
+| M3     | No call count, no monitor, Netlify retried failures a retry cannot fix     | Fixed; monitor set up by the owner  |
+| M4     | `main` was unprotected; Netlify deploys whatever is pushed                 | Fixed (ruleset, PR workflow)        |
+| L1     | Stale CSP allowances for the removed Netlify badge                         | Fixed                               |
+| L2     | `/api/history` read Blobs before checking the station exists               | Fixed                               |
+| L3     | `/api/status` published raw error messages                                 | Fixed                               |
+| L4     | Actions pinned by tag; no minimum release age                              | Fixed                               |
+| L5     | The backfill needs an account-wide token                                   | Documented: short-lived token       |
+| L6     | The preconnect told OpenFreeMap about every visitor                        | Fixed                               |
+| L7     | The 51st favourite was silently ignored                                    | Fixed                               |
+| L8, N3 | Docs out of step with the code                                             | Fixed                               |
+| N1, N2 | An unchecked cast; an `eslint-disable`                                     | Fixed                               |
+| N4     | Suggestions cached per letter case                                         | Fixed                               |
+| N5     | `callsite` shows an unknown licence (its Readme says MIT)                  | Accepted                            |
+
+### GitHub: protections, and pull requests from now on
+
+**Decision:** on `Lyfe4/nsw-fuel-finder`, Dependabot alerts and private
+vulnerability reporting turned on (secret scanning and push protection were
+already on, as for every public repository). A ruleset, "protect main", on the
+default branch: a pull request is required (0 approvals: one maintainer), the
+CI check `Typecheck, lint, test, build` from GitHub Actions must pass, force
+pushes and deletion are blocked, and nobody can bypass it. "Up to date with
+`main`" is not required: with one maintainer it would only force rebases.
+
+**Squash merges, always.** Each pull request becomes one commit on `main`,
+named for the round, so every commit on `main` builds and passes on its own.
+Round 6 had a commit that did not build alone; with squash merges that cannot
+reach `main` again, and `git log main` reads as one line per round. The
+branch keeps the step-by-step commits for review, and history is not
+rewritten.
+
+**Merging deploys production**, and counts as a round's one production
+deploy. Deploy previews of pull requests are allowed:
+
+- They have no API.NSW credentials. `FUEL_API_KEY` and `FUEL_API_SECRET` are
+  set for the production context only (checked with
+  `netlify env:list --context deploy-preview`: neither is there).
+- They cannot run the snapshot job on a schedule ("Scheduled functions only
+  run on their schedule for published deploys") or by URL.
+- They do share production's Blobs store, which is site-wide. The API only
+  reads it. The one way a preview could write to it was a person pressing
+  "Run now" on the preview's snapshot function in the Netlify UI, which would
+  have written production's `meta/last-run` from a deploy with no
+  credentials. The job now does nothing on a `deploy-preview` or
+  `branch-deploy` (`runsIn` in `netlify/functions/snapshot/snapshot.ts`). An
+  unknown context still runs, so a change on Netlify's side cannot silently
+  stop production.
+
+### The lockout guard, rebuilt
+
+API.NSW denies access after three consecutive failed identifications. The old
+guard allowed two automatic failures and reset its count when either
+credential changed. So two refusals, then a "fixed" secret with a typo in it,
+was the third. It also could not see a refusal it never heard back about.
+
+**Decision** (`netlify/lib/upstream/client.ts`):
+
+- **One refusal stops it.** A 401/403 from the token endpoint, or a 401 from
+  the data call on a token fetched moments before, stops every automatic
+  attempt with that API key until a person runs `pnpm auth:reset`.
+- **An unknown outcome counts as a possible refusal.** A token request that
+  timed out, never connected, or whose result could not be recorded waits an
+  hour before one more try, and two in a row stop the job, as a refusal does.
+  The worst case is two failures API.NSW counts, one short of a lockout, and
+  that margin is there for a local run.
+- **Counted before asking.** The record is written before each token request
+  and corrected once the answer is in, so a crash, a timeout or a failed Blobs
+  write still leaves it counted.
+- **Fails closed.** An unreadable `auth/failure` is treated as locked, not as
+  "no failures".
+- **Keyed on the API key alone.** A corrected secret is not a fresh start; a
+  new API key (a new app) is.
+- **A data-call 401 on a stored token** still gets one retry with a fresh
+  token, as before: tokens do get revoked. A second 401 on that fresh token
+  is a refusal.
+
+**Tests first.** Each scenario was written as a test named for the failure it
+prevents, and all eight failed against the old guard before any code changed
+(the "record could not be written" one only once its fake Blobs failed every
+write after the request).
+
+**The human reset:** `pnpm auth:reset` (`scripts/auth-reset.mjs`) shows the
+record, explains that the next run will try once, and deletes it only if
+`reset` is typed. It writes to production Blobs only when the owner runs it
+with `NETLIFY_SITE_ID` and a short-lived `NETLIFY_AUTH_TOKEN`. It was tested
+against a local `BlobsServer` only (left, deleted, nothing there), never
+against production.
+**Alternatives:** keeping an automatic retry after an hour (a third failure
+was one typo away); counting per credential pair (what caused H1).
+
+### Calls counted, and only useful retries
+
+**Decision:**
+
+- **`meta/calls/YYYY-MM`** counts every API.NSW call by Sydney month, failed
+  runs included. `/api/status` shows `callsThisMonth` and becomes a 503 above
+  2,000, the planned budget, so a leak is seen in days, not at 2,500.
+- **`/api/status` publishes the error kind only**, never the message. Messages
+  stay in `meta/last-run` and the function log.
+- **200, not 502, for failures a retry cannot fix.** A 5xx makes Netlify run
+  the scheduled function again within seconds, which spends a call. Only
+  `unavailable`, `timeout`, `bad_response` (the null body seen once, which a
+  retry did fix) and `internal` get 502. Refusals, locks, `not_configured`,
+  `rate_limited`, `request_rejected` and the new `partial_response` get 200
+  with `ok: false`, still visible in status.
+
+### Cache keys and the rate limit
+
+**Decision:**
+
+- **`Netlify-Vary: query=<its parameters>`** on every cached route. Verified
+  live before the round: Netlify ignores parameter order and a trailing `&`,
+  but `&x=1` or a different case was a miss, and so a function run.
+- **The client sends one form** of each suggestion query (lower case, single
+  spaces).
+- **Rate limit: 120 requests a minute per IP address**, then 429, set in the
+  API function's own `config` (Legacy Free allows two code-based rules per
+  site; this is one). 120 because Australian mobile carriers put many
+  customers behind one address (CGNAT), and a search is a handful of
+  requests.
+- **The function's path moved into its `config`** (`path: '/api/*'`), and the
+  `/api/*` rewrite in `netlify.toml` went. With a rewrite, the function was
+  also served at `/.netlify/functions/api/*`, where a rate limit on the
+  rewrite would not apply. With a custom path, Netlify serves it at that path
+  only.
+- **Netlify's 429 is not our JSON**, so the client checks the status first and
+  says "A lot of searches are coming from your network right now. Please wait
+  a minute and try again." It does not retry by itself.
+- **`/api/history` checks the snapshot first**, so a made-up station code
+  costs no Blobs reads.
+
+**A `netlify dev` quirk found on the way:** a 404 from a function with a
+custom path is retried by the CLI as `.html`, `.htm`, `/index.html` and
+`/index.htm` before it answers, so locally one 404 is five function runs and
+reads "No such endpoint". Netlify staff say production does not do this
+(answers.netlify.com, "Netlify is invoking 404 functions 4 extra times").
+Checked on this round's deploy preview.
+
+### Not moving to a team of its own (accepted risk)
+
+**Rejected:** moving the site to a separate Netlify team so that a spike could
+only pause this site. New teams are created on the credit-based plan, which
+must be avoided.
+
+**What Legacy Free does at a limit**, from Netlify's billing FAQ for legacy
+plans (read 2026-10-24):
+
+- Email notifications at 50%, 75%, 90% and 100% of a limit.
+- Build minutes at 100%: new builds stop for every site on the account; the
+  sites keep serving.
+- **Any other metered feature at 100%: new builds stop and every site on the
+  account is paused**, until a payment method is added and the account is
+  upgraded to a paid plan. Deleting the site does not restore the others.
+- No extra usage packages on the free tier.
+
+**A correction to the audit:** Netlify's legacy plan table gives serverless
+functions as "125k invocations per site/month", so this site's invocations
+are its own, not shared by the 16 sites. Being paused is still shared. Bandwidth
+(100 GB a month) is an account-wide hard limit, and the rate limit covers
+`/api/*` only: static files (the 1.5 MB map chunk and worker) are not limited.
+Raised with the owner as an open item.
+
+**Mitigated by:** the cache keys and the rate limit (above), the call count
+in `/api/status`, Netlify's usage emails, and an uptime monitor on
+`/api/status` every 15 minutes (set up by the owner after this round; each
+check is a function run, about 2,900 a month).
+
+### Content-Security-Policy, tightened
+
+**Decision:** `script-src 'self'` plus the theme script's hash only;
+`style-src 'self'` (no `'unsafe-inline'`); `frame-src 'none'` in place of
+`child-src 'self'`. The badge that needed the rest is no longer served
+(checked live: no `/.netlify/scripts/hud` tag in the page).
+
+**Verified before the pull request** with `pnpm serve:headers` and
+`pnpm check:browser`: 45 of 45 checks, no violations on the wide screen or the
+phone map, so nothing in the app needed inline styles. React and MapLibre set
+styles through the CSSOM, which CSP does not govern.
+
+**If the badge comes back,** the policy blocks it, and `check:browser` fails
+on "Netlify's badge is not served", saying so. `serve:headers --with-badge`
+injects it the way Netlify did; under it the check failed as intended, with
+the blocked inline script and styles in the console. The fix then is a
+decision: allow it again (its script hash, plus inline styles, as in round 7)
+or hide it.
+
+### Privacy
+
+**Decision:** a short privacy note at `/privacy.html` (static, no script,
+linked from the footer) and in the README. Each point is true of the code as
+of this round, and the page's comments name the code behind each one.
+
+**The preconnect to OpenFreeMap is gone.** It opened a connection on every
+page load, so OpenFreeMap learnt every visitor's address, map or no map. The
+map's warm-up (`warmMapResources`) already fetches the style, tile index and
+fonts as soon as a map is coming, which is what the preconnect sped up. A test
+now fails if `index.html` names any other site.
+
+### Supply chain
+
+- Actions pinned to commits with the release in a comment, which Dependabot
+  keeps updated. `pnpm/action-setup` is pinned at v6.0.10, the release the
+  `v6` tag pointed to (not the newer v6.1.0), so CI behaves exactly as before;
+  Dependabot will propose 6.1.0. CI also has a 15-minute timeout.
+- `minimumReleaseAge: 1440` in `pnpm-workspace.yaml`: no version newer than a
+  day, the window in which most malicious releases are found and pulled.
+
+### Smaller fixes
+
+- **Favourites:** at 50 a press says "You already have 50 favourites, the most
+  this device keeps. Remove one to add this station." (an alert: the press
+  failed), and the button stays enabled.
+- **The fold's progress record is parsed**, not cast; an unreadable one starts
+  the day again rather than skipping stations.
+- **`StationList` uses `useEffectEvent`** for its scroll, instead of an
+  `eslint-disable`.
+- **Docs:** README, api-notes (routes, Blobs layout, failures, caching), the
+  snapshot size, and a test path in a comment.
+
+### Library behaviour this relies on
+
+- **Netlify caching:** a function response is keyed on every query parameter
+  unless `Netlify-Vary: query=a|b` names some; order is ignored; names and
+  values are case-sensitive; the same URL must always send the same
+  `Netlify-Vary` (the first one cached wins).
+- **Netlify rate limiting:** code-based only on Legacy Free, two rules per
+  site, per IP and domain; counted at the edge before the function, cache
+  hits included; up to about 10 s before blocking starts; 429 by default.
+- **Netlify functions:** with a `config.path`, a function is not also served
+  at `/.netlify/functions/<name>`.
+- **Netlify scheduled functions:** run on published deploys only; not callable
+  by URL; "Run now" in the UI works on previews too; a 5xx is retried.
+- **Netlify Blobs:** one store per site, shared by every deploy, previews
+  included; each `setJSON` is atomic per key, with no transactions across keys.
+- **`AbortSignal.timeout`:** a `TimeoutError` with no response, so a timed-out
+  token request is an unknown outcome.
+- **React 19 `useEffectEvent`:** reads the latest props without being a
+  dependency; only to be called from effects.
