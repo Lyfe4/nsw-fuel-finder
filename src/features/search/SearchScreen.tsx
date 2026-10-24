@@ -21,7 +21,7 @@ import type { LatLng } from '../../../shared/geo';
  */
 export function SearchScreen() {
   const search = useSearchState();
-  const { searchNearby, searchLocation, setFuel, setRadius } = search;
+  const { searchNearby, searchLocation, setFuel, setRadius, setView, selectStation } = search;
   const placeInput = useRef<HTMLInputElement>(null);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
 
@@ -112,6 +112,10 @@ export function SearchScreen() {
           geolocation.reset();
           focusSearch();
         }}
+        station={search.station}
+        layout={search.view}
+        onSelectStation={selectStation}
+        onLayoutChange={setView}
       />
     </>
   );

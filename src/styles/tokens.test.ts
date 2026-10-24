@@ -76,6 +76,17 @@ describe('design tokens', () => {
     ['--color-focus', '--color-surface', 3],
     ['--color-focus', '--color-bg', 3],
     ['--color-border-strong', '--color-surface', 3],
+    // Map markers on the basemap's land and water.
+    ['--color-price-low', '--color-map-land', 3],
+    ['--color-price-low', '--color-map-water', 3],
+    ['--color-price-mid', '--color-map-land', 3],
+    ['--color-price-mid', '--color-map-water', 3],
+    ['--color-price-high', '--color-map-land', 3],
+    ['--color-price-high', '--color-map-water', 3],
+    ['--color-map-origin', '--color-map-land', 3],
+    ['--color-map-origin', '--color-map-water', 3],
+    ['--color-marker-selected', '--color-map-land', 3],
+    ['--color-marker-selected', '--color-map-water', 3],
   ])('%s on %s meets %d:1', (foreground, background, minimum) => {
     expect(contrast(foreground, background)).toBeGreaterThanOrEqual(minimum);
   });

@@ -54,3 +54,12 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * `hidden` must win over a component's own display (grid, flex): the list and
+ * the map are hidden this way on a phone, and stay mounted so the list keeps
+ * its scroll position and the map does not reload.
+ */
+[hidden] {
+  display: none !important;
+}

@@ -33,6 +33,12 @@
   --palette-red-50: #fdeeee;
   --palette-amber-800: #7a4b00;
   --palette-amber-50: #fff6e0;
+  --palette-green-700: #17773a;
+  --palette-amber-700: #8f5a00;
+  --palette-red-600: #b3261e;
+  /* The basemap's own land and water (OpenFreeMap Positron), for the contrast test. */
+  --palette-positron-land: #f2f3f0;
+  --palette-positron-water: #c2c8ca;
 
   /* --- Semantic: colour --------------------------------------------------- */
   color-scheme: light;
@@ -52,6 +58,21 @@
   --color-danger-subtle: var(--palette-red-50);
   --color-warning: var(--palette-amber-800);
   --color-warning-subtle: var(--palette-amber-50);
+
+  /*
+   * Map markers. Read by StationMap at runtime (the map draws on a canvas, so
+   * CSS cannot reach it). Each band needs 3:1 against the map's near-white
+   * land and water (WCAG 1.4.11). Colour is never the only cue: every dot has its
+   * price beside it where it fits, and the list has them all.
+   */
+  --color-price-low: var(--palette-green-700);
+  --color-price-mid: var(--palette-amber-700);
+  --color-price-high: var(--palette-red-600);
+  --color-marker-outline: var(--palette-white);
+  --color-marker-selected: var(--palette-grey-900);
+  --color-map-origin: var(--palette-blue-600);
+  --color-map-land: var(--palette-positron-land);
+  --color-map-water: var(--palette-positron-water);
 
   /* --- Semantic: type ------------------------------------------------------ */
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -80,5 +101,7 @@
   /* Big enough to hit with a thumb (WCAG 2.5.8 asks 24px; 44px is comfortable). */
   --target-size: 2.75rem;
   --content-width: 40rem;
+  /* List and map side by side (from 60rem, WIDE_SCREEN in useMediaQuery.ts). */
+  --content-width-wide: 80rem;
   --layer-popover: 10;
 }

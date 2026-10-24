@@ -8,7 +8,8 @@
     "jsx": "react-jsx",
 
     // `vite/client` types `*.module.css` imports and `import.meta.env`.
-    "types": ["vite/client"],
+    // `geojson` is the global GeoJSON namespace MapLibre's types are written in.
+    "types": ["vite/client", "geojson"],
 
     // `@/foo` resolves to `src/foo`. Paths without `baseUrl` are resolved
     // relative to this file. Must be kept in sync with the matching

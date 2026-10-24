@@ -1,0 +1,43 @@
+.panel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.columns {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.mapPanel {
+  display: grid;
+  grid-template-rows: auto;
+  gap: var(--space-3);
+}
+
+/* On a phone the map is most of the screen, but leaves room for the card below it. */
+.mapFrame {
+  height: min(65dvh, 34rem);
+}
+
+/*
+ * Wide screens (matches WIDE_SCREEN in src/lib/useMediaQuery.ts): list and
+ * map side by side. The map sticks while the list scrolls past it.
+ */
+@media (min-width: 60rem) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    align-items: start;
+  }
+
+  .mapPanel {
+    position: sticky;
+    top: var(--space-4);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    height: calc(100dvh - 2 * var(--space-4));
+  }
+
+  .mapFrame {
+    height: auto;
+    min-height: 0;
+  }
+}

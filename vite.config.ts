@@ -10,6 +10,13 @@ const srcPath = fileURLToPath(new URL('./src', import.meta.url));
 export default defineConfig({
   plugins: [react()],
 
+  build: {
+    // MapLibre's chunk is ~1 MB minified (~280 kB gzipped) and cannot be
+    // split further. It is only fetched when a map is first shown (see
+    // src/features/map/LazyStationMap.tsx), so it is warned about for nothing.
+    chunkSizeWarningLimit: 1100,
+  },
+
   resolve: {
     // Mirror of the `paths` entry in tsconfig.app.json.
     alias: [{ find: '@', replacement: srcPath }],

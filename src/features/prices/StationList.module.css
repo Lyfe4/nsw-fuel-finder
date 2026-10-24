@@ -16,7 +16,8 @@
     'price name'
     'price meta'
     'price address'
-    'price updated';
+    'price updated'
+    'price actions';
   column-gap: var(--space-4);
   row-gap: var(--space-1);
   padding: var(--space-4);
@@ -65,4 +66,30 @@
   grid-area: updated;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+/* Picked out on the map: an accent edge that does not rely on colour alone (it is thicker too). */
+.selected {
+  border-color: var(--color-accent);
+  box-shadow: inset var(--space-1) 0 0 var(--color-accent);
+  background: var(--color-accent-subtle);
+}
+
+.actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Quiet to look at, but still a full-size target (WCAG 2.5.8). */
+.actions .showOnMap {
+  min-height: var(--target-size);
+}
+
+.shown {
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
 }

@@ -4,10 +4,11 @@ import { formatAge, formatAsOf } from '@/lib/format';
 
 import { ErrorNotice, LocationProblemNotice, StaleNotice } from './Notices';
 import styles from './Results.module.css';
-import { StationList } from './StationList';
+import { StationsPanel } from './StationsPanel';
 import { announcement, type ResultsView } from './view';
 
 import type { PricesResponse } from '../../../shared/api';
+import type { ResultsLayout } from '../search/searchState';
 import type { Ref } from 'react';
 
 export interface ResultsProps {
@@ -24,6 +25,11 @@ export interface ResultsProps {
   onWiden: () => void;
   /** Move focus to the suburb box: the way out of most problems. */
   onSearchInstead: () => void;
+  /** The selected station's code and a phone's list/map choice, from the URL. */
+  station: string | null;
+  layout: ResultsLayout;
+  onSelectStation: (station: string | null, layout?: ResultsLayout) => void;
+  onLayoutChange: (layout: ResultsLayout) => void;
 }
 
 function where(data: PricesResponse): string {
@@ -42,6 +48,10 @@ export function Results({
   onPickCandidate,
   onWiden,
   onSearchInstead,
+  station,
+  layout,
+  onSelectStation,
+  onLayoutChange,
 }: ResultsProps) {
   return (
     // No aria-busy: some screen readers hold back live regions inside a busy
@@ -108,7 +118,18 @@ export function Results({
         </div>
       )}
 
-      {view.kind === 'results' && <StationList stations={view.stations} now={now} />}
+      {view.kind === 'results' && (
+        <StationsPanel
+          data={view.data}
+          stations={view.stations}
+          now={now}
+          fuelName={fuelName}
+          station={station}
+          view={layout}
+          onSelect={onSelectStation}
+          onViewChange={onLayoutChange}
+        />
+      )}
     </section>
   );
 }

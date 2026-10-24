@@ -3,7 +3,15 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup } from '@testing-library/react';
-import { afterEach, beforeAll, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
+
+import { installMatchMedia } from './src/lib/testing/matchMedia';
+
+// jsdom has no matchMedia. Every test starts on a phone-width screen; one
+// that needs a wide screen says so with setScreen().
+beforeEach(() => {
+  if (typeof window !== 'undefined') installMatchMedia();
+});
 
 // Testing Library only auto-cleans when Vitest globals are enabled, and they
 // are not, so unmount between tests explicitly.

@@ -36,6 +36,10 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             </a>{' '}
             data, used under <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.
           </p>
+          <p>
+            Map tiles from <a href="https://openfreemap.org/">OpenFreeMap</a>, map data ©{' '}
+            <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+          </p>
         </footer>
       </div>
     </QueryClientProvider>

@@ -33,3 +33,19 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
+
+/*
+ * Wide screens make room for the map beside the list. The header, the search
+ * form and the footer keep a readable line length; the results use the width.
+ */
+@media (min-width: 60rem) {
+  .page {
+    max-width: var(--content-width-wide);
+  }
+
+  .header,
+  .footer,
+  .main > form {
+    max-width: var(--content-width);
+  }
+}
