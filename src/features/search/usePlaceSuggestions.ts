@@ -26,7 +26,12 @@ function useDebounced<T>(value: T, ms: number): T {
  * stays up while the next one loads, so the list does not flicker per key.
  */
 export function usePlaceSuggestions(input: string): string[] {
-  const query = useDebounced(input.trim(), SUGGESTION_DEBOUNCE_MS);
+  // One form per query: the CDN keys on the exact text, and the API ignores
+  // case and repeated spaces anyway, so "Erina" and "erina" share an entry.
+  const query = useDebounced(
+    input.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-AU'),
+    SUGGESTION_DEBOUNCE_MS,
+  );
   const enabled = query.length >= MIN_LENGTH;
   const { data } = useQuery({
     queryKey: ['places', query],

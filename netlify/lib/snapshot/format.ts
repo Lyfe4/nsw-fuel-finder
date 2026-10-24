@@ -8,7 +8,8 @@ import { FUEL_TYPE_CODES, type FuelTypeCode } from '../../../shared/fuelTypes';
  * so an API deployed ahead of its first new-format snapshot finds nothing
  * (503) rather than misreading the old one.
  *
- * ~3,300 stations, ~1 MB of JSON. Prices are [cents, updatedAt] tuples to
+ * ~2,400 stations (FuelCheck lists ~3,300; EV-only ones are left out), ~875 kB
+ * of JSON. Prices are [cents, updatedAt] tuples to
  * keep it compact.
  */
 export const SNAPSHOT_VERSION = 1;

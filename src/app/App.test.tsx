@@ -9,4 +9,12 @@ describe('App', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'NSW Fuel Finder' })).toBeInTheDocument();
   });
+
+  // That public/privacy.html exists is checked in netlify/lib/securityHeaders.test.ts.
+  it('links to the privacy note', () => {
+    render(<App />);
+
+    const link = screen.getByRole('link', { name: 'Privacy' });
+    expect(link).toHaveAttribute('href', '/privacy.html');
+  });
 });

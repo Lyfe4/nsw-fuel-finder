@@ -2,11 +2,18 @@ import { ApiError, errorResponse, json } from './http';
 import { resolvePlace } from './places';
 import { searchNearby, searchNearest, searchPlace, type YesterdayPrices } from './search';
 import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
-import { historyBody, parseStationCode, parseStationCodes, stationsBody } from './stations';
+import {
+  assertListed,
+  historyBody,
+  parseStationCode,
+  parseStationCodes,
+  stationsBody,
+} from './stations';
 import { statusReport } from './status';
 import { parseFuelType, parseLocationQuery, parseNearbyQuery } from './validate';
 import { addDays } from '../../lib/history/stationHistory';
 import { suggestPlaces } from '../../lib/places/gazetteer';
+import { sydneyMonth } from '../../lib/snapshot/calls';
 import { STALE_AFTER_MS } from '../../lib/snapshot/format';
 import { sydneyDay } from '../../lib/upstream/time';
 
@@ -57,8 +64,25 @@ const HISTORY_CACHE = {
 const ROUTES = ['nearby', 'location', 'places', 'status', 'stations', 'history'] as const;
 type Route = (typeof ROUTES)[number];
 
-// Reached through the /api/* rewrite or, in `netlify dev`, directly.
-const PREFIX = /^\/(?:api|\.netlify\/functions\/api)\/([^/]+)\/?$/;
+/*
+ * CACHE KEYS. Netlify's CDN keys a function's response on every query
+ * parameter by default (`Netlify-Vary: query`), so `?query=gos&x=1` would
+ * miss the cache and run the function each time: a cheap way to spend the
+ * team's monthly invocations. Each route names the parameters its answer
+ * depends on; requests that differ only in anything else share an entry.
+ * Parameter order is already ignored by the CDN. Names and values stay
+ * case-sensitive, which is why the client sends them in one canonical form.
+ */
+const VARY: Record<Exclude<Route, 'status'>, string> = {
+  nearby: 'query=fuel|lat|lng|radius',
+  location: 'query=fuel|query|radius',
+  places: 'query=query',
+  stations: 'query=codes',
+  history: 'query=fuel|station',
+};
+
+// The function's only path (its config in api.ts), in production and `netlify dev` alike.
+const PREFIX = /^\/api\/([^/]+)\/?$/;
 
 function matchRoute(pathname: string): Route | null {
   const name = PREFIX.exec(pathname)?.[1];
@@ -68,6 +92,8 @@ function matchRoute(pathname: string): Route | null {
 export interface HandlerDeps {
   /** The latest scheduled run summary (meta/last-run), read strongly. */
   getLastRun: () => Promise<unknown>;
+  /** This Sydney month's API.NSW call count (meta/calls/YYYY-MM), or null. */
+  getCalls: (month: string) => Promise<unknown>;
   getSnapshot: () => Promise<LoadedSnapshot>;
   /** One station's two history files (published, and our own); each null when absent. */
   getHistory: (code: string) => Promise<{ backfill: unknown; live: unknown }>;
@@ -76,13 +102,19 @@ export interface HandlerDeps {
   now: () => number;
 }
 
-function cached(body: unknown, cache: { browser: string; cdn: string }): Response {
+function cached(
+  body: unknown,
+  cache: { browser: string; cdn: string },
+  route: keyof typeof VARY,
+): Response {
   const response = json(body, 200, cache.browser);
   response.headers.set('Netlify-CDN-Cache-Control', cache.cdn);
+  response.headers.set('Netlify-Vary', VARY[route]);
   return response;
 }
 
 function respond(
+  route: 'nearby' | 'location',
   { snapshot }: LoadedSnapshot,
   now: number,
   fuelType: FuelTypeCode,
@@ -99,9 +131,7 @@ function respond(
     nearest:
       stations.length === 0 ? searchNearest(snapshot.stations, origin, fuelType, yesterday) : [],
   };
-  const response = json(body, 200, CACHE.browser);
-  response.headers.set('Netlify-CDN-Cache-Control', CACHE.cdn);
-  return response;
+  return cached(body, CACHE, route);
 }
 
 /**
@@ -111,15 +141,14 @@ function respond(
 function suggestions(params: URLSearchParams): Response {
   const query = (params.get('query') ?? '').trim().slice(0, 60);
   const body: PlaceSuggestionsResponse = { query, suggestions: suggestPlaces(query) };
-  const response = json(body, 200, SUGGESTION_CACHE.browser);
-  response.headers.set('Netlify-CDN-Cache-Control', SUGGESTION_CACHE.cdn);
-  return response;
+  return cached(body, SUGGESTION_CACHE, 'places');
 }
 
 async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps) {
   if (route === 'places') return suggestions(params);
   if (route === 'status') {
-    const [served, run] = await Promise.all([
+    const now = deps.now();
+    const [served, run, calls] = await Promise.all([
       deps.getSnapshot().then(
         (loaded) => loaded.snapshot,
         () => null,
@@ -135,8 +164,13 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
           };
         },
       ),
+      // A missing count is not a pipeline problem; the rest of the report still is.
+      deps.getCalls(sydneyMonth(new Date(now))).catch((error: unknown) => {
+        console.error('Reading the call count failed', error);
+        return null;
+      }),
     ]);
-    const report = statusReport({ served, ...run, now: deps.now() });
+    const report = statusReport({ served, ...run, calls, now });
     return json(report, report.healthy ? 200 : 503, 'no-store');
   }
 
@@ -146,13 +180,16 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
     const codes = parseStationCodes(params);
     const { snapshot } = await deps.getSnapshot();
     const stale = deps.now() - Date.parse(snapshot.fetchedAt) > STALE_AFTER_MS;
-    return cached(stationsBody(snapshot, codes, stale), CACHE);
+    return cached(stationsBody(snapshot, codes, stale), CACHE, 'stations');
   }
   if (route === 'history') {
     const code = parseStationCode(params);
     const fuel = parseFuelType(params);
-    const [{ snapshot }, files] = await Promise.all([deps.getSnapshot(), deps.getHistory(code)]);
-    return cached(historyBody(snapshot, code, fuel, files), HISTORY_CACHE);
+    // The snapshot first: a made-up code is a 404 that costs no Blobs reads.
+    const { snapshot } = await deps.getSnapshot();
+    assertListed(snapshot, code);
+    const files = await deps.getHistory(code);
+    return cached(historyBody(snapshot, code, fuel, files), HISTORY_CACHE, 'history');
   }
   if (route === 'nearby') {
     const query = parseNearbyQuery(params);
@@ -162,7 +199,7 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
     const { stations: all } = loaded.snapshot;
     const stations = searchNearby(all, origin, query.radiusKm, query.fuelType, yesterday);
     const where = { ...origin, label: null };
-    return respond(loaded, deps.now(), query.fuelType, where, stations, yesterday);
+    return respond('nearby', loaded, deps.now(), query.fuelType, where, stations, yesterday);
   }
 
   const query = parseLocationQuery(params);
@@ -172,7 +209,7 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
   const { stations: all } = loaded.snapshot;
   const stations = searchPlace(all, place, query.radiusKm, query.fuelType, yesterday);
   const origin = { latitude: place.latitude, longitude: place.longitude, label: place.label };
-  return respond(loaded, deps.now(), query.fuelType, origin, stations, yesterday);
+  return respond('location', loaded, deps.now(), query.fuelType, origin, stations, yesterday);
 }
 
 /** One fuel's prices on the Sydney day before the snapshot's, for "since yesterday". */

@@ -98,6 +98,12 @@ export function ErrorNotice({
           <Button onClick={onRetry}>Try again</Button>
         </Problem>
       );
+    case 'rate_limited':
+      return (
+        <Problem message="A lot of searches are coming from your network right now. Please wait a minute and try again.">
+          <Button onClick={onRetry}>Try again</Button>
+        </Problem>
+      );
     case 'network':
       return (
         <Problem message="Couldn’t connect. Check your internet connection and try again.">

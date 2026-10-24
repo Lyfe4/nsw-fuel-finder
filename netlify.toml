@@ -32,15 +32,12 @@
 # source, where Netlify reads it) and is the only code that calls API.NSW. It
 # writes prices to Netlify Blobs. `api` reads them and has no public schedule.
 #
-# The browser only ever talks to /api/*. The function behind it has a fixed
-# set of routes (see netlify/functions/api/router.ts) and is not an open proxy.
-# status 200 makes this a rewrite: the address bar and the CDN cache key stay
-# /api/..., and the function sees the original path.
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-  force = true
+# The browser only ever talks to /api/*. That path, and the function's rate
+# limit, are set in the function's own `config` (netlify/functions/api/api.ts),
+# not here: with a custom path it is not also served at
+# /.netlify/functions/api, which a rewrite here would have left open around
+# the limit. The function has a fixed set of routes (router.ts) and is not an
+# open proxy.
 
 # SECURITY HEADERS, on every response. Checked by netlify/lib/securityHeaders.test.ts
 # (the inline script's hash still matches index.html) and in a real browser by
@@ -48,24 +45,17 @@
 #
 # Content-Security-Policy, directive by directive:
 #   default-src 'self'      Anything not named below: this origin only.
-#   script-src              Our own bundle, plus two inline scripts by exact
+#   script-src              Our own bundle, plus one inline script by exact
 #                           SHA-256 hash, never 'unsafe-inline' or 'unsafe-eval':
-#                             1. index.html's first-paint theme script;
-#                             2. the script inside Netlify's free-plan badge (its
-#                                iframe is srcdoc, so it inherits this policy).
-#                           Netlify's badge loader itself is same-origin
-#                           (/.netlify/scripts/hud), so 'self' covers it. If
-#                           Netlify changes the badge, its hash changes, the
-#                           badge stops drawing, and check:browser fails on
-#                           the console violation; update hash 2 from it.
-#   style-src 'unsafe-inline'  The app needs no inline styles (React and
-#                           MapLibre style elements through the CSSOM, which
-#                           CSP does not govern). Netlify's badge does: its
-#                           stylesheet embeds the window's width and height,
-#                           so its hash differs at every window size and cannot
-#                           be listed. Inline styles can't run code; scripts
-#                           stay locked down. Measured, not assumed: see
-#                           docs/decisions.md, "Security headers".
+#                           index.html's first-paint theme script.
+#   style-src 'self'        Our stylesheets only, no inline <style> or style="".
+#                           React and MapLibre set styles through the CSSOM
+#                           (element.style), which CSP does not govern.
+#                           Netlify's free-plan badge, which needed both
+#                           'unsafe-inline' styles and a script hash, is no
+#                           longer served (checked 2026-10-24). If it comes
+#                           back, this policy blocks it and check:browser
+#                           fails, saying so: see docs/decisions.md, round 9.
 #   img-src                 Our icons; data: and blob: for images MapLibre
 #                           decodes in memory; OpenFreeMap's sprites.
 #   connect-src             /api, and OpenFreeMap's style, tiles, fonts and
@@ -74,6 +64,7 @@
 #                           module worker from this origin (setWorkerUrl in
 #                           src/features/map/mapStyle.ts). MapLibre only falls
 #                           back to blob: workers for a cross-origin worker URL.
+#   frame-src 'none'        The site embeds no frames.
 #   frame-ancestors 'none'  Nobody may frame the site (clickjacking).
 #   object-src, base-uri, form-action: the usual locks.
 # Referrer-Policy: other sites (OpenFreeMap, the credited sources) get our
@@ -83,7 +74,7 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'sha256-8leFtmYHobOnJ2TTLagqipvI3y5hDqTTeH8jSY8hBhA=' 'sha256-BkKP2XO6WOEc3kXOiLr2ZoY83hamalKjPY9xBcbXVuw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self'; child-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'sha256-8leFtmYHobOnJ2TTLagqipvI3y5hDqTTeH8jSY8hBhA='; style-src 'self'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self'; frame-src 'none'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "geolocation=(self), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
     X-Content-Type-Options = "nosniff"

@@ -44,11 +44,11 @@
     -->
     <meta name="theme-color" content="#f6f7f9" />
     <!--
-      The map's style, tiles and fonts come from here. Opening the connection
-      now takes its DNS and TLS round trips off the map's first load; a page
-      that never shows a map spends one idle connection.
+      No preconnect to OpenFreeMap here (there was one until round 9): it
+      opened a connection on every page load, so OpenFreeMap saw every
+      visitor's address, map or no map. The connection now starts when a map
+      is about to show (warmMapResources in src/features/map/mapStyle.ts).
     -->
-    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
     <!--
       THE THEME, BEFORE FIRST PAINT. The stored choice, or the device setting,
       on <html> before the stylesheet applies, so a dark-mode visitor never

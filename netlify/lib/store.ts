@@ -38,6 +38,7 @@ export const KEYS = {
   token: 'auth/token',
   authFailure: 'auth/failure',
   lastRun: 'meta/last-run',
+  calls: (month: string) => `meta/calls/${month}`,
   historyDay: (day: string) => `history/v1/${day}`,
   historyLive: (code: string) => `history/v2/live/${code}`,
   historyBackfill: (code: string) => `history/v2/backfill/${code}`,

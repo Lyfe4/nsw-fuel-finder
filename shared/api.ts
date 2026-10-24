@@ -88,6 +88,11 @@ export interface StatusResponse {
   /** Plain-English reasons it is not healthy; empty when it is. */
   problems: string[];
   checkedAt: string;
+  /**
+   * API.NSW calls the scheduled job has made this Sydney month, by its own
+   * count, against what the schedule is planned to need. The quota is 2,500.
+   */
+  callsThisMonth: { month: string; calls: number; budget: number };
   /** The snapshot this API instance is serving. */
   served: { fetchedAt: string; stations: number } | null;
   /** The latest scheduled run, as recorded in Blobs. */

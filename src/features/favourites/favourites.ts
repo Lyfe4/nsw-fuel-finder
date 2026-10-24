@@ -65,14 +65,20 @@ function set(next: Favourite[]): void {
   for (const listener of listeners) listener();
 }
 
-/** Adds the station, or removes it if it is already a favourite. Newest last. */
-export function toggleFavourite(favourite: Favourite): void {
+/**
+ * Adds the station, or removes it if it is already a favourite. Newest last.
+ * False when it could not be added because the list is full.
+ */
+export function toggleFavourite(favourite: Favourite): boolean {
   const list = getFavourites();
   if (list.some((f) => f.code === favourite.code)) {
     set(list.filter((f) => f.code !== favourite.code));
   } else if (list.length < MAX_FAVOURITES) {
     set([...list, favourite]);
+  } else {
+    return false;
   }
+  return true;
 }
 
 export function removeFavourite(code: string): void {
