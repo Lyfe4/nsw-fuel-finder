@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
+import { FavouriteButton } from '@/features/favourites/FavouriteButton';
+import { HistoryLink } from '@/features/history/HistoryLink';
 import { formatDistance, formatPrice } from '@/lib/format';
 
 import { priceAge } from './priceAge';
@@ -85,7 +87,7 @@ export function StationList({
             >
               {/* Focusable from script only: "Show more" moves focus to the first new station. */}
               <h3 className={styles.name} tabIndex={-1}>
-                {station.name}
+                <HistoryLink code={station.stationCode}>{station.name}</HistoryLink>
               </h3>
               <p className={styles.price}>
                 <span className={styles.amount}>{formatPrice(station.priceCents)}</span>{' '}
@@ -117,6 +119,7 @@ export function StationList({
                 >
                   Show on map<VisuallyHidden>, {station.name}</VisuallyHidden>
                 </Button>
+                <FavouriteButton code={station.stationCode} name={station.name} />
                 {isSelected && <span className={styles.shown}>Shown on map</span>}
               </div>
             </li>

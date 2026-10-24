@@ -36,6 +36,15 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             every 30 minutes.
           </p>
           <p>
+            Price history before 23 October 2026 from{' '}
+            <a href="https://data.nsw.gov.au/data/dataset/fuel-check">
+              NSW FuelCheck price history
+            </a>{' '}
+            (NSW Fair Trading), used under{' '}
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>. Our daily low,
+            high and last prices made from it are shared under the same licence.
+          </p>
+          <p>
             Suburb and postcode locations based on{' '}
             <a href="https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs-edition-3">
               Australian Bureau of Statistics ASGS Edition 3 (2021)

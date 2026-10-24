@@ -1,0 +1,5 @@
+/* The favourites and results, kept mounted under an open price history. */
+.underHistory {
+  display: grid;
+  gap: var(--space-5);
+}

@@ -3,6 +3,9 @@ import { vi } from 'vitest';
 import type {
   ApiErrorBody,
   ApiErrorCode,
+  HistoryResponse,
+  StationSummary,
+  StationsResponse,
   PlaceSuggestionsResponse,
   PricesResponse,
   StationPrice,
@@ -71,16 +74,59 @@ export function prices(overrides: Partial<PricesResponse> = {}): PricesResponse 
   };
 }
 
+/** A station as /api/stations and /api/history describe it, from a list entry. */
+export function summary(from: StationPrice = station(), fuel = 'U91'): StationSummary {
+  return {
+    stationCode: from.stationCode,
+    name: from.name,
+    brand: from.brand,
+    address: from.address,
+    latitude: from.latitude,
+    longitude: from.longitude,
+    prices: { [fuel]: { priceCents: from.priceCents, updatedAt: from.priceUpdatedAt } },
+  };
+}
+
+export function stationsResponse(
+  stations: StationSummary[],
+  missing: string[] = [],
+): StationsResponse {
+  return { fetchedAt: FETCHED_AT, stale: false, stations, missing };
+}
+
+export function historyResponse(overrides: Partial<HistoryResponse> = {}): HistoryResponse {
+  return {
+    fuelType: 'U91',
+    station: summary(),
+    days: [
+      ['2026-09-29', 205.9, 209.9, 209.9],
+      ['2026-09-30', 199.9, 209.9, 199.9],
+      ['2026-10-23', 219.9, 224.9, 224.9],
+      ['2026-10-24', 224.9, 229.9, 229.9],
+    ],
+    sources: [
+      { kind: 'fuelcheck-monthly', from: '2026-09-29', through: '2026-09-30' },
+      { kind: 'snapshots', from: '2026-10-23', through: '2026-10-24' },
+    ],
+    licence: 'CC BY-SA 4.0',
+    ...overrides,
+  };
+}
+
 export function suggestions(query: string, list: string[]): PlaceSuggestionsResponse {
   return { query, suggestions: list };
 }
 
-export function fakeApi(routes: Partial<Record<'nearby' | 'location' | 'places', Handler>> = {}) {
+type Route = 'nearby' | 'location' | 'places' | 'stations' | 'history';
+
+export function fakeApi(routes: Partial<Record<Route, Handler>> = {}) {
   const requests: { route: string; params: URLSearchParams }[] = [];
   const handlers: Record<string, Handler> = {
     location: () => json(prices()),
     nearby: () => json(prices({ origin: { latitude: -33.87, longitude: 151.21, label: null } })),
     places: (params) => json(suggestions(params.get('query') ?? '', [])),
+    stations: () => json(stationsResponse([])),
+    history: () => json(historyResponse()),
     ...routes,
   };
 
@@ -98,7 +144,7 @@ export function fakeApi(routes: Partial<Record<'nearby' | 'location' | 'places',
     fetch: fetchMock,
     requests,
     /** The search params of every request to one route, oldest first. */
-    calls: (route: 'nearby' | 'location' | 'places') =>
+    calls: (route: Route) =>
       requests.filter((r) => r.route === route).map((r) => Object.fromEntries(r.params)),
   };
 }

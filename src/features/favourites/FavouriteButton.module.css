@@ -1,0 +1,17 @@
+/* Quiet like "Show on map", but a full-size target (WCAG 2.5.8). */
+.button {
+  min-height: var(--target-size);
+  gap: var(--space-1);
+}
+
+.star,
+.starOn {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  text-decoration: none;
+}
+
+/* Filled and coloured when saved; the filled shape alone already tells them apart. */
+.starOn {
+  color: var(--color-accent);
+}

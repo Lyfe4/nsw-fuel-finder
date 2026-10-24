@@ -1,8 +1,10 @@
 import type {
   ApiErrorBody,
   ApiErrorCode,
+  HistoryResponse,
   PlaceSuggestionsResponse,
   PricesResponse,
+  StationsResponse,
 } from '../../shared/api';
 
 /** Anything that went wrong talking to /api/*, in one shape the UI can switch on. */
@@ -84,4 +86,18 @@ export function fetchPrices({ fuel, radius, place }: PriceSearch, signal?: Abort
 /** GET /api/places?query= */
 export function fetchPlaceSuggestions(query: string, signal?: AbortSignal) {
   return getJson<PlaceSuggestionsResponse>('/api/places', { query }, signal);
+}
+
+/**
+ * GET /api/stations?codes= for favourites. Sorted, so the same favourites in
+ * any order share one cache entry at the edge.
+ */
+export function fetchStations(codes: readonly string[], signal?: AbortSignal) {
+  const sorted = [...codes].sort((a, b) => a.localeCompare(b)).join(',');
+  return getJson<StationsResponse>('/api/stations', { codes: sorted }, signal);
+}
+
+/** GET /api/history?station=&fuel= */
+export function fetchHistory(station: string, fuel: string, signal?: AbortSignal) {
+  return getJson<HistoryResponse>('/api/history', { station, fuel }, signal);
 }

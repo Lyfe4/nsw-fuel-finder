@@ -29,11 +29,18 @@ const readSearch = () => window.location.search;
  * replaceState for adjusting the current one (fuel, radius), so Back is not
  * a walk through every fuel the user tried.
  */
-function navigate(next: SearchState, mode: 'push' | 'replace'): void {
+export function urlFor(next: SearchState): string {
   const query = serializeSearch(next);
-  const url = `${window.location.pathname}${query ? `?${query}` : ''}`;
+  return `${window.location.pathname}${query ? `?${query}` : ''}`;
+}
+
+/** Marks a history entry this page pushed to open a station's price history. */
+const OPENED_HISTORY = 'fuelfinder:history';
+
+function navigate(next: SearchState, mode: 'push' | 'replace', marker: string | null = null): void {
+  const url = urlFor(next);
   if (url === `${window.location.pathname}${window.location.search}`) return;
-  if (mode === 'push') window.history.pushState(null, '', url);
+  if (mode === 'push') window.history.pushState(marker, '', url);
   else window.history.replaceState(null, '', url);
   window.dispatchEvent(new Event(URL_CHANGED));
 }
@@ -64,7 +71,7 @@ export function useSearchState() {
     const trimmed = query.trim().replace(/\s+/g, ' ');
     if (trimmed) {
       navigate(
-        { ...current(), place: { kind: 'location', query: trimmed }, station: null },
+        { ...current(), place: { kind: 'location', query: trimmed }, station: null, history: null },
         'push',
       );
     }
@@ -72,7 +79,12 @@ export function useSearchState() {
 
   const searchNearby = useCallback((lat: number, lng: number) => {
     navigate(
-      { ...current(), place: { kind: 'nearby', ...roundPosition(lat, lng) }, station: null },
+      {
+        ...current(),
+        place: { kind: 'nearby', ...roundPosition(lat, lng) },
+        station: null,
+        history: null,
+      },
       'push',
     );
   }, []);
@@ -88,8 +100,29 @@ export function useSearchState() {
     navigate({ ...now, station, view: view ?? now.view }, 'replace');
   }, []);
 
+  /*
+   * A station's price history is a view of its own: push, so Back closes it.
+   * Closing it from its own button goes Back too when this page opened it,
+   * so the history stack does not grow a second copy of the results; opened
+   * from a shared link, there is nothing to go back to, so it is replaced.
+   */
+  const openHistory = useCallback((code: string) => {
+    navigate({ ...current(), history: code }, 'push', OPENED_HISTORY);
+  }, []);
+
+  const closeHistory = useCallback(() => {
+    if (window.history.state === OPENED_HISTORY) window.history.back();
+    else navigate({ ...current(), history: null }, 'replace');
+  }, []);
+
+  /** The link to a station's history from the current search, for an <a href>. */
+  const historyHref = useCallback((code: string) => urlFor({ ...current(), history: code }), []);
+
   return {
     ...state,
+    openHistory,
+    closeHistory,
+    historyHref,
     setFuel,
     setRadius,
     searchLocation,

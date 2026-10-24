@@ -5,6 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
+import { resetFavouritesForTests } from './src/features/favourites/favourites';
 import { resetPreferenceForTests } from './src/features/theme/theme';
 import { installMatchMedia } from './src/lib/testing/matchMedia';
 
@@ -30,6 +31,7 @@ afterEach(() => {
     window.localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     resetPreferenceForTests();
+    resetFavouritesForTests();
   }
 });
 

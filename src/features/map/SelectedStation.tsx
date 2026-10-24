@@ -1,5 +1,7 @@
 import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
+import { FavouriteButton } from '@/features/favourites/FavouriteButton';
+import { HistoryLink } from '@/features/history/HistoryLink';
 import { formatAge, formatDistance, formatPrice } from '@/lib/format';
 
 import styles from './SelectedStation.module.css';
@@ -32,7 +34,7 @@ export function SelectedStation({
   return (
     <div className={styles.card}>
       <h3 className={styles.name} tabIndex={-1} ref={headingRef}>
-        {station.name}
+        <HistoryLink code={station.stationCode}>{station.name}</HistoryLink>
       </h3>
       <p className={styles.price}>
         <span className={styles.amount}>{formatPrice(station.priceCents)}</span>{' '}
@@ -46,6 +48,7 @@ export function SelectedStation({
       <p className={styles.address}>{station.address}</p>
       <div className={styles.actions}>
         {onShowInList && <Button onClick={onShowInList}>Show in list</Button>}
+        <FavouriteButton code={station.stationCode} name={station.name} />
         <Button onClick={onClose}>
           Close<VisuallyHidden>, {station.name}</VisuallyHidden>
         </Button>

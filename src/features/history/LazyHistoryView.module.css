@@ -1,0 +1,27 @@
+.section {
+  display: grid;
+  justify-items: stretch;
+  gap: var(--space-3);
+}
+
+.back {
+  justify-self: start;
+}
+
+.heading {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.fuel {
+  color: var(--color-text-muted);
+}
+
+.problem {
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-danger);
+  border-left-width: 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
