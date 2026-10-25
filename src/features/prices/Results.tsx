@@ -119,7 +119,11 @@ export function Results({
         </p>
       )}
 
-      {view.kind === 'locating' && <p className={styles.message}>Finding your location…</p>}
+      {view.kind === 'locating' && (
+        <p className={[styles.message, styles.reserved].filter(Boolean).join(' ')}>
+          Finding your location…
+        </p>
+      )}
 
       {view.kind === 'loading' && <LoadingStations />}
 

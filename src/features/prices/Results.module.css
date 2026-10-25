@@ -13,6 +13,13 @@
   color: var(--color-text-muted);
 }
 
+/* Results are coming: keep their room, as LoadingStations does (tokens.css). */
+@media (min-width: 60rem) {
+  .reserved {
+    min-height: var(--map-panel-height);
+  }
+}
+
 .empty {
   display: grid;
   justify-items: start;

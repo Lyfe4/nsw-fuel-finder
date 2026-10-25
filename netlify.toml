@@ -39,6 +39,35 @@
 # the limit. The function has a fixed set of routes (router.ts) and is not an
 # open proxy.
 
+# RATE LIMIT ON STATIC FILES: 600 requests a minute per IP address, then 429.
+# The second of the two code-based rules Legacy Free allows per site; the
+# first is /api/*'s 120 a minute, in the function's own config (api.ts).
+#
+# Why: bandwidth (100 GB a month) is account-wide, and reaching it pauses all
+# 16 of the team's sites. The map's chunk is 1 MB uncompressed, so an
+# unlimited machine on a fast link could spend the month in minutes; at this
+# limit it takes hours, and Netlify's usage emails come first.
+# Why so high: a cold visit is about 8 requests from this origin (the page,
+# the bundle and stylesheet, the map's chunk, stylesheet and worker, an
+# icon), and a later search none, as assets are cached for a year. 600 is
+# 75 such visits a minute from one address, so a mobile carrier's CGNAT, an
+# office or a school never meets it.
+#
+# A rewrite to itself changes nothing that is served. Not forced, so it never
+# shadows a file or the api function; the limit still counts every request it
+# matches, files included (verified on a deploy preview, docs/decisions.md,
+# round 10).
+[[redirects]]
+  from = "/*"
+  to = "/:splat"
+  # 200, a rewrite: without a status Netlify's default is a 301, which would
+  # send every missing page to itself for ever.
+  status = 200
+  [redirects.rate_limit]
+    window_limit = 600
+    window_size = 60
+    aggregate_by = ["ip", "domain"]
+
 # SECURITY HEADERS, on every response. Checked by netlify/lib/securityHeaders.test.ts
 # (the inline script's hash still matches index.html) and in a real browser by
 # `pnpm check:browser`, which fails on any CSP violation in the console.
