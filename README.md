@@ -104,10 +104,19 @@ rest of the app together. So it is a separate chunk, fetched only when a map is
 on screen: a phone showing the list never downloads it. Its style, tile index
 and fonts are fetched while it downloads. Bundle budgets in CI hold the first
 load to its current size and give the map its own ceiling. On a wide screen
-it starts once the list has rendered. Where WebGL is drawn in software (no
-GPU), drawing the map would freeze the page for a second or more, so there it
-waits for a press of "Show the map": PageSpeed's desktop score went from 68
-to 99.
+it starts once the list has rendered.
+
+**No GPU, no automatic map.** Where WebGL is drawn in software, MapLibre's
+first draw freezes the page for a second or more. So when the browser names a
+software renderer (SwiftShader, llvmpipe, WARP), the wide map waits for one
+press of "Show the map", and the list is usable at once. Visitors with a GPU
+see no change. Where the name is hidden (Chrome without its debug extension,
+Firefox with fingerprinting protection, which says "Mozilla"), the map
+starts as it always did. PageSpeed's desktop score went from 68 to 100, but
+read that with care: Google's test machine has no GPU, so it measures the
+"Show the map" page, not the map. What the score shows is the page a
+GPU-less visitor now gets; a visitor with a GPU gets the same page as before,
+which blocks for about 0 ms on real hardware.
 
 **Four months of history from day one, by joining open data to our own.**
 API.NSW has no history, so the job keeps a daily low, high and last price from
