@@ -125,7 +125,10 @@ theme script), and styles only from our own stylesheets. The map's worker is
 our own file, so it needs no `blob:`. The browser check fails on any policy
 violation. `/api/*` is rate limited at Netlify's edge (120 requests a minute
 per address), and tells the CDN which query parameters its answers depend on,
-so junk parameters cannot force a function to run.
+so junk parameters cannot force a function to run. Everything else has a
+limit of its own (600 requests a minute per address, about 75 first visits),
+so one machine cannot spend the hosting account's shared bandwidth in
+minutes.
 
 ## Known limitations
 
@@ -203,8 +206,13 @@ deploy preview or production.
   token.
 - **If `check:browser` says Netlify's badge is back**, the policy is blocking
   it: decide whether to allow it again (docs/decisions.md, round 9).
-- **An uptime monitor** checks `/api/status` every 15 minutes and alerts on
-  anything but 200. Each check is a function run, so not more often.
+- **UptimeRobot** checks
+  [`/api/status`](https://nsw-fuel-finder.netlify.app/api/status) every 15
+  minutes and emails the owner when it is not 200: the site is down, or the
+  status is a 503 (a stalled or failing snapshot job, the lockout guard
+  stopped, or more than 2,000 API.NSW calls this month). Each check is a
+  function run (about 2,900 a month), so not more often. When an alert
+  arrives, open `/api/status`: its `problems` say which.
 - **Keep watching the quota** on the API.NSW dashboard (about 1,500 calls a
   month at this schedule; `/api/status` shows our own count) and Netlify's
   usage page. On Legacy Free, reaching any limit pauses every site on the
@@ -216,7 +224,7 @@ No account, no cookies, no analytics and no tracking. "Use my location" is
 used in your browser, and only a position rounded to about 1 km is sent to
 this site, whose code never stores or logs it; nor does it store searches.
 Favourites and your theme stay on this device. Netlify, the host, counts
-requests per internet address for a minute, to rate-limit the API. When the
+requests per internet address for a minute, to rate-limit the site. When the
 map is shown, your browser fetches tiles from OpenFreeMap, which sees your
 internet address and the area on screen; nothing is fetched from it before
 then. Directions open Apple or Google Maps with the station as the

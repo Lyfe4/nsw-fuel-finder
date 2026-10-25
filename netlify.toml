@@ -53,10 +53,18 @@
 # 75 such visits a minute from one address, so a mobile carrier's CGNAT, an
 # office or a school never meets it.
 #
-# A rewrite to itself changes nothing that is served. Not forced, so it never
-# shadows a file or the api function; the limit still counts every request it
-# matches, files included (verified on a deploy preview, docs/decisions.md,
-# round 10).
+# Each is a rewrite to itself, which changes nothing that is served. Not
+# forced, so neither shadows a file or the api function; the limit still
+# counts every request its rule matches, files included. Netlify uses the
+# first rule that matches, so the /api/* rule, with no limit, keeps API
+# requests out of the static count: without it, /* counted them too and,
+# once over, blocked /api as well (both seen on the round 10 deploy preview,
+# docs/decisions.md).
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/:splat"
