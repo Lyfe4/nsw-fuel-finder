@@ -173,6 +173,7 @@ export function StationsPanel({
           <div className={styles.mapPanel} hidden={!showMap} ref={mapPanelRef}>
             <div className={styles.mapFrame}>
               <LazyStationMap
+                automatic={wide}
                 stations={stations}
                 origin={data.origin}
                 selected={selected?.stationCode ?? null}
