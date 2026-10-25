@@ -2218,6 +2218,32 @@ only because previews are `noindex`. Locally, against the build with
 production headers: no long tasks after first paint with SwiftShader (there
 were four or five), and the map starting by itself with the GPU.
 
+**What the score measures, honestly.** PageSpeed's desktop test runs on a
+machine without a GPU, so after this round it takes the "Show the map" path:
+the 100 is the page without a map, not the map drawn faster. Read it as the
+page a GPU-less visitor now gets: the list usable at once, the map one press
+away. A visitor with a GPU sees no change; their page was never slow (about
+0 ms of blocking on real hardware, measured above), and PageSpeed cannot
+show it, having no GPU. The score is not evidence that the map got cheaper;
+it did not.
+
+**Where the renderer's name is hidden, the map starts as before.** The code
+reads `RENDERER`, and only if that is Chrome's mask ("WebKit WebGL") asks
+`WEBGL_debug_renderer_info`. A name that does not match the software list,
+including a masked one, counts as a GPU. Checked in real browsers against
+production, at 1350 × 940:
+
+| Browser                                        | Renderer it reports                  | Wide map          |
+| ---------------------------------------------- | ------------------------------------ | ----------------- |
+| Chromium, SwiftShader                          | "WebKit WebGL"; debug: SwiftShader   | waits for a press |
+| Chromium, SwiftShader, debug extension removed | "WebKit WebGL"; debug: unavailable   | starts by itself  |
+| Firefox (Playwright, GPU)                      | a bucketed GPU name, "…, or similar" | starts by itself  |
+| Firefox, `privacy.resistFingerprinting`        | "Mozilla"                            | starts by itself  |
+
+So a GPU-less browser that hides the name gets the map at once, and the
+slow first draw, exactly as before this round. That is the safe direction:
+a mistaken guess can cost speed, never the map.
+
 **Tests:** six new unit tests (the start with a GPU, the offer and the
 remembered press, "Show on map", no WebGL, focus to the canvas and not
 stolen). `check:browser` now asks the page's renderer: with software WebGL
@@ -2299,15 +2325,41 @@ API.NSW calls. Netlify's bot protection did not challenge GitHub's runners.
   no secrets. Caches written by a pull request are visible only to that pull
   request and are not trusted by `main`.
 
+### Verified after the merge
+
+Pull request #5, squash-merged as `0112706`; production published it at
+06:45:50 UTC on 25 October.
+
+- **The new check on its own pull request:** the first commit ran on its
+  deploy's permalink (49 of 49, 36 of 36, 1 min 52 s); the docs commit, which
+  Netlify skipped, ran on `deploy-preview-5` (the same, 1 min 40 s).
+- **Production:** `pnpm check:browser` 49 of 49 (the wide map waited, having
+  fetched nothing from MapLibre or OpenFreeMap, and took focus when started);
+  `pnpm check:a11y` 36 of 36; `/api/status` 200.
+- **PageSpeed Insights on production**, a results page for 2250: desktop
+  100 (TBT 0 ms, CLS 0, LCP 0.4 s), mobile 99 (TBT 0 ms, CLS 0, LCP 1.4 s);
+  accessibility, best practices and SEO 100 on both. Before: desktop 68
+  (TBT 990 ms), mobile 99. The desktop run took the "Show the map" path
+  (see "What the score measures" above).
+- **Ruleset:** "protect main" (id 25775726) now requires both checks. Read
+  back after the change (`gh api repos/Lyfe4/nsw-fuel-finder/rulesets/25775726`):
+  enforcement active, no bypass actors, target the default branch; rules
+  `pull_request` (0 approvals), `required_status_checks` with "Typecheck,
+  lint, test, build" and "Browser checks on the deploy preview" (both
+  GitHub Actions, integration 15368, not strict), `non_fast_forward`,
+  `deletion`. Updated 25 October 08:54 UTC.
+
 ## 2026-10-25: Baseline
 
-The project as of `d6dc135` (round 10, pull request #3). Future work starts
-from here; this entry is the summary, and the rounds above have the reasons.
+The project as of `0112706` (round 11, pull request #5; first written for
+round 10's `d6dc135`). Future work starts from here; this entry is the
+summary, and the rounds above have the reasons.
 
 **What it does.** Live fuel prices for NSW and the ACT, cheapest first, for
 a suburb, a postcode or the visitor's rounded location, at 2, 5, 10 or 25 km.
 A list and a map (MapLibre, OpenFreeMap tiles, loaded only when shown), side
-by side on wide screens, a List/Map switch on phones. A one-line summary
+by side on wide screens, a List/Map switch on phones. Without a GPU the wide
+map waits for "Show the map". A one-line summary
 (cheapest, average, what the difference is worth on 50 L), sort by price or
 distance, brand and price-age filters, today's move per station, directions
 in the phone's maps app, the nearest stations up to 100 km when nothing is in
@@ -2333,7 +2385,8 @@ from Blobs only. Visitors never reach API.NSW.
   The lockout guard stops after one refusal (or two unknown outcomes), fails
   closed, and is reset only by a person (`pnpm auth:reset`). Every call is
   counted; only retryable failures return 502.
-- `main` protected (pull request, CI, no force pushes, no bypass), squash
+- `main` protected (pull request, CI and the browser checks, no force
+  pushes, no bypass), squash
   merges, Dependabot alerts and updates, private vulnerability reporting,
   secret scanning with push protection, actions pinned to commits,
   `minimumReleaseAge` a day. No open alerts or pull requests at the
@@ -2349,10 +2402,15 @@ from Blobs only. Visitors never reach API.NSW.
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- By hand: `pnpm check:browser` (46 checks, including CSP and CLS) and
-  `pnpm check:a11y` (34) against a preview or production; CI runs typecheck,
-  lint, format, 561 tests, the build and bundle budgets on every pull
-  request.
+- CI on every pull request: typecheck, lint, format, 567 tests, the build
+  and bundle budgets; and `pnpm check:browser` (49 checks, including CSP and
+  CLS) and `pnpm check:a11y` (36) against its deploy preview, about two
+  minutes. Both required. The same checks by hand against production.
+- PageSpeed Insights, a results page: desktop 100, mobile 99, CLS 0, and 100
+  for accessibility, best practices and SEO (25 October, after round 11).
+  The desktop machine has no GPU, so it measures the "Show the map" page:
+  the page a GPU-less visitor gets, not the map drawn faster. Visitors with
+  a GPU see what they saw before (round 11).
 
 **Known accepted risks.**
 
@@ -2376,6 +2434,21 @@ from Blobs only. Visitors never reach API.NSW.
 - Product limits: NSW and the ACT only, as fresh as retailers report plus up
   to 30 minutes, "today" against our own snapshots, ABS 2021 suburbs, the
   map needs WebGL.
+- **Without a GPU the wide map waits to be asked.** A visitor whose browser
+  draws WebGL in software presses "Show the map" once a visit, in exchange
+  for a page that is usable at once. Software is recognised by the
+  renderer's name; a browser that hides it (no debug extension, Firefox's
+  fingerprinting protection) gets the map at once and its slow first draw,
+  as before.
+- **The desktop PageSpeed score depends on that detection.** Google's
+  machine is GPU-less and takes the button path. If a future Chrome hid the
+  renderer there too, the score would drop back to about 68 with nothing
+  wrong on the site.
+- **The browser checks depend on Netlify's commit status.** If Netlify posts
+  none (a fork's pull request it does not build, an outage), the check fails
+  after 15 minutes rather than passing untested: rerun it, or merge by hand
+  after checking the preview. Netlify's bot protection could one day
+  challenge GitHub's runners; the check would fail, not pass.
 - `--badge-clearance` still keeps 4 rem clear for Netlify's badge, which is
   no longer served; harmless spacing, kept in case it returns.
 
@@ -2385,7 +2458,6 @@ from Blobs only. Visitors never reach API.NSW.
   when FuelCheck publishes October, to fill 1–22 October.
 - **November 2026:** `/api/status`'s call count covers the whole month from
   then on; until then the API.NSW dashboard is the authority for October.
-- **Lighthouse on an idle machine**, to confirm Performance 100 (above).
 - **Optional:** see our 429 on production once Netlify no longer challenges
   the test address; space bursts out and keep them short.
 - Then: watch the quota and Netlify's usage page; merge Dependabot's pull
