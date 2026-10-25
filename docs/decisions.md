@@ -2112,3 +2112,129 @@ round 9. Now in the README's maintenance section, with what a 503 means.
 - **Layout Instability API:** shifts within 500 ms of input are left out
   (`hadRecentInput`), as Lighthouse does; a shift counts only the part of the
   viewport the moved element covers, before and after.
+
+### Verified after the merge
+
+Pull request #3, squash-merged as `d6dc135`; production published it at
+02:32:35 UTC on 25 October.
+
+- **Checks:** `pnpm check:browser` on production, 46 of 46, CLS 0.000 at
+  1350 × 940, no CSP violations; `pnpm check:a11y`, 34 of 34. `/api/status`
+  healthy.
+- **Rate limit:** the deploy reports "1 redirect rule processed … without
+  errors" alongside the `/api` function's rule. A paced burst from this
+  address (12 a second) met Netlify's bot challenge after about 390
+  requests, before our rule's 600, as it had on the preview after several
+  bursts: Netlify had flagged the address. Files and `/api` were 200 again
+  12 s later. So our 429 was seen on the preview, not on production; the
+  rule and the configuration are the same.
+- **Lighthouse:** CLS 0 on desktop and mobile in every run, so the footer
+  shift is gone. Accessibility, Best Practices and SEO 100 in every run.
+  Performance was not 100 today, and not because of this round:
+
+  | Run                                                          | Desktop                      | Mobile                      |
+  | ------------------------------------------------------------ | ---------------------------- | --------------------------- |
+  | Local 12.8.2, production, 4 runs each                        | 92–96, CLS 0, LCP 1.0 s      | 90–94, CLS 0, LCP 1.5–1.7 s |
+  | Local A/B, same minutes: round 9's deploy / round 10's       | 86–96 / 97–98, CLS 0.053 / 0 | 95 / 95–97, CLS 0 / 0       |
+  | PageSpeed Insights (Lighthouse 13.5): round 9's / round 10's | 71 / 69, CLS 0.053 / 0       | 99 / 99, CLS 0 / 0          |
+
+  The local machine was busy (a game running, 54% CPU), which costs
+  Lighthouse blocking time: round 9's code scored no better under the same
+  load. On PageSpeed's desktop, blocking time is 700–900 ms in both rounds:
+  MapLibre drawing the map on a machine without a GPU. Desktop LCP moved
+  from 0.6 s to 1.0 s locally because the LCP element is now the price
+  summary, which waits for the data, not the footer paragraph painted while
+  loading: a truer number, not a slower page. Lighthouse should be run again
+  on an idle machine to confirm the 100s.
+
+## 2026-10-25: Baseline
+
+The project as of `d6dc135` (round 10, pull request #3). Future work starts
+from here; this entry is the summary, and the rounds above have the reasons.
+
+**What it does.** Live fuel prices for NSW and the ACT, cheapest first, for
+a suburb, a postcode or the visitor's rounded location, at 2, 5, 10 or 25 km.
+A list and a map (MapLibre, OpenFreeMap tiles, loaded only when shown), side
+by side on wide screens, a List/Map switch on phones. A one-line summary
+(cheapest, average, what the difference is worth on 50 L), sort by price or
+distance, brand and price-age filters, today's move per station, directions
+in the phone's maps app, the nearest stations up to 100 km when nothing is in
+range. Favourites on the device. Four months of daily history per station
+(FuelCheck's published files joined to our own snapshots), as a chart with a
+keyboard slider and a table. Light and dark themes. All state in the URL.
+
+**How it runs.** A scheduled function fetches every NSW price every 30
+minutes (about 1,500 API.NSW calls a month against 2,500) into Netlify
+Blobs, and folds a slice of history each run. The `/api` function answers
+from Blobs only. Visitors never reach API.NSW.
+
+**Security posture.**
+
+- Strict CSP: scripts from the site plus one hashed inline script, styles
+  from the site only, no frames, the map worker our own file. Referrer and
+  Permissions policies, `nosniff`, `DENY` framing, COOP.
+- Rate limits, both code-based rules Legacy Free allows: `/api/*` 120 a
+  minute per address (in the function's config), and the whole site 600 a
+  minute (in `netlify.toml`). `Netlify-Vary` cache keys, so junk parameters
+  cannot force function runs. The function is reachable only at `/api/*`.
+- API.NSW credentials only in the production context, scoped to functions.
+  The lockout guard stops after one refusal (or two unknown outcomes), fails
+  closed, and is reset only by a person (`pnpm auth:reset`). Every call is
+  counted; only retryable failures return 502.
+- `main` protected (pull request, CI, no force pushes, no bypass), squash
+  merges, Dependabot alerts and updates, private vulnerability reporting,
+  secret scanning with push protection, actions pinned to commits,
+  `minimumReleaseAge` a day. No open alerts or pull requests at the
+  baseline.
+- No cookies, analytics or tracking; position rounded to about 1 km and never
+  stored; privacy note at `/privacy.html`.
+
+**Monitoring.**
+
+- `/api/status`: snapshot age, the last run, read errors and API.NSW calls
+  this month (37 counted at the baseline since 24 October 09:30 UTC, plus
+  about 70 before that). A 503 when anything is wrong or calls pass 2,000.
+- UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
+- Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
+- The API.NSW dashboard, the authority on the quota.
+- By hand: `pnpm check:browser` (46 checks, including CSP and CLS) and
+  `pnpm check:a11y` (34) against a preview or production; CI runs typecheck,
+  lint, format, 561 tests, the build and bundle budgets on every pull
+  request.
+
+**Known accepted risks.**
+
+- **One limit pauses 16 sites.** On Legacy Free, reaching any non-build limit
+  (bandwidth is account-wide) pauses every site on the account until it is
+  upgraded. Moving the site to its own team was rejected: new teams are on
+  credits.
+- **Per-address limits only.** Many addresses together are not limited. One
+  address at the static limit could still pull about 37 GB an hour of the
+  1 MB map chunk, so the month's 100 GB in under three hours; the usage
+  emails are the warning.
+- **The site-wide limit also counts `/api` requests** (Netlify cannot exclude
+  a path); harmless below 480 other requests a minute.
+- **Netlify's bot challenge** can answer heavy automated use from one address
+  with a 403 before our limits do; no real visitor comes near it.
+- **Deploy previews share production's Blobs store.** They only read it, and
+  the snapshot job does nothing on a preview or branch deploy.
+- **The history backfill and `auth:reset` need an account-wide Netlify
+  token**; use a short-lived one made for the job and delete it after.
+- `callsite` shows an unknown licence (its Readme says MIT).
+- Product limits: NSW and the ACT only, as fresh as retailers report plus up
+  to 30 minutes, "today" against our own snapshots, ABS 2021 suburbs, the
+  map needs WebGL.
+- `--badge-clearance` still keeps 4 rem clear for Netlify's badge, which is
+  no longer served; harmless spacing, kept in case it returns.
+
+**Open maintenance items.**
+
+- **Early November 2026:** run `pnpm history:backfill --months 4 --upload`
+  when FuelCheck publishes October, to fill 1–22 October.
+- **November 2026:** `/api/status`'s call count covers the whole month from
+  then on; until then the API.NSW dashboard is the authority for October.
+- **Lighthouse on an idle machine**, to confirm Performance 100 (above).
+- **Optional:** see our 429 on production once Netlify no longer challenges
+  the test address; space bursts out and keep them short.
+- Then: watch the quota and Netlify's usage page; merge Dependabot's pull
+  requests through CI; a backfill once a quarter if a longer chart is wanted.
