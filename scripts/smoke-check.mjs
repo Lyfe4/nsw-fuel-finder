@@ -87,6 +87,31 @@ const settled = (page) =>
     ),
   );
 
+/** How many of MapLibre's files the page has fetched, and from OpenFreeMap. */
+const mapFetches = (page) =>
+  page.evaluate(() => {
+    const names = performance.getEntriesByType('resource').map((e) => e.name);
+    return {
+      chunks: names.filter((name) => /maplibre|\/StationMap[.-]/i.test(name)).length,
+      tiles: names.filter((name) => name.includes('openfreemap')).length,
+    };
+  });
+const mapChunks = async (page) => (await mapFetches(page)).chunks;
+
+/**
+ * Whether this browser draws WebGL in software, as src/features/map/mapStart.ts
+ * decides it. Headless Chromium uses SwiftShader, here and on CI's runners,
+ * so the wide map waits for "Show the map"; with a GPU it starts by itself.
+ */
+const softwareWebGL = (page) =>
+  page.evaluate(() => {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    const debug = gl?.getExtension('WEBGL_debug_renderer_info');
+    const name = debug ? String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)) : '';
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
+  });
+
 const browser = await chromium.launch();
 try {
   // --- Wide screen: list and map side by side --------------------------------
@@ -105,7 +130,34 @@ try {
   check('postcode search lists stations', (await list.getByRole('listitem').count()) > 0);
 
   const canvas = page.locator('canvas.maplibregl-canvas');
-  await canvas.waitFor();
+  if (await softwareWebGL(page)) {
+    // Software WebGL: the map waits to be asked, so the list is not blocked
+    // while MapLibre compiles its shaders (round 11).
+    const showMap = page.getByRole('button', { name: 'Show the map' });
+    await showMap.waitFor();
+    const before = await mapFetches(page);
+    check(
+      'without a GPU the wide map waits for "Show the map", having fetched nothing',
+      before.chunks === 0 && before.tiles === 0,
+      `${String(before.chunks)} MapLibre files, ${String(before.tiles)} OpenFreeMap requests`,
+    );
+    await showMap.click();
+    await canvas.waitFor();
+    await page
+      .waitForFunction(
+        () => document.activeElement?.classList.contains('maplibregl-canvas'),
+        null,
+        { timeout: 10_000 },
+      )
+      .catch(() => undefined);
+    check(
+      '"Show the map" starts it, and focus goes to the map',
+      await canvas.evaluate((el) => el === document.activeElement),
+    );
+  } else {
+    await canvas.waitFor();
+    check('with a GPU the wide map starts by itself', true);
+  }
   // The style's own layers and our dots both come from network fetches; wait
   // until MapLibre reports it has nothing left to load.
   await page.waitForFunction(() =>
@@ -139,6 +191,11 @@ try {
   await list.getByRole('listitem').first().waitFor();
   await settled(page);
   check('suburb search lists stations', (await list.getByRole('listitem').count()) > 0);
+  await canvas.waitFor();
+  check(
+    'the map stays for the next search, without asking again',
+    (await page.getByRole('button', { name: 'Show the map' }).count()) === 0,
+  );
 
   // List -> map. Scroll first, so the map is stuck fully in view beside the
   // list and a station it shows is at its centre; then use an item on screen.
@@ -412,17 +469,10 @@ try {
   await mobile.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
   const mapButton = mobile.getByRole('button', { name: 'Map', exact: true });
   check('phone shows the List/Map switch', await mapButton.isVisible());
-  const mapChunks = () =>
-    mobile.evaluate(
-      () =>
-        performance
-          .getEntriesByType('resource')
-          .filter((e) => /maplibre|\/StationMap[.-]/i.test(e.name)).length,
-    );
-  check('MapLibre is not downloaded for the list', (await mapChunks()) === 0);
+  check('MapLibre is not downloaded for the list', (await mapChunks(mobile)) === 0);
   await mapButton.click();
   await mobile.locator('canvas.maplibregl-canvas').waitFor();
-  check('Map shows the map, and only then downloads it', (await mapChunks()) > 0);
+  check('Map shows the map, and only then downloads it', (await mapChunks(mobile)) > 0);
   check('the view is kept in the URL', new URL(mobile.url()).searchParams.get('view') === 'map');
   check(
     'the switch fits at 375px',

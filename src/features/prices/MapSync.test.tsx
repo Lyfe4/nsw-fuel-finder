@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { resetWarmedForTests } from '@/features/map/mapStyle';
 import type { StationMapProps } from '@/features/map/StationMap';
 import { renderApp } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
@@ -181,5 +182,77 @@ describe('list and map, on a wide screen', () => {
     await waitFor(() => {
       expect(window.location.search).toBe('?fuel=U91&query=Gosford');
     });
+  });
+});
+
+/** A WebGL context naming its renderer, which is all the start probe reads (mapStart.ts). */
+function renderer(name: string) {
+  const gl = { RENDERER: 0x1f01, getParameter: () => name, getExtension: () => null };
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => gl) as never);
+}
+
+const openFreeMapFetches = (api: ReturnType<typeof fakeApi>) =>
+  api.fetch.mock.calls.filter(([input]) =>
+    (input instanceof Request ? input.url : input.toString()).includes('openfreemap'),
+  ).length;
+
+describe('when a wide screen’s map starts', () => {
+  function setupWide(url = '/?query=Erina') {
+    setScreen({ wide: true });
+    resetWarmedForTests();
+    const api = fakeApi({ location: () => json(prices({ stations: STATIONS })) });
+    return { ...renderApp(url), api };
+  }
+
+  it('by itself once the list has rendered, where there is a GPU', async () => {
+    renderer('ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0 ps_5_0, D3D11)');
+    setupWide();
+    await list();
+    expect(await screen.findByTestId('map')).toBeVisible();
+    expect(map.props?.focusOnStart).toBe(false);
+  });
+
+  it('when asked, where WebGL is drawn in software, and then for the rest of the visit', async () => {
+    renderer('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)');
+    const { user, container, api } = setupWide();
+    await list();
+    const show = await screen.findByRole('button', { name: 'Show the map' });
+    expect(screen.queryByTestId('map')).not.toBeInTheDocument();
+    expect(screen.getByText(/without graphics acceleration/)).toBeVisible();
+    // Not a byte from OpenFreeMap until the map is wanted.
+    expect(openFreeMapFetches(api)).toBe(0);
+    await expectNoAxeViolations(container);
+
+    await user.click(show);
+    expect(await screen.findByTestId('map')).toBeVisible();
+    // The button went away: the map takes focus once it exists.
+    expect(map.props?.focusOnStart).toBe(true);
+    expect(openFreeMapFetches(api)).toBeGreaterThan(0);
+
+    const search = screen.getByRole('combobox', { name: /suburb or postcode/i });
+    await user.clear(search);
+    await user.type(search, 'Gosford{Enter}');
+    await waitFor(() => {
+      expect(window.location.search).toBe('?fuel=U91&query=Gosford');
+    });
+    expect(await screen.findByTestId('map')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Show the map' })).not.toBeInTheDocument();
+  });
+
+  it('on "Show on map" too, which keeps focus on the list', async () => {
+    renderer('Google SwiftShader');
+    const { user } = setupWide();
+    await list();
+    await screen.findByRole('button', { name: 'Show the map' });
+    await user.click(showOnMap('Metro Gosford'));
+    expect(await screen.findByTestId('map')).toBeVisible();
+    expect(map.props).toMatchObject({ selected: '2', focusOnStart: false });
+    expect(showOnMap('Metro Gosford')).toHaveFocus();
+  });
+
+  it('as before where there is no WebGL at all, so the map can say so itself', async () => {
+    setupWide();
+    await list();
+    expect(await screen.findByTestId('map')).toBeVisible();
   });
 });

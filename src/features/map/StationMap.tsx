@@ -54,6 +54,11 @@ export interface StationMapProps {
   reducedMotion: boolean;
   /** Light or dark basemap, to match the page. */
   theme: Theme;
+  /**
+   * The visitor pressed "Show the map", which went away: focus the map once
+   * it exists, unless focus has meanwhile moved somewhere else.
+   */
+  focusOnStart?: boolean;
 }
 
 /**
@@ -111,6 +116,7 @@ export function StationMap({
   label,
   reducedMotion,
   theme,
+  focusOnStart = false,
 }: StationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -136,6 +142,7 @@ export function StationMap({
     bounds: boundsOf(stations, origin),
     label,
     theme,
+    focus: focusOnStart,
   }));
 
   useEffect(() => {
@@ -159,6 +166,15 @@ export function StationMap({
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+    // The placeholder that held focus has just been replaced, leaving it on
+    // <body>. The map only exists from this effect on, so the move cannot be
+    // in a layout effect; it is safe here because it only ever takes focus
+    // from nowhere. Anywhere else, the visitor has moved on: leave it.
+    const active = document.activeElement;
+    if (initial.focus && (active === null || active === document.body)) {
+      // eslint-disable-next-line no-restricted-syntax
+      map.getCanvas().focus({ preventScroll: true });
+    }
     // Fired for the first style and again after every theme change.
     map.on('style.load', () => {
       addLayers(map, tokenColours(container));

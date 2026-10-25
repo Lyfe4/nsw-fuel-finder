@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { prices, station } from '@/lib/testing/fakeApi';
@@ -38,6 +38,9 @@ const { FakeMap, maps } = vi.hoisted(() => {
 
     constructor(options: Record<string, unknown>) {
       this.options = options;
+      // As MapLibre does: the canvas goes in the container, in the Tab order.
+      this.canvas.tabIndex = 0;
+      (options.container as HTMLElement).append(this.canvas);
       maps.push(this);
     }
     addControl() {
@@ -245,6 +248,21 @@ describe('StationMap', () => {
     unmount();
     expect(map.remove).toHaveBeenCalled();
   });
+  it('takes focus when it was started by "Show the map", and only then', () => {
+    expect(setup({ focusOnStart: true }).map.canvas).toHaveFocus();
+    cleanup();
+    expect(setup().map.canvas).not.toHaveFocus();
+  });
+
+  it('leaves focus alone if the visitor moved it while the map downloaded', () => {
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    setup({ focusOnStart: true });
+    expect(elsewhere).toHaveFocus();
+    elsewhere.remove();
+  });
+
   it('opens on the dark basemap when the page is dark', () => {
     const { map } = setup({ theme: 'dark' });
     expect(map.options.style).toBe('https://tiles.openfreemap.org/styles/dark');

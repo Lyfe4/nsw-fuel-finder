@@ -112,7 +112,15 @@ try {
     const { context, page } = await open(browser, { stored: theme });
     await page.goto(`${BASE}/?fuel=U91&query=2250`);
     await page.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
-    await page.locator('canvas.maplibregl-canvas').waitFor();
+    // Without a GPU (headless Chromium, CI) the wide map waits to be asked.
+    const canvas = page.locator('canvas.maplibregl-canvas');
+    const showMap = page.getByRole('button', { name: 'Show the map' });
+    await canvas.or(showMap).first().waitFor();
+    if (await showMap.isVisible()) {
+      await axe(page, `${theme}, wide results, the map waiting to be asked`);
+      await showMap.click();
+    }
+    await canvas.waitFor();
     await page.waitForFunction(() => !document.body.textContent?.includes('Loading map…'), null, {
       timeout: 30_000,
     });

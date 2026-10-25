@@ -117,7 +117,20 @@ async function open({ theme, width, height, scale, withFavourites = false }) {
 
 async function settle(page, { map = false } = {}) {
   if (map) {
-    await page.locator('canvas.maplibregl-canvas').waitFor();
+    // Headless Chromium draws WebGL in software, where the wide map waits to
+    // be asked (src/features/map/mapStart.ts). Ask, then put focus back, so
+    // no focus ring shows.
+    const canvas = page.locator('canvas.maplibregl-canvas');
+    const showMap = page.getByRole('button', { name: 'Show the map' });
+    await canvas.or(showMap).first().waitFor();
+    if (await showMap.isVisible()) {
+      await showMap.click();
+      await canvas.waitFor();
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
+    }
+    await canvas.waitFor();
     await page.getByText('Loading map…').waitFor({ state: 'detached', timeout: 60_000 });
     await page.waitForLoadState('networkidle');
     // Labels fade in after the tiles; give them their moment.

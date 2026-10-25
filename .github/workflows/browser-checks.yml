@@ -1,0 +1,108 @@
+name: Browser checks
+
+# The real-browser checks (pnpm check:browser and check:a11y) against the
+# pull request's own Netlify deploy preview, once it is ready. A required
+# check on main, beside CI.
+#
+# Security: `pull_request`, not `pull_request_target`, so a fork's pull
+# request runs with a read-only token and no secrets (and none are used).
+# The token only reads the pull request's files and commit statuses.
+on:
+  pull_request:
+
+concurrency:
+  group: browser-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  # The changed files, to tell a docs-only pull request.
+  pull-requests: read
+  # Netlify's "deploy-preview" commit status, to know when it is ready.
+  statuses: read
+
+jobs:
+  browser:
+    name: Browser checks on the deploy preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    # Actions pinned to a commit, as in ci.yml; Dependabot updates both.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Only docs/ and Markdown changed: Netlify skips the build (netlify.toml
+      # `ignore`), there is no preview, and this check passes at once, so a
+      # docs-only pull request is never left waiting for it.
+      - name: Does Netlify build this pull request?
+        id: plan
+        run: node scripts/wait-for-preview.mjs plan
+
+      - if: steps.plan.outputs.deployable == 'true'
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - if: steps.plan.outputs.deployable == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.plan.outputs.deployable == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Chromium's headless shell only (the checks run headless), cached by
+      # Playwright's version. The runner image already has its system
+      # libraries.
+      - name: Playwright version
+        id: playwright
+        if: steps.plan.outputs.deployable == 'true'
+        run: echo "version=$(pnpm exec playwright --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright's browser
+        if: steps.plan.outputs.deployable == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        if: steps.plan.outputs.deployable == 'true'
+        run: pnpm exec playwright install --only-shell chromium
+
+      # Installing overlaps Netlify's build; usually the preview is ready by now.
+      - name: Wait for the deploy preview
+        id: preview
+        if: steps.plan.outputs.deployable == 'true'
+        run: node scripts/wait-for-preview.mjs wait
+
+      # Against a preview these cost a few function runs and map tiles, and no
+      # API.NSW calls: previews have no credentials and read the snapshot.
+      - name: Browser check
+        if: steps.plan.outputs.deployable == 'true'
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        run: pnpm check:browser "$PREVIEW_URL"
+
+      - name: Accessibility check
+        # Also after a failed browser check: both results are worth having.
+        if: ${{ !cancelled() && steps.preview.outputs.url != '' }}
+        env:
+          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+        run: pnpm check:a11y "$PREVIEW_URL"
+
+      - name: Keep the screenshots of a failure
+        if: failure() && steps.preview.outputs.url != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: browser-check-screenshots
+          path: |
+            /tmp/fuel-finder-a11y
+            /tmp/smoke-check-map.png
+          if-no-files-found: ignore
+          retention-days: 7

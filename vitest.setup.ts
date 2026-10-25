@@ -6,6 +6,7 @@ import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, vi } from 'vitest';
 
 import { resetFavouritesForTests } from './src/features/favourites/favourites';
+import { resetMapStartForTests } from './src/features/map/mapStart';
 import { resetPreferenceForTests } from './src/features/theme/theme';
 import { installMatchMedia } from './src/lib/testing/matchMedia';
 
@@ -32,12 +33,18 @@ afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
     resetPreferenceForTests();
     resetFavouritesForTests();
+    resetMapStartForTests();
   }
 });
 
 beforeAll(() => {
   // jsdom has no layout, so no scrollIntoView. Downshift calls it to keep the
   // highlighted suggestion in view.
+  // jsdom has no canvas either, and says so on every call. No WebGL, quietly:
+  // a test that needs a renderer fakes one.
+  if (typeof HTMLCanvasElement !== 'undefined') {
+    HTMLCanvasElement.prototype.getContext = (() => null) as never;
+  }
   if (typeof Element !== 'undefined') {
     Element.prototype.scrollIntoView = function scrollIntoView(): void {
       // no layout in jsdom, nothing to scroll
