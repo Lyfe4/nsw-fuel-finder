@@ -1981,3 +1981,134 @@ preview failed 3 checks, all from the Netlify Drawer that previews inject
 was already broken before this round (`child-src 'self'` refused its frame).
 Either turn the Drawer off for previews (Site configuration > Build & deploy >
 Deploy Previews > Netlify Drawer) or read those 3 as preview-only.
+
+## 2026-10-25: Round 10 (last items before the baseline)
+
+### A rate limit on the static files
+
+**Decision:** the second code-based rule Legacy Free allows, in
+`netlify.toml`: a rewrite of `/*` to itself (status 200, not forced) with
+`rate_limit` 600 requests per 60 s, keyed on IP and domain, then Netlify's 429. Round 9 left static files unlimited, and bandwidth (100 GB a month) is
+account-wide: reaching it pauses all 16 sites.
+
+**Why 600, as the owner suggested, not lower.** Measured on production: a
+cold first visit on a wide screen, with the map, is about 8 requests to this
+origin (the page, bundle, stylesheet, map chunk, map stylesheet, worker,
+icon); a phone on the list fewer; a later search none, since `/assets/*` is
+cached for a year. 600 is about 75 cold visits a minute from one address, so
+no CGNAT pool, office or school meets it. Lower would not change the outcome
+that matters: the biggest file is the map chunk, 1.04 MB uncompressed (267 kB
+with Brotli), so at 600 a minute one machine pulls at most about 37 GB an
+hour. A machine on a data-centre link, unlimited, could take the month's
+100 GB in about a quarter of an hour; at the limit it takes nearly three
+hours, and Netlify's 50% and 75% emails come first. Halving the limit would
+only stretch that to about five and a half hours, at a real risk to shared
+addresses. A per-address limit does nothing against many addresses; that
+stays an accepted risk (see the baseline).
+
+**Status 200 is required.** A redirect with no `status` is a 301, so `/*` to
+`/:splat` would send every missing page to itself in a loop. Not forced, so it
+never shadows a file or the API function. Checked on the preview: files 200,
+missing pages 404 (no redirect), `/api/status` 200, `/api/nope` the API's own
+404, `/.netlify/functions/api/status` still the static 404.
+
+**It counts `/api` requests too (accepted).** The brief asked for no overlap
+with the `/api` rule. Netlify cannot give one: a rule's limit applies to every
+path its `from` matches, and there is no "everything but `/api`". An earlier
+rule `/api/*` to `/api/:splat` with no limit was tried and made no difference:
+the limit is not first-match like the rewrites themselves. Limiting
+`/assets/*` only would avoid the overlap but leave `og-image.png` (397 kB) and
+every other root file unlimited. So `/*` stays, and the overlap is harmless:
+`/api` keeps its own, stricter 120, and only an address making 480 other
+requests a minute on top of that meets 600. Such an address is refused `/api`
+as well, which is right for it. The other way round, tripping `/api`'s limit
+does not block files, so a busy CGNAT pool refused searches can still load the
+page and read why.
+
+**Verified on the deploy preview** (`burst.mjs`, a scratch script; previews
+have their own domain, so the tests could not block production). Requests
+paced at 12 a second:
+
+| Test                                                                | Result                                                                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 700 to `/robots.txt` in 58 s                                        | 603 × 200, then refused from about 50 s (one 429, the rest Netlify's challenge, see below) |
+| then, 12 s after the burst                                          | `/robots.txt` 429, `/api/places` 429: the static rule refuses `/api` too                   |
+| 140 to `/api/places` in 12 s (the round 9 rule)                     | all 200 in the burst; 12 s later `/api` 429                                                |
+| static files during and after that `/api` block                     | 200 throughout: the rules block separately, by rule                                        |
+| 115 `/api` + 545 static in 55 s, with and without the `/api/*` rule | the same both times: refused from about 51 s, both kinds                                   |
+
+Blocked requests do not seem to count: after a burst that was cut off by the
+challenge, the window cleared within 12 s.
+
+**Two things learnt the hard way:**
+
+- **Netlify's own bot protection answers before the limit.** The first test
+  sent 700 requests in 0.9 s: after 507 came 403s, and then the edge refused
+  this address outright (connection timeouts) on both the preview and
+  production for about 8 minutes. Production kept serving everyone else: the
+  API function logged other visitors' requests during the block, and the
+  02:00 snapshot ran. After a few more bursts, even 12 a second drew the same
+  403 page ("Security by Netlify", a JavaScript challenge) at about 600 a
+  minute, for `/api` as well. So the bursts are paced, kept short, and
+  spaced two minutes apart, and a 403 with that page is Netlify's protection,
+  not our rule (ours is an empty 429).
+- **A paced test must keep each stream well under its own limit**, or a
+  sliding window cannot tell which rule refused it: the first mixed test ran
+  `/api` at 125 a minute, over its own 120.
+
+### The footer no longer moves
+
+**The cause, measured** (a `PerformanceObserver` on production at
+Lighthouse's desktop size, 1350 × 940): the footer, at y 836 under three
+loading cards, was pushed off screen when 19 stations arrived 3.7 s in, a
+shift of 0.052. On a phone and at 1280 × 800 it was already below the fold,
+so CLS there was 0.
+
+**Decision:** on wide screens (from 60 rem, where list and map sit side by
+side), the loading cards, and "Finding your location…", keep a minimum height
+equal to the sticky map's (`--map-panel-height`, now a token that
+`StationsPanel` uses too). Results there are never shorter than the map
+beside them, so the space reserved is space the results would fill anyway,
+and the footer starts below the fold. Phones are unchanged.
+
+**A side effect, accepted:** if a location search ends in an error or
+nothing found, the shorter message replaces the reserved space and the footer
+moves up. Those are rare, and the shift comes after a press.
+
+**Measured on the preview:** CLS 0 at 1350 × 940, 1920 × 1080, 1280 × 1400,
+960 × 900 and 412 × 823 (it was 0.052 on production at the first size).
+
+**A test for it:** `check:browser` now loads a results page at 1350 × 940
+and fails if CLS reaches 0.01. Against production before the fix it failed
+with 0.052; at 1280 × 800, its existing wide size, it had passed (0.000),
+which is why the shift was never caught.
+
+### The Netlify Drawer, off for previews
+
+The owner turned the Drawer off for deploy previews. `check:browser` on the
+round 10 preview (`cb89fc5`): 46 of 46, no CSP violations, and no
+`/.netlify/scripts/` tag in the page (round 9's preview failed 3 checks, all
+from the Drawer). `check:a11y`: 34 of 34. Previews now pass cleanly.
+
+### Uptime monitor
+
+UptimeRobot checks `https://nsw-fuel-finder.netlify.app/api/status` every 15
+minutes and emails the owner on anything but a 200, set up by the owner after
+round 9. Now in the README's maintenance section, with what a 503 means.
+
+### Library behaviour this relies on
+
+- **Netlify redirect rate limits** (`[redirects.rate_limit]`): code-based,
+  so they count against the plan's two rules; validated after the deploy,
+  where a bad rule is a log message, not a failed deploy; the limit applies
+  to every request the `from` pattern matches, files included and whatever
+  the rule order; up to about 10 s before blocking starts; 429 with an empty
+  body; each rule blocks only its own paths.
+- **Netlify redirects:** no `status` means 301; a rule that is not forced does
+  not shadow an existing file or function.
+- **Netlify's bot protection:** a flood is met with 403s and then a refused
+  connection for the address, on the preview and production alike, for minutes; a
+  JavaScript challenge page can come back on later, slower bursts.
+- **Layout Instability API:** shifts within 500 ms of input are left out
+  (`hadRecentInput`), as Lighthouse does; a shift counts only the part of the
+  viewport the moved element covers, before and after.
