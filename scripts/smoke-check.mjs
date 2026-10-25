@@ -58,6 +58,20 @@ function recordViolations() {
 }
 
 /**
+ * Runs in the page before anything else: the layout shift (CLS) not caused by
+ * input, as Lighthouse counts it. Round 10 fixed a 0.053 on wide screens (the
+ * footer pushed down when the results replaced the loading cards).
+ */
+function recordLayoutShift() {
+  window.__layoutShift = 0;
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (!entry.hadRecentInput) window.__layoutShift += entry.value;
+    }
+  }).observe({ type: 'layout-shift', buffered: true });
+}
+
+/**
  * Waits for the list's cards to finish arriving (a 180 ms rise and fade).
  * Clicked mid-animation, Playwright finds the button "not stable" and retries
  * with a forced scroll alignment, which moves the page under the checks that
@@ -104,6 +118,18 @@ try {
   );
   await page.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
   check('the "Loading map…" placeholder clears once the map has drawn', true);
+
+  // Layout shift, at Lighthouse's desktop size: on 800 px the footer was
+  // already below the fold while loading, so the shift never showed there.
+  const desktop = await browser.newContext({ viewport: { width: 1350, height: 940 } });
+  await desktop.addInitScript(recordLayoutShift);
+  const shiftPage = await desktop.newPage();
+  await shiftPage.goto(`${BASE}/?fuel=U91&query=2250`);
+  await shiftPage.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
+  await shiftPage.waitForLoadState('networkidle');
+  const shift = await shiftPage.evaluate(() => window.__layoutShift);
+  check('nothing moves while the results load (CLS under 0.01)', shift < 0.01, shift.toFixed(3));
+  await desktop.close();
 
   // Suburb search, typed and submitted with Enter.
   const search = page.getByRole('combobox', { name: /suburb or postcode/i });

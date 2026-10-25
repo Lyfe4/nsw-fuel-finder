@@ -34,7 +34,7 @@
     top: var(--space-4);
     grid-template-rows: minmax(0, 1fr) auto auto;
     /* Its bottom corner, and the map's attribution there, clear of Netlify's badge. */
-    height: calc(100dvh - 2 * var(--space-4) - var(--badge-clearance));
+    height: var(--map-panel-height);
   }
 
   .mapFrame {

@@ -5,6 +5,17 @@
   list-style: none;
 }
 
+/*
+ * Wide screens: as tall as the results will be at the least (the sticky map
+ * beside them), so their arrival does not move the footer (tokens.css).
+ */
+@media (min-width: 60rem) {
+  .list {
+    align-content: start;
+    min-height: var(--map-panel-height);
+  }
+}
+
 /* The same outline as a station card (StationList.module.css). */
 .card {
   display: grid;

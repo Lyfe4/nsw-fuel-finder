@@ -151,6 +151,13 @@
    * last Tab stop on the page and never takes focus itself.
    */
   --badge-clearance: 4rem;
+  /*
+   * The sticky map's height on a wide screen (StationsPanel). The results are
+   * never shorter than it, so while they load the page reserves it too
+   * (LoadingStations, Results): the footer then starts below the fold and the
+   * arriving list does not push it down (it was Lighthouse's CLS 0.053).
+   */
+  --map-panel-height: calc(100dvh - 2 * var(--space-4) - var(--badge-clearance));
   --layer-popover: 10;
 }
 
