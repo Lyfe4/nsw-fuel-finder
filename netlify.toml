@@ -39,7 +39,8 @@
 # the limit. The function has a fixed set of routes (router.ts) and is not an
 # open proxy.
 
-# RATE LIMIT ON STATIC FILES: 600 requests a minute per IP address, then 429.
+# RATE LIMIT ON THE WHOLE SITE, for the static files: 600 requests a minute
+# per IP address, then 429.
 # The second of the two code-based rules Legacy Free allows per site; the
 # first is /api/*'s 120 a minute, in the function's own config (api.ts).
 #
@@ -53,18 +54,17 @@
 # 75 such visits a minute from one address, so a mobile carrier's CGNAT, an
 # office or a school never meets it.
 #
-# Each is a rewrite to itself, which changes nothing that is served. Not
-# forced, so neither shadows a file or the api function; the limit still
-# counts every request its rule matches, files included. Netlify uses the
-# first rule that matches, so the /api/* rule, with no limit, keeps API
-# requests out of the static count: without it, /* counted them too and,
-# once over, blocked /api as well (both seen on the round 10 deploy preview,
-# docs/decisions.md).
-[[redirects]]
-  from = "/api/*"
-  to = "/api/:splat"
-  status = 200
-
+# A rewrite to itself, which changes nothing that is served. Not forced, so
+# it never shadows a file or the api function; the limit still counts every
+# request the pattern matches, files included.
+#
+# /api/* requests count here too, and an address over 600 is refused /api as
+# well. A rule's limit applies to every path its `from` matches, whatever the
+# order of the rules (an earlier /api/* rule with no limit made no
+# difference), and there is no "everything but /api". Harmless: /api keeps
+# its own, stricter 120, and only an address making 480 other requests a
+# minute on top of that meets this one. Tripping /api's limit does not block
+# files. All seen on the round 10 deploy preview (docs/decisions.md).
 [[redirects]]
   from = "/*"
   to = "/:splat"

@@ -125,8 +125,8 @@ theme script), and styles only from our own stylesheets. The map's worker is
 our own file, so it needs no `blob:`. The browser check fails on any policy
 violation. `/api/*` is rate limited at Netlify's edge (120 requests a minute
 per address), and tells the CDN which query parameters its answers depend on,
-so junk parameters cannot force a function to run. Everything else has a
-limit of its own (600 requests a minute per address, about 75 first visits),
+so junk parameters cannot force a function to run. The whole site has a
+looser limit too (600 requests a minute per address, about 75 first visits),
 so one machine cannot spend the hosting account's shared bandwidth in
 minutes.
 

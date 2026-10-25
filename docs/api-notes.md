@@ -331,8 +331,9 @@ A history day:
 
 The function's only address is `/api/*`, set in its own `config` with the rate
 limit (120 requests a minute per IP address, then Netlify's 429). Everything
-else the site serves has its own limit, 600 a minute, in `netlify.toml`; an
-`/api` request is not counted by it (round 10). The function is not
+the site serves is limited to 600 a minute by a rule in `netlify.toml`, which
+counts `/api` requests too: Netlify cannot exclude a path from a rule (round
+10). The function is not
 also served at `/.netlify/functions/api`. Under `netlify dev`, a 404 from it is
 retried by the CLI as `.html`, `.htm` and `/index.html` before it answers, so a
 local 404 reads "No such endpoint"; production does not do this (checked on the
