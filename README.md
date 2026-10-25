@@ -103,7 +103,11 @@ Sydney search stays readable. It is also about 430 kB gzipped, more than the
 rest of the app together. So it is a separate chunk, fetched only when a map is
 on screen: a phone showing the list never downloads it. Its style, tile index
 and fonts are fetched while it downloads. Bundle budgets in CI hold the first
-load to its current size and give the map its own ceiling.
+load to its current size and give the map its own ceiling. On a wide screen
+it starts once the list has rendered. Where WebGL is drawn in software (no
+GPU), drawing the map would freeze the page for a second or more, so there it
+waits for a press of "Show the map": PageSpeed's desktop score went from 68
+to 99.
 
 **Four months of history from day one, by joining open data to our own.**
 API.NSW has no history, so the job keeps a daily low, high and last price from
@@ -188,9 +192,11 @@ CI runs typecheck, lint, format, tests, build and the bundle budget on every
 pull request and every push to `main`. `main` is protected: each change
 arrives as a pull request that has passed CI, squash-merged so every commit
 on `main` builds on its own. Merging deploys production. Deploy previews have
-no API.NSW credentials and do not run the snapshot job. The browser checks
-need a running site, so they are run by hand against `pnpm serve:headers`, a
-deploy preview or production.
+no API.NSW credentials and do not run the snapshot job. A second workflow
+waits for each pull request's deploy preview and runs `check:browser` and
+`check:a11y` against it, also required; a docs-only pull request, which
+Netlify does not build, passes it at once. By hand, the same checks run
+against `pnpm serve:headers`, a preview or production.
 
 ## Maintenance
 

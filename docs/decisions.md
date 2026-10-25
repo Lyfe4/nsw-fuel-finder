@@ -2147,6 +2147,158 @@ Pull request #3, squash-merged as `d6dc135`; production published it at
   loading: a truer number, not a slower page. Lighthouse should be run again
   on an idle machine to confirm the 100s.
 
+## 2026-10-25: Round 11 (final hardening)
+
+### The wide map waits where WebGL is drawn in software
+
+**The cause, measured.** PageSpeed Insights' desktop test on a results page
+for 2250 scored 68: Total Blocking Time 990 ms, CLS 0, LCP 0.6 s. Its long
+tasks were almost all in the map chunk (1.3 s of them between 1.2 and 2.7 s;
+"Other" 1,320 ms in the main-thread breakdown). A CPU profile of the same
+load in headless Chromium put the time in native code under MapLibre's
+`getProgram`: compiling its shaders and drawing the first frames, in
+software. Google's machines have no GPU, so WebGL runs on SwiftShader. The
+same page with a GPU blocks for 0 ms (Chromium with D3D11 on this PC, warm;
+about 100 ms cold, as before this round), with SwiftShader about 220 ms
+here, and roughly four times that on PageSpeed's slower machine.
+
+**Why not just defer the start.** The brief suggested starting the map once
+the list has rendered and the browser is idle, or when the map nears the
+viewport. Both alone would leave the score where it was. Lighthouse counts
+blocking from first paint to Time to Interactive, which only ends after five
+quiet seconds, so the same long tasks a moment later still count; and on a
+wide screen the map is in the viewport from the start. Only a delay of more
+than five seconds would hide them, which would be a worse page for every
+visitor, to fool the test.
+
+**Decision:** the map starts once the list has rendered and the browser is
+idle (`requestIdleCallback`, at most a second; a timeout in Safari), behind
+the existing "Loading map…" placeholder. Before it starts, a throwaway WebGL
+context asks for the renderer's name (`src/features/map/mapStart.ts`). If it
+is a software renderer (SwiftShader, llvmpipe, softpipe, Windows' Basic
+Render Driver), the map waits: the placeholder says why and offers "Show the
+map". A "Show on map" in the list starts it too. The first press is
+remembered for the rest of the visit. Nothing is downloaded from MapLibre or
+OpenFreeMap until then.
+
+- **With a GPU nothing changes**, apart from the map starting a frame or two
+  later. An unknown renderer, or a browser that hides it, counts as a GPU:
+  the map starts as before. No WebGL at all also starts it, so the map's own
+  "couldn't be shown" message still appears.
+- **Without one**, the visitor gets a responsive list at once and the map on
+  one press, instead of a page frozen for one to several seconds. Chrome is
+  dropping its automatic SwiftShader fallback, so for real visitors this is
+  mostly Firefox on llvmpipe, virtual machines and blocklisted drivers.
+- **Focus:** the button goes away when pressed, so focus moves to the
+  "Loading map…" placeholder (in a layout effect) and then to the map's
+  canvas once it exists. The second move is necessarily after the download,
+  so it only happens if focus is still on nothing (`<body>`): it can never
+  take focus from something the visitor chose meanwhile. The lint rule
+  against deferred focus is disabled for that one line, with the reason.
+  "Show on map" leaves focus on the list button, as before.
+- **Layout:** the offer fills the same frame as the map, so nothing moves;
+  its text sits at the top of the panel, which is as tall as the window and
+  can start below the fold.
+
+**Considered and rejected:** `failIfMajorPerformanceCaveat` (MapLibre's
+context option), the standard way to refuse software WebGL. Chromium with
+SwiftShader returned a context anyway in both modes tested, so it does not
+detect the case that matters. Lowering MapLibre's cost (fewer layers, no
+label fade) cannot remove the shader compiles, which are most of it.
+
+**Measured** (PageSpeed Insights, Google's servers, a results page for 2250):
+
+| Page                                 | Desktop               | Mobile                |
+| ------------------------------------ | --------------------- | --------------------- |
+| Production before (round 10)         | 68, TBT 990 ms, CLS 0 | 99, TBT 30 ms, CLS 0  |
+| Round 11 deploy preview (`round-11`) | 99, TBT 0 ms, CLS 0   | 100, TBT 40 ms, CLS 0 |
+
+Accessibility and Best Practices 100 in all four; the preview's SEO is 66
+only because previews are `noindex`. Locally, against the build with
+production headers: no long tasks after first paint with SwiftShader (there
+were four or five), and the map starting by itself with the GPU.
+
+**Tests:** six new unit tests (the start with a GPU, the offer and the
+remembered press, "Show on map", no WebGL, focus to the canvas and not
+stolen). `check:browser` now asks the page's renderer: with software WebGL
+(headless Chromium, here and in CI) it checks that the wide map waits having
+fetched nothing, that "Show the map" starts it with focus on the map, and
+that the next search does not ask again; with a GPU, that the map starts by
+itself. `check:a11y` runs axe on the offer in both themes, and
+`pnpm screenshots` presses the button so the README's pictures still show
+the map. 49 and 36 checks.
+
+### Browser checks in CI
+
+**Decision:** a second workflow, `browser-checks.yml`, runs `check:browser`
+and `check:a11y` on every pull request against that pull request's Netlify
+deploy preview, as the job "Browser checks on the deploy preview".
+
+**How it knows the preview is ready.** Netlify posts a commit status,
+`netlify/nsw-fuel-finder/deploy-preview`, on the head commit: "processing"
+(linking the deploy log), then "Deploy Preview ready!" (linking the pull
+request's alias) or a failure. It does not create GitHub deployments, so
+`deployment_status` cannot be used. `scripts/wait-for-preview.mjs` polls the
+status every 10 s, for up to 15 minutes, while the job installs, and then
+tests that deploy's own permalink (`<deploy id>--nsw-fuel-finder`), so a
+later push cannot change the site under the checks. A failed deploy fails
+the check. Runs on an older commit are cancelled by a newer push.
+
+**Docs-only pull requests.** A required check that never reports blocks
+merging forever, so the workflow always runs and decides for itself:
+
+- If the pull request changes nothing outside `docs/` and Markdown (the same
+  rule as `ignore` in `netlify.toml`, read from the pull request's file list),
+  Netlify never builds it, and the job passes in seconds, saying why in its
+  summary. Tried on pull request #4's files.
+- If the pull request changes code but its latest commit only changes docs,
+  Netlify skips that commit ("Deploy Preview canceled.", state success). The
+  site has not changed since the pull request's last preview, so the checks
+  run on that preview, `deploy-preview-<n>`. Tried on #3's last commit.
+
+**Security.** `pull_request`, not `pull_request_target`: a fork's pull
+request gets a read-only token and no secrets, and the workflow uses none.
+Permissions are `contents`, `pull-requests` and `statuses`, all read. The
+checkout keeps no credentials. Actions are pinned to commits, as in `ci.yml`,
+and Dependabot's monthly actions update covers the new ones. The preview URL
+is checked against Netlify's host pattern and passed to the shell through an
+environment variable, never pasted into a command.
+
+**Lean.** Chromium's headless shell only (`--only-shell`), cached by
+Playwright's version; the runner already has its libraries. Screenshots are
+uploaded only when a check fails, kept 7 days.
+
+**First run, on this pull request:** 1 min 52 s in all. Install 15 s, the
+browser 4 s (cold cache; saved for next time), waiting for the preview 11 s,
+`check:browser` 17 s (49 of 49), `check:a11y` 57 s (36 of 36). Each run
+costs the preview a few function runs and some OpenFreeMap tiles, and no
+API.NSW calls. Netlify's bot protection did not challenge GitHub's runners.
+
+### Library behaviour this relies on
+
+- **Lighthouse TBT:** the sum over 50 ms of each long task between First
+  Contentful Paint and Time to Interactive, which needs five seconds without
+  long tasks. Desktop runs unthrottled CPU on Google's own machines, which
+  have no GPU.
+- **WebGL renderer names:** Chromium masks `RENDERER` as "WebKit WebGL" and
+  gives the real name through `WEBGL_debug_renderer_info`; Firefox gives it in
+  `RENDERER` and has deprecated the extension. `WEBGL_lose_context` frees the
+  probe's context at once (browsers allow about 16). The first context in a
+  page costs the GPU process start (60 to 270 ms here), which the map's own
+  context would otherwise pay.
+- **`failIfMajorPerformanceCaveat`:** honoured inconsistently; Chromium gave
+  SwiftShader contexts with it set.
+- **`requestIdleCallback`:** not in Safari; the `timeout` option bounds the
+  wait.
+- **Netlify commit statuses:** posted on the head commit by the Netlify app;
+  "ready" links the alias, "processing" the deploy; a build skipped by
+  `ignore` is "Deploy Preview canceled." with state success.
+- **GitHub Actions:** a required check from a workflow that does not run
+  (path filters, skipped workflow) stays pending; a job that runs and skips
+  its own steps reports success. `pull_request` from a fork: read-only token,
+  no secrets. Caches written by a pull request are visible only to that pull
+  request and are not trusted by `main`.
+
 ## 2026-10-25: Baseline
 
 The project as of `d6dc135` (round 10, pull request #3). Future work starts
