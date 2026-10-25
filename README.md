@@ -51,7 +51,9 @@ from that snapshot, held in memory by a warm instance.
 ## Key decisions
 
 The full log, with what else was considered and the evidence behind each
-choice, is in [docs/decisions.md](docs/decisions.md).
+choice, is in [docs/decisions.md](docs/decisions.md). Its last entry,
+"Baseline" (25 October 2026), sums up the state of the project, its accepted
+risks and its open maintenance items.
 
 **A snapshot, so visitors cannot spend the quota.** API.NSW allows 2,500 calls
 a month and locks the account after three failed sign-ins. A proxy calling it
