@@ -37,6 +37,16 @@ const SHOW_ZOOM = 14;
  */
 const PICK_RADIUS = 12;
 const FIT_PADDING = 48;
+/**
+ * A tap on the map away from every station clears the selection, but not at
+ * once: the first tap of a double-tap (or click of a double-click) is a click
+ * too, and that gesture is a zoom. So clearing waits this long, and the next
+ * press, a double-click or any camera move cancels it. A drag or a pinch is
+ * never a click in the first place (MapLibre fires `click` only for a press
+ * released within 3 px of where it started; browsers fire none after a
+ * touch moves or uses two fingers).
+ */
+const CLEAR_DELAY = 300;
 
 export interface StationMapProps {
   stations: StationPrice[];
@@ -49,6 +59,8 @@ export interface StationMapProps {
    */
   showRequest: number;
   onPick: (code: string) => void;
+  /** A tap or click on the map away from every station, while one is selected. */
+  onClear: () => void;
   /** The canvas's accessible name. */
   label: string;
   reducedMotion: boolean;
@@ -106,6 +118,8 @@ type Loading = 'loading' | 'loaded' | 'failed';
  * keyboard and screen reader users get the same stations, in price order,
  * from the list, whose "Show on map" buttons drive this map. The canvas
  * itself is one Tab stop (arrow keys pan, + and - zoom), with zoom buttons.
+ * A tap away from every station clears the selection; so does Escape, in
+ * StationsPanel.
  */
 export function StationMap({
   stations,
@@ -113,6 +127,7 @@ export function StationMap({
   selected,
   showRequest,
   onPick,
+  onClear,
   label,
   reducedMotion,
   theme,
@@ -137,6 +152,12 @@ export function StationMap({
     if (code === selected) return;
     pickedHere.current = code;
     onPick(code);
+  });
+  const selectedNow = useEffectEvent(() => selected);
+  const clear = useEffectEvent((code: string) => {
+    // Only if the tapped-away station is still the selected one: a station
+    // chosen in the list meanwhile is not undone.
+    if (code === selected) onClear();
   });
   const initialView = useEffectEvent(() => ({
     bounds: boundsOf(stations, origin),
@@ -193,15 +214,36 @@ export function StationMap({
       console.warn('Map error', event.error);
       setLoading((state) => (state === 'loaded' ? state : 'failed'));
     });
+    let pendingClear: ReturnType<typeof setTimeout> | undefined;
+    const cancelClear = () => {
+      clearTimeout(pendingClear);
+    };
     map.on('click', (event) => {
+      cancelClear();
       const code = stationAt(map, event);
-      if (code) pick(code);
+      if (code) {
+        pick(code);
+        return;
+      }
+      const shown = selectedNow();
+      if (shown !== null) {
+        pendingClear = setTimeout(() => {
+          clear(shown);
+        }, CLEAR_DELAY);
+      }
     });
+    // A second press (touchstart on a phone, mousedown with a mouse), a
+    // double-click or the map starting to move: that tap was part of a zoom
+    // or a pan, not a tap on nothing.
+    for (const type of ['mousedown', 'touchstart', 'dblclick', 'movestart'] as const) {
+      map.on(type, cancelClear);
+    }
     map.on('mousemove', (event) => {
       map.getCanvas().style.cursor = stationAt(map, event) ? 'pointer' : '';
     });
     mapRef.current = map;
     return () => {
+      cancelClear();
       mapRef.current = null;
       layersReady.current = false;
       map.remove();
@@ -257,8 +299,11 @@ export function StationMap({
     const filter: ExpressionSpecification = ['==', ['get', 'code'], selected ?? ''];
     map.setFilter(LAYER.selectedDot, filter);
     map.setFilter(LAYER.selectedLabel, filter);
-    // Its ordinary label would repeat the price beside the bold one.
-    map.setFilter(LAYER.labels, ['!=', ['get', 'code'], selected ?? '']);
+    // Its ordinary label would repeat the price beside the bold one, and its
+    // ordinary dot would draw a second ring inside its marker.
+    const others: ExpressionSpecification = ['!=', ['get', 'code'], selected ?? ''];
+    map.setFilter(LAYER.labels, others);
+    map.setFilter(LAYER.dots, others);
 
     const key = `${selected ?? ''}:${String(showRequest)}`;
     if (key === lastShown.current) return;

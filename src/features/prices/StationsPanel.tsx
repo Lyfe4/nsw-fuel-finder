@@ -1,10 +1,12 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
 
 import { LazyStationMap } from '@/features/map/LazyStationMap';
 import { MapLegend } from '@/features/map/MapLegend';
 import { SelectedStation } from '@/features/map/SelectedStation';
 import {
+  clearOnMap,
   closeSelection,
+  escapeSelection,
   findSelected,
   pickOnMap,
   showInList,
@@ -101,6 +103,7 @@ export function StationsPanel({
   const listRef = useRef<HTMLOListElement>(null);
   useReorderAnimation(listRef, arrangement, reducedMotion);
   const cardHeadingRef = useRef<HTMLHeadingElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
   const mapButtonRef = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef<FocusTarget | { kind: 'list-heading'; station: string }>({
@@ -126,6 +129,14 @@ export function StationsPanel({
       mapPanelRef.current?.scrollIntoView({ block: 'end' });
     }
     if (target.kind === 'view-switch') mapButtonRef.current?.focus();
+    if (target.kind === 'map') {
+      // The card was removed with focus inside it, which leaves focus on
+      // <body>. MapLibre's canvas is the map's one focusable element.
+      const active = document.activeElement;
+      if (active === null || active === document.body) {
+        mapPanelRef.current?.querySelector('canvas')?.focus({ preventScroll: true });
+      }
+    }
     if (target.kind === 'list-button' || target.kind === 'list-heading') {
       const items = listRef.current?.querySelectorAll<HTMLElement>('[data-station]') ?? [];
       const item = [...items].find((element) => element.dataset.station === target.station);
@@ -137,6 +148,30 @@ export function StationsPanel({
     pendingFocus.current = change.focus;
     onSelect(change.station, change.view);
   };
+
+  /*
+   * Escape anywhere in the map's panel (the map, its zoom buttons, the card)
+   * clears the selection. A native listener on the panel, which only
+   * catches what bubbles up from the controls inside it: the panel itself
+   * is not interactive, and a React handler on it would say it was.
+   */
+  const onEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || event.defaultPrevented || !selected) return;
+    event.preventDefault();
+    const inCard = event.target instanceof Node && Boolean(cardRef.current?.contains(event.target));
+    apply(escapeSelection(selected.stationCode, width, inCard));
+  });
+  useEffect(() => {
+    const panel = mapPanelRef.current;
+    if (!panel) return;
+    const listener = (event: KeyboardEvent) => {
+      onEscape(event);
+    };
+    panel.addEventListener('keydown', listener);
+    return () => {
+      panel.removeEventListener('keydown', listener);
+    };
+  }, [mapStarted]);
 
   const count = stations.length;
   const mapLabel = `Map of ${String(count)} ${count === 1 ? 'station' : 'stations'} selling ${fuelName}. The list has the same stations.`;
@@ -184,6 +219,9 @@ export function StationsPanel({
                 onPick={(code) => {
                   apply(pickOnMap(code));
                 }}
+                onClear={() => {
+                  apply(clearOnMap());
+                }}
               />
             </div>
             <MapLegend />
@@ -192,6 +230,7 @@ export function StationsPanel({
                 station={selected}
                 now={now}
                 headingRef={cardHeadingRef}
+                cardRef={cardRef}
                 {...(wide
                   ? {}
                   : {

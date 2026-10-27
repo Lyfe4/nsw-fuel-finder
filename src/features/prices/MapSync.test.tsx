@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { resetWarmedForTests } from '@/features/map/mapStyle';
@@ -23,6 +23,8 @@ vi.mock('@/features/map/StationMap', () => {
       map.props = props;
       return (
         <div data-testid="map">
+          {/* MapLibre's canvas: where focus goes when the card takes it away. */}
+          <canvas data-testid="map-canvas" tabIndex={-1} />
           {props.stations.map((s) => (
             <button
               key={s.stationCode}
@@ -61,6 +63,13 @@ const item = (name: string) => {
 };
 const showOnMap = (name: string) => screen.getByRole('button', { name: `Show on map, ${name}` });
 const viewButton = (name: 'List' | 'Map') => screen.getByRole('button', { name });
+const canvas = () => screen.getByTestId('map-canvas');
+/** A tap on the map away from every station, as StationMap reports it. */
+const tapNothing = () => {
+  act(() => {
+    map.props?.onClear();
+  });
+};
 
 describe('list and map, on a phone', () => {
   it('shows the list first, and loads the map only when Map is chosen', async () => {
@@ -108,6 +117,26 @@ describe('list and map, on a phone', () => {
     await user.click(screen.getByRole('button', { name: 'Close, Shell Wyoming' }));
     expect(viewButton('Map')).toHaveFocus();
     expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map');
+  });
+
+  it('a tap on the map away from the stations closes the card and stays on the map', async () => {
+    setup('/?query=Erina&view=map&station=3');
+    await screen.findByTestId('map');
+    // Focus in the card, which is about to go: it must land on the map, not the page.
+    screen.getByRole('button', { name: 'Show in list' }).focus();
+    tapNothing();
+    expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map');
+    expect(screen.queryByRole('heading', { level: 3, name: 'Shell Wyoming' })).toBeNull();
+    expect(canvas()).toHaveFocus();
+  });
+
+  it('Escape in the card is its Close: focus to the Map switch', async () => {
+    const { user } = setup('/?query=Erina&view=map&station=3');
+    await screen.findByTestId('map');
+    screen.getByRole('button', { name: 'Show in list' }).focus();
+    await user.keyboard('{Escape}');
+    expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map');
+    expect(viewButton('Map')).toHaveFocus();
   });
 });
 
@@ -170,6 +199,54 @@ describe('list and map, on a wide screen', () => {
     expect(window.location.search).toBe('?fuel=U91&query=Erina');
   });
 
+  it('a tap on the map away from the stations closes the card, leaving focus where it was', async () => {
+    setScreen({ wide: true });
+    setup('/?query=Erina&station=1');
+    await screen.findByTestId('map');
+    const search = screen.getByRole('combobox', { name: /suburb or postcode/i });
+    search.focus();
+    tapNothing();
+    expect(window.location.search).toBe('?fuel=U91&query=Erina');
+    expect(screen.queryByRole('button', { name: 'Close, Ampol Erina' })).toBeNull();
+    expect(item('Ampol Erina')).not.toHaveTextContent('Shown on map');
+    expect(search).toHaveFocus();
+  });
+
+  it('a tap on the map with focus in the card moves focus to the map', async () => {
+    setScreen({ wide: true });
+    setup('/?query=Erina&station=1');
+    await screen.findByTestId('map');
+    screen.getByRole('button', { name: 'Close, Ampol Erina' }).focus();
+    tapNothing();
+    expect(canvas()).toHaveFocus();
+  });
+
+  it('Escape on the map clears the selection and keeps focus on the map', async () => {
+    setScreen({ wide: true });
+    const { user, container } = setup('/?query=Erina&station=1');
+    await screen.findByTestId('map');
+    canvas().focus();
+    await user.keyboard('{Escape}');
+    expect(window.location.search).toBe('?fuel=U91&query=Erina');
+    expect(canvas()).toHaveFocus();
+    await expectNoAxeViolations(container);
+
+    // With nothing selected, Escape does nothing.
+    await user.keyboard('{Escape}');
+    expect(window.location.search).toBe('?fuel=U91&query=Erina');
+    expect(canvas()).toHaveFocus();
+  });
+
+  it('Escape in the card is its Close: focus to the station’s list button', async () => {
+    setScreen({ wide: true });
+    const { user } = setup('/?query=Erina&station=1');
+    await screen.findByTestId('map');
+    screen.getByRole('button', { name: 'Close, Ampol Erina' }).focus();
+    await user.keyboard('{Escape}');
+    expect(window.location.search).toBe('?fuel=U91&query=Erina');
+    expect(showOnMap('Ampol Erina')).toHaveFocus();
+  });
+
   it('a shared link opens on its station; a new search clears it', async () => {
     setScreen({ wide: true });
     const { user } = setup('/?query=Erina&station=2');
@@ -185,9 +262,20 @@ describe('list and map, on a wide screen', () => {
   });
 });
 
-/** A WebGL context naming its renderer, which is all the start probe reads (mapStart.ts). */
-function renderer(name: string) {
-  const gl = { RENDERER: 0x1f01, getParameter: () => name, getExtension: () => null };
+/**
+ * A WebGL context naming its renderer, which is all the start probe reads
+ * (mapStart.ts). Chrome says "WebKit WebGL" and gives the real name, if at
+ * all, through its debug extension: `unmasked`, or no extension if omitted.
+ */
+function renderer(name: string, unmasked?: string) {
+  const debug = { UNMASKED_RENDERER_WEBGL: 0x9246 };
+  const gl = {
+    RENDERER: 0x1f01,
+    getParameter: (parameter: number) =>
+      parameter === debug.UNMASKED_RENDERER_WEBGL ? unmasked : name,
+    getExtension: (extension: string) =>
+      extension === 'WEBGL_debug_renderer_info' && unmasked !== undefined ? debug : null,
+  };
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => gl) as never);
 }
 
@@ -248,6 +336,27 @@ describe('when a wide screen’s map starts', () => {
     expect(await screen.findByTestId('map')).toBeVisible();
     expect(map.props).toMatchObject({ selected: '2', focusOnStart: false });
     expect(showOnMap('Metro Gosford')).toHaveFocus();
+  });
+
+  it('when asked in Chrome, whose debug extension names the software renderer', async () => {
+    renderer('WebKit WebGL', 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))');
+    setupWide();
+    await list();
+    expect(await screen.findByRole('button', { name: 'Show the map' })).toBeVisible();
+    expect(screen.queryByTestId('map')).not.toBeInTheDocument();
+  });
+
+  // Round 11's table in docs/decisions.md: a hidden name counts as a GPU.
+  it.each([
+    ['Chrome without its debug extension', 'WebKit WebGL'],
+    ['Firefox with fingerprinting protection', 'Mozilla'],
+  ])('by itself where the renderer’s name is hidden: %s', async (_browser, name) => {
+    renderer(name);
+    setupWide();
+    await list();
+    expect(await screen.findByTestId('map')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Show the map' })).not.toBeInTheDocument();
+    expect(map.props?.focusOnStart).toBe(false);
   });
 
   it('as before where there is no WebGL at all, so the map can say so itself', async () => {

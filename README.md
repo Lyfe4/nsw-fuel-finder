@@ -85,7 +85,9 @@ every phone already knows how to show. Where a custom widget was needed (the
 suburb search), it is Downshift's WAI-ARIA combobox, with its two
 screen-reader gaps fixed and tested. Every action that removes its own button
 says where focus goes next. The map's dots are not focusable; the list is the
-keyboard path, because 500 Tab stops in map order would mean nothing. The
+keyboard path, because 500 Tab stops in map order would mean nothing. A tap
+on empty map, or Escape, clears the selection; a drag, pinch or double-tap
+does not. The
 price chart is a slider over the days, with the summary in words and every
 value in a table. axe runs in the unit tests in both themes, and against the
 real site with its contrast rule on.
@@ -98,8 +100,9 @@ The cheapest stations also say "Cheapest" in words, and old prices are
 flagged in text.
 
 **A map that costs nothing until it is shown.** MapLibre draws OpenFreeMap's
-vector tiles with no key or account, and drops overlapping labels so a 25 km
-Sydney search stays readable. It is also about 430 kB gzipped, more than the
+vector tiles with no key or account, and drops a price that would overlap
+another price or any station's dot, so a 25 km Sydney search stays readable
+and no station is ever hidden, the selected one's neighbours included. It is also about 430 kB gzipped, more than the
 rest of the app together. So it is a separate chunk, fetched only when a map is
 on screen: a phone showing the list never downloads it. Its style, tile index
 and fonts are fetched while it downloads. Bundle budgets in CI hold the first

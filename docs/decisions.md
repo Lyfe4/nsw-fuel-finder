@@ -2349,6 +2349,125 @@ Pull request #5, squash-merged as `0112706`; production published it at
   GitHub Actions, integration 15368, not strict), `non_fast_forward`,
   `deletion`. Updated 25 October 08:54 UTC.
 
+## 2026-10-28: Round 12 (map selection, from the phone test)
+
+The owner's phone test passed everything but the map's selection: it could
+only be undone by picking another station or pressing Close, and selecting a
+station in a dense area made its neighbours vanish.
+
+### A tap on nothing clears the selection
+
+**Decision:** a tap or click on the map away from every station (outside the
+12 px pick radius) clears `station=` from the URL and closes the card. A drag,
+a pinch, a double-tap and a double-click do not.
+
+- **What counts as a tap.** MapLibre fires `click` only for a press released
+  within 3 px of where it started, and browsers fire no click after a touch
+  that moved (MapLibre cancels the touchmove) or used two fingers. So drags
+  and pinches never reach the handler. Double-taps and double-clicks do:
+  their first tap is a click, and the gesture is a zoom.
+- **So the clear waits 300 ms**, and the next press (`touchstart` or
+  `mousedown`), a `dblclick` or any camera move (`movestart`) cancels it. A
+  double-tap's second press comes well inside that, and MapLibre allows
+  500 ms between the taps of a double-tap; one slower than 300 ms clears the
+  selection as well as zooming, which is harmless. A station chosen in the
+  list during the wait is not undone, and nothing fires after the map is
+  removed.
+- **Keyboard.** Escape anywhere in the map's panel clears the selection. In
+  the card it is the card's Close (focus to the list button on a wide screen,
+  to the Map switch on a phone). On the map itself the map keeps focus. The
+  listener is a native one on the panel: a React `onKeyDown` there would make
+  jsx-a11y call a plain `<div>` interactive. With nothing selected, Escape
+  does nothing and is not swallowed.
+- **Focus never lands on `<body>`.** A tap clears with the new focus target
+  `map`: focus stays wherever it is, unless it was inside the card, which
+  takes it to `<body>` as it goes; then it moves to the map's canvas, in the
+  same layout effect as every other move (`selection.ts`).
+- **The map's height.** The card under the map goes, so on a wide screen the
+  map grows. Nothing is panned on a clear, and MapLibre keeps the centre on
+  resize, as after Close. The earlier fix (resize before panning to a
+  selection) is untouched, and the smoke check's re-pick at the centre after
+  Close still passes.
+
+### The selected station no longer hides its neighbours
+
+**The cause, seen on production** (Parramatta, 25 km, Ampol Foodary
+Granville selected, desktop and phone, both themes): nothing was dropped.
+Circles take no part in MapLibre's collision detection, so every dot was
+always drawn, but things were drawn over them. The selected dot (13 px
+radius, above every other dot) hid a station 8 px away, Budget Granville,
+completely; its bold price (allowed to overlap, drawn above the dots) covered
+another; and ordinary prices, which only avoided each other, sat on dots all
+over a dense search, selection or not.
+
+**Decision:** one rule, written at the top of `mapLayers.ts`: every dot is
+always drawn, and nothing but the search origin is drawn over one. Prices
+make way for dots, never the other way round.
+
+- **Layer order** (bottom up): the selected marker, the prices, the selected
+  price, the dots, the origin. The selected marker replaces its station's own
+  dot (filtered out of the dots layer) and keeps its look, a bigger filled
+  disc with a heavy edge, so its shape still differs from the origin's hollow
+  ring. A neighbour that overlaps it is drawn over its edge.
+- **Prices avoid dots.** An invisible symbol layer puts a dot-sized,
+  transparent icon on every station, with `icon-allow-overlap` (always
+  placed) and not `icon-ignore-placement` (in every price's way). It is the
+  top layer, so MapLibre places it first. Prices are offset 0.8 em, enough to
+  clear their own dot.
+- **The selected price is always shown, beside a free spot if there is one.**
+  Eight anchors with `text-allow-overlap`: MapLibre tries every anchor without
+  overlap first and overlaps only if none is free; even then the dots are
+  drawn over it. Its ordinary label stays hidden, as before.
+
+**Considered.** Offsetting the selected label alone fixes the label but not
+the bigger dot or the ordinary prices. Drawing the selected marker on top at
+the normal size makes the selection hard to see. A shrunken collision box
+would change nothing: circles have none.
+
+**The cost:** fewer prices in a dense view, since a price that would cover a
+dot is now dropped. The cheapest still win the space (`symbol-sort-key`), and
+zooming in shows the rest, as before.
+
+### Tests
+
+- 21 new unit tests (588 in all): the selection rules for a tap and Escape;
+  in `StationMap`, a tap on nothing clears after the wait, and a drag, a
+  pinch, a double-click and a double-tap do not, nor a tap with nothing
+  selected, after a list pick, or after unmount; the layer order and the
+  dot-space layer; in the app, the URL, the card and focus for a tap and for
+  Escape on a phone and a wide screen, with axe.
+- **The hidden-renderer case from round 11, permanently:** Chrome without
+  its debug extension ("WebKit WebGL") and Firefox with fingerprinting
+  protection ("Mozilla") start the map by themselves, and Chrome whose debug
+  extension names SwiftShader waits for "Show the map".
+- `check:browser` gains 8 checks (57): Escape on the map; a mouse drag; a
+  click on nothing (it tries a few spots away from the centre, since any spot
+  may hold a station); and on the phone, with real touch input through the
+  DevTools protocol, a one-finger drag and a pinch, a double-tap, and a tap
+  on nothing. With the cancel on a second press removed, the double-tap check
+  fails, so it does test the race.
+- The double-click, double-tap, tap-focus and Escape tests were checked to
+  fail with their code removed.
+
+### Library behaviour this relies on
+
+- **MapLibre `click`:** fired by its map event handler only when the press is
+  released within `clickTolerance` (3 px) of where it started. Its
+  `touchmove` listener is not passive and its touch pan and zoom call
+  `preventDefault`, so no click follows a touch drag or pinch.
+- **MapLibre double-tap zoom:** the second tap's `touchend` is
+  `preventDefault`ed (no click for it); the first tap's click is not. Up to
+  500 ms between taps. Double-click: two clicks, then `dblclick`, then an
+  `easeTo` (`movestart`).
+- **MapLibre placement:** layers are placed from the top down; a symbol with
+  allow-overlap still enters the collision index unless it ignores
+  placement; with variable anchors and overlap allowed, every anchor is
+  tried without overlap first (`placement.ts`). Circle layers take no part.
+- **`setStyle(..., { diff: false })`** drops images added with `addImage`, so
+  the dot-space icon is added again on every `style.load`.
+- **Focus:** removing the focused element leaves `document.activeElement` on
+  `<body>`, which is what the `map` target looks for.
+
 ## 2026-10-25: Baseline
 
 The project as of `0112706` (round 11, pull request #5; first written for

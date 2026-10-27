@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { station } from '@/lib/testing/fakeApi';
 
-import { closeSelection, findSelected, pickOnMap, showInList, showOnMap } from './selection';
+import {
+  clearOnMap,
+  closeSelection,
+  escapeSelection,
+  findSelected,
+  pickOnMap,
+  showInList,
+  showOnMap,
+} from './selection';
 
 describe('list and map selection', () => {
   describe('"Show on map" in the list', () => {
@@ -44,6 +52,22 @@ describe('list and map selection', () => {
         station: null,
         focus: { kind: 'view-switch' },
       });
+    });
+  });
+
+  describe('clearing from the map', () => {
+    it('a tap on nothing clears it; focus stays, unless it was lost with the card', () => {
+      expect(clearOnMap()).toEqual({ station: null, focus: { kind: 'map' } });
+    });
+
+    it('Escape on the map is the same as a tap on nothing', () => {
+      expect(escapeSelection('42', 'wide', false)).toEqual(clearOnMap());
+      expect(escapeSelection('42', 'narrow', false)).toEqual(clearOnMap());
+    });
+
+    it('Escape in the card is the card’s Close', () => {
+      expect(escapeSelection('42', 'wide', true)).toEqual(closeSelection('42', 'wide'));
+      expect(escapeSelection('42', 'narrow', true)).toEqual(closeSelection('42', 'narrow'));
     });
   });
 
