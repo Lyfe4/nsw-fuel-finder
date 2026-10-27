@@ -22,7 +22,9 @@ export type FocusTarget =
   /** A station's "Show on map" button in the list. */
   | { kind: 'list-button'; station: string }
   /** The "Map" button of the list/map switch (phones only). */
-  | { kind: 'view-switch' };
+  | { kind: 'view-switch' }
+  /** The map, but only if focus was lost with the card; otherwise it stays. */
+  | { kind: 'map' };
 
 export interface SelectionChange {
   station: string | null;
@@ -58,6 +60,24 @@ export function closeSelection(station: string, width: ScreenWidth): SelectionCh
     station: null,
     focus: width === 'wide' ? { kind: 'list-button', station } : { kind: 'view-switch' },
   };
+}
+
+/**
+ * A tap on the map away from every station, or Escape on the map. The map
+ * stays, so focus stays; but if it was in the card, which goes away, it goes
+ * to the map that was tapped.
+ */
+export function clearOnMap(): SelectionChange {
+  return { station: null, focus: { kind: 'map' } };
+}
+
+/** Escape in the map's panel: in the card it is the card's Close, anywhere else a tap on nothing. */
+export function escapeSelection(
+  station: string,
+  width: ScreenWidth,
+  inCard: boolean,
+): SelectionChange {
+  return inCard ? closeSelection(station, width) : clearOnMap();
 }
 
 /** The selected station, if the URL names one that is in these results. */

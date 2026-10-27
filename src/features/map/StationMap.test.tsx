@@ -1,5 +1,5 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { prices, station } from '@/lib/testing/fakeApi';
 
@@ -18,7 +18,8 @@ const { FakeMap, maps } = vi.hoisted(() => {
     options: Record<string, unknown>;
     handlers = new Map<string, Handler>();
     sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>();
-    layers: { id: string }[] = [];
+    layers: { id: string; layout?: Record<string, unknown> }[] = [];
+    images = new Set<string>();
     filters = new Map<string, unknown>();
     canvas: HTMLCanvasElement = document.createElement('canvas');
     zoom = 11;
@@ -29,9 +30,10 @@ const { FakeMap, maps } = vi.hoisted(() => {
     fitBounds = vi.fn();
     remove = vi.fn();
     setStyle = vi.fn(() => {
-      // A new style replaces every source and layer, ours included.
+      // A new style replaces every source, layer and image, ours included.
       this.sources.clear();
       this.layers = [];
+      this.images.clear();
     });
     touchZoomRotate = { disableRotation: vi.fn() };
     keyboard = { disableRotation: vi.fn() };
@@ -55,6 +57,12 @@ const { FakeMap, maps } = vi.hoisted(() => {
     }
     addLayer(layer: { id: string }) {
       this.layers.push(layer);
+    }
+    hasImage(id: string) {
+      return this.images.has(id);
+    }
+    addImage(id: string) {
+      this.images.add(id);
     }
     getSource(id: string) {
       return this.sources.get(id);
@@ -106,12 +114,14 @@ const STATIONS = [
 function setup(overrides: Partial<StationMapProps> = {}) {
   maps.length = 0;
   const onPick = vi.fn();
+  const onClear = vi.fn();
   const props: StationMapProps = {
     stations: STATIONS,
     origin: prices().origin,
     selected: null,
     showRequest: 0,
     onPick,
+    onClear,
     label: 'Map of 2 stations',
     reducedMotion: false,
     theme: 'light',
@@ -124,7 +134,14 @@ function setup(overrides: Partial<StationMapProps> = {}) {
     Object.assign(props, next);
     view.rerender(<StationMap {...props} />);
   };
-  return { map, onPick, rerender, unmount: view.unmount };
+  return { map, onPick, onClear, rerender, unmount: view.unmount };
+}
+
+/** Runs the timers a tap on nothing waits on (CLEAR_DELAY), and more. */
+function waitOut() {
+  act(() => {
+    vi.advanceTimersByTime(1000);
+  });
 }
 
 describe('StationMap', () => {
@@ -145,12 +162,13 @@ describe('StationMap', () => {
     const { map } = setup();
     fire(map, 'style.load');
     expect(map.layers.map((layer) => layer.id)).toEqual([
-      'station-dots',
+      'selected-dot',
       'station-labels',
+      'selected-label',
+      'station-dots',
       'origin-ring',
       'origin-dot',
-      'selected-dot',
-      'selected-label',
+      'station-dot-space',
     ]);
     const data = map.sources.get('stations')?.setData.mock.lastCall?.[0] as {
       features: { properties: { code: string; band: string } }[];
@@ -181,6 +199,120 @@ describe('StationMap', () => {
     fire(map, 'style.load');
     fire(map, 'click');
     expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('never draws a price or the selected marker over a station’s dot', () => {
+    const { map, rerender } = setup();
+    fire(map, 'style.load');
+    const ids = map.layers.map((layer) => layer.id);
+    const dots = ids.indexOf('station-dots');
+    for (const below of ['selected-dot', 'station-labels', 'selected-label']) {
+      expect(ids.indexOf(below)).toBeLessThan(dots);
+    }
+    // Every dot is in the way of every price: the top layer, placed first,
+    // always placed, and never ignored by the prices placed after it.
+    const space = map.layers.at(-1);
+    expect(space?.id).toBe('station-dot-space');
+    expect(space?.layout).toMatchObject({
+      'icon-allow-overlap': true,
+      'icon-ignore-placement': false,
+    });
+    expect(map.images.has('dot-space')).toBe(true);
+
+    // The selected station's marker replaces its own dot, under the others.
+    rerender({ selected: 'a' });
+    expect(map.filters.get('station-dots')).toEqual(['!=', ['get', 'code'], 'a']);
+  });
+
+  describe('a tap on the map away from every dot', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('clears the selection, once it is clearly not a double-tap', () => {
+      const { map, onClear } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      fire(map, 'mousedown');
+      fire(map, 'click');
+      expect(onClear).not.toHaveBeenCalled();
+      waitOut();
+      expect(onClear).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when nothing is selected', () => {
+      const { map, onClear } = setup();
+      fire(map, 'style.load');
+      fire(map, 'click');
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    /*
+     * MapLibre fires no `click` for a drag (the press moved 3 px or more) and
+     * the browser none after a touch that moved or used two fingers; these
+     * are the events a drag and a pinch do produce.
+     */
+    it('a drag does not clear it', () => {
+      const { map, onClear } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      for (const type of ['mousedown', 'movestart', 'move', 'moveend', 'mouseup']) {
+        fire(map, type, { x: 40, y: 40 });
+      }
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it('a pinch does not clear it', () => {
+      const { map, onClear } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      for (const type of ['touchstart', 'touchstart', 'movestart', 'move', 'moveend']) {
+        fire(map, type);
+      }
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it('a double-click, which zooms, does not clear it', () => {
+      const { map, onClear } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      for (const type of ['mousedown', 'click', 'mousedown', 'click', 'dblclick', 'movestart']) {
+        fire(map, type);
+      }
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it('a double-tap on a phone, which zooms, does not clear it', () => {
+      const { map, onClear } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      // The first tap is a click; the second is cancelled by MapLibre, which zooms.
+      for (const type of ['touchstart', 'mousedown', 'click', 'touchstart', 'movestart']) {
+        fire(map, type);
+      }
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it('does not undo a station chosen in the list meanwhile', () => {
+      const { map, onClear, rerender } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      fire(map, 'click');
+      rerender({ selected: 'b', showRequest: 1 });
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
+
+    it('is forgotten when the map goes away', () => {
+      const { map, onClear, unmount } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      fire(map, 'click');
+      unmount();
+      waitOut();
+      expect(onClear).not.toHaveBeenCalled();
+    });
   });
 
   it('a station selected from the list is highlighted and panned to, at street zoom', () => {

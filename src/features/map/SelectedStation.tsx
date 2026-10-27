@@ -19,6 +19,8 @@ export interface SelectedStationProps {
   onClose: () => void;
   /** Focusable (tabIndex -1): where focus goes when a phone switches to the map for this station. */
   headingRef?: Ref<HTMLHeadingElement>;
+  /** The whole card, so Escape inside it can act as its Close. */
+  cardRef?: Ref<HTMLDivElement>;
 }
 
 /**
@@ -32,9 +34,10 @@ export function SelectedStation({
   onShowInList,
   onClose,
   headingRef,
+  cardRef,
 }: SelectedStationProps) {
   return (
-    <div className={styles.card}>
+    <div className={styles.card} ref={cardRef}>
       <h3 className={styles.name} tabIndex={-1} ref={headingRef}>
         <HistoryLink code={station.stationCode}>{station.name}</HistoryLink>
       </h3>

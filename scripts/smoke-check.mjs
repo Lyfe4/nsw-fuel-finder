@@ -112,6 +112,55 @@ const softwareWebGL = (page) =>
     return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
   });
 
+/**
+ * Taps or clicks the map at spots away from its centre (and from the zoom
+ * buttons and attribution) until the selection clears. A spot may hold
+ * another station, which picking it selects; the next spot tries again.
+ * Returns which try cleared it, or 0.
+ */
+async function tapNothing(page, canvas, tap) {
+  const box = await canvas.boundingBox();
+  const spots = [
+    [0.15, 0.2],
+    [0.6, 0.2],
+    [0.15, 0.75],
+    [0.6, 0.75],
+    [0.35, 0.45],
+    [0.15, 0.45],
+  ];
+  for (const [index, [fx, fy]] of spots.entries()) {
+    await tap(box.x + box.width * fx, box.y + box.height * fy);
+    await page
+      .waitForURL((url) => !url.searchParams.has('station'), { timeout: 1500 })
+      .catch(() => undefined);
+    if (!station(page.url())) return index + 1;
+  }
+  return 0;
+}
+
+/** Real touch input, through the DevTools protocol: Playwright itself can only tap. */
+function touchInput(session) {
+  const send = (type, points) =>
+    session.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: points.map(([x, y], id) => ({ x, y, id })),
+    });
+  /** Fingers from `from` to `to` (one [x, y] each), in ten moves. */
+  return async (from, to) => {
+    await send('touchStart', from);
+    for (let step = 1; step <= 10; step += 1) {
+      await send(
+        'touchMove',
+        from.map(([x, y], i) => [
+          x + ((to[i][0] - x) * step) / 10,
+          y + ((to[i][1] - y) * step) / 10,
+        ]),
+      );
+    }
+    await send('touchEnd', []);
+  };
+}
+
 const browser = await chromium.launch();
 try {
   // --- Wide screen: list and map side by side --------------------------------
@@ -265,6 +314,45 @@ try {
     'and the list item is highlighted again',
     await second.getByText('Shown on map').isVisible(),
   );
+
+  // Escape on the map clears the selection; the map keeps focus.
+  await canvas.focus();
+  await page.keyboard.press('Escape');
+  await page
+    .waitForURL((url) => !url.searchParams.has('station'), { timeout: 2000 })
+    .catch(() => undefined);
+  check(
+    'Escape on the map clears the selection, focus staying on the map',
+    !station(page.url()) && (await canvas.evaluate((el) => el === document.activeElement)),
+  );
+
+  // Selected again from the list. A drag is not a click: still selected.
+  await show.click();
+  await page.waitForURL(/station=/);
+  await page.waitForTimeout(1500);
+  const dragBox = await canvas.boundingBox();
+  await page.mouse.move(dragBox.x + dragBox.width * 0.3, dragBox.y + dragBox.height * 0.6);
+  await page.mouse.down();
+  await page.mouse.move(dragBox.x + dragBox.width * 0.5, dragBox.y + dragBox.height * 0.4, {
+    steps: 10,
+  });
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+  check('dragging the map keeps the selection', station(page.url()) === picked);
+
+  // A click on empty map clears it, and the card goes.
+  const cleared = await tapNothing(page, canvas, (x, y) => page.mouse.click(x, y));
+  check(
+    'a click on the map away from the stations clears the selection',
+    cleared > 0,
+    cleared ? `spot ${String(cleared)}` : 'every spot tried held a station',
+  );
+  check('and closes the card', (await page.locator(`h3:has-text("${name}")`).count()) === 1);
+
+  // Selected again, for the checks that follow.
+  await show.click();
+  await page.waitForURL((url) => url.searchParams.get('station') === picked);
+  await page.waitForTimeout(1500);
   // Dark mode swaps the basemap, and the stations are drawn on it again.
   const darkStyle = page.waitForRequest(/tiles\.openfreemap\.org\/styles\/dark/);
   await page.getByRole('combobox', { name: 'Theme' }).selectOption('dark');
@@ -479,6 +567,44 @@ try {
     await mobile.evaluate(() => document.documentElement.scrollWidth <= 375),
   );
   await mobile.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
+
+  // Touch: drags, pinches and double-taps keep the selection; a tap on
+  // nothing clears it.
+  await mobile.getByRole('button', { name: 'List', exact: true }).click();
+  await mobile
+    .getByRole('button', { name: /^Show on map/ })
+    .first()
+    .click();
+  await mobile.waitForURL(/station=/);
+  await mobile.waitForTimeout(1500);
+  const phoneCanvas = mobile.locator('canvas.maplibregl-canvas');
+  const phoneBox = await phoneCanvas.boundingBox();
+  const at = (fx, fy) => [phoneBox.x + phoneBox.width * fx, phoneBox.y + phoneBox.height * fy];
+  const gesture = touchInput(await phone.newCDPSession(mobile));
+  await gesture([at(0.3, 0.6)], [at(0.5, 0.4)]);
+  await gesture([at(0.4, 0.5), at(0.6, 0.5)], [at(0.25, 0.5), at(0.75, 0.5)]);
+  await mobile.waitForTimeout(800);
+  check(
+    'on a phone, dragging and pinching the map keep the selection',
+    Boolean(station(mobile.url())),
+  );
+  const [doubleX, doubleY] = at(0.3, 0.3);
+  await mobile.touchscreen.tap(doubleX, doubleY);
+  await mobile.touchscreen.tap(doubleX, doubleY);
+  await mobile.waitForTimeout(800);
+  // The first tap may land on another station and pick it; it must not clear.
+  check('a double-tap (a zoom) keeps a selection', Boolean(station(mobile.url())));
+  const tapped = await tapNothing(mobile, phoneCanvas, (x, y) => mobile.touchscreen.tap(x, y));
+  check(
+    'a tap on the map away from the stations clears it and closes the card',
+    tapped > 0 && (await mobile.getByRole('button', { name: /^Close/ }).count()) === 0,
+    tapped ? `spot ${String(tapped)}` : 'every spot tried held a station',
+  );
+  check(
+    'the phone stays on the map',
+    new URL(mobile.url()).searchParams.get('view') === 'map' && (await phoneCanvas.isVisible()),
+  );
+
   const phoneViolations = await mobile.evaluate(() => window.__cspViolations ?? []);
   check(
     'no Content-Security-Policy violations on the phone map',
