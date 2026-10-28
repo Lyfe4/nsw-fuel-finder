@@ -110,27 +110,27 @@ export function HistoryView({
             </table>
           </details>
         )}
-
-        <p className={styles.credit}>
-          {coverageText(sources, gapList)}{' '}
-          {sources.some((source) => source.kind === 'fuelcheck-monthly') && (
-            <>
-              Published history from{' '}
-              <a href="https://data.nsw.gov.au/data/dataset/fuel-check">
-                NSW FuelCheck price history
-              </a>{' '}
-              (NSW Fair Trading), used under{' '}
-              <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>; daily low,
-              high and last worked out by us and shared under the same licence.
-            </>
-          )}
-        </p>
       </div>
 
       <details className={styles.side} open={wide}>
         <summary className={styles.moreSummary}>Every fuel here now</summary>
         <AllFuels data={data} now={now} />
       </details>
+
+      <p className={styles.credit}>
+        {coverageText(sources, gapList)}{' '}
+        {sources.some((source) => source.kind === 'fuelcheck-monthly') && (
+          <>
+            Published history from{' '}
+            <a href="https://data.nsw.gov.au/data/dataset/fuel-check">
+              NSW FuelCheck price history
+            </a>{' '}
+            (NSW Fair Trading), used under{' '}
+            <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>; daily low, high
+            and last worked out by us and shared under the same licence.
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -164,7 +164,7 @@ function AllFuels({ data, now }: { data: HistoryResponse; now: Date }) {
               {code === data.fuelType && <span className={styles.charted}> (on the chart)</span>}
             </th>
             <td className={styles.figure}>{formatPrice(priceCents)}</td>
-            <td>{formatAge(updatedAt, now)}</td>
+            <td className={styles.when}>{formatAge(updatedAt, now)}</td>
           </tr>
         ))}
       </tbody>

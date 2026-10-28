@@ -114,9 +114,19 @@
   font-weight: var(--font-weight-bold);
 }
 
+/* Last: under every fuel on a phone, across both columns on a wide screen. */
 .credit {
+  grid-column: 1 / -1;
   color: var(--color-text-muted);
   font-size: var(--step--2);
+}
+
+/* When a price was updated: words, not a figure. */
+.table td.when {
+  font-family: inherit;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  font-size: var(--step--1);
 }
 
 .charted {
