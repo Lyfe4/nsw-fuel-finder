@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { StationMapProps } from '@/features/map/StationMap';
-import { renderApp } from '@/features/search/testing';
+import { renderApp, stationRow } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { FETCHED_AT, fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
 import { setScreen } from '@/lib/testing/matchMedia';
@@ -50,8 +50,10 @@ describe('a long list', () => {
     expect(within(screen.getByRole('region')).getAllByRole('status')[0]).toHaveTextContent(
       '45 stations found. Listing the cheapest 20.',
     );
-    // One Tab stop per listed station, not per result.
-    expect(screen.getAllByRole('button', { name: /^Show on map/ })).toHaveLength(20);
+    // One Tab stop per listed station, not per result: the row itself.
+    expect(screen.getAllByRole('button', { expanded: false, name: /cents a litre/ })).toHaveLength(
+      20,
+    );
     await expectNoAxeViolations(container);
   });
 
@@ -62,12 +64,12 @@ describe('a long list', () => {
 
     await user.click(screen.getByRole('button', { name: 'Show 20 more' }));
     expect(listed()).toHaveLength(40);
-    expect(screen.getByRole('heading', { level: 3, name: 'Station 21' })).toHaveFocus();
+    expect(stationRow('Station 21')).toHaveFocus();
     expect(screen.getByText('Showing 40 of 45 stations')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Show 5 more' }));
     expect(listed()).toHaveLength(45);
-    expect(screen.getByRole('heading', { level: 3, name: 'Station 41' })).toHaveFocus();
+    expect(stationRow('Station 41')).toHaveFocus();
     expect(screen.getByText('Showing all 45 stations')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Show \d+ more$/ })).not.toBeInTheDocument();
   });
@@ -103,7 +105,8 @@ describe('a long list', () => {
 
     await user.click(screen.getByRole('button', { name: 'Close, Station 33' }));
     expect(listed()).toHaveLength(33);
-    expect(screen.getByRole('button', { name: 'Show on map, Station 33' })).toHaveFocus();
+    expect(stationRow('Station 33')).toHaveFocus();
+    expect(stationRow('Station 33')).toHaveAttribute('aria-expanded', 'false');
   });
 });
 
@@ -123,10 +126,13 @@ describe('what each station says', () => {
     });
     renderApp('/?query=Erina');
     await list();
-    const [first, second, third] = listed();
-    expect(first).toHaveTextContent('cents a litre Cheapest');
-    expect(second).toHaveTextContent('Cheapest');
-    expect(third).not.toHaveTextContent('Cheapest');
+    // On screen the word, and in the row's name too.
+    expect(stationRow('First')).toHaveAccessibleName(/^First 199\.9 cents a litre, cheapest,/);
+    expect(stationRow('Second')).toHaveAccessibleName(/^Second 199\.9 cents a litre, cheapest,/);
+    expect(stationRow('Third')).toHaveAccessibleName(/^Third 205\.9 cents a litre, \d/);
+    const [first, , third] = listed();
+    expect(within(first ?? document.body).getByText('Cheapest')).toBeVisible();
+    expect(within(third ?? document.body).queryByText('Cheapest')).not.toBeInTheDocument();
   });
 
   it('does not call anything cheapest when every price is the same', async () => {
@@ -156,11 +162,11 @@ describe('what each station says', () => {
     try {
       renderApp('/?query=Erina');
       await list();
-      const [fresh, stale] = listed();
-      expect(fresh).toHaveTextContent('Price updated 13 days ago');
-      expect(
-        within(stale ?? document.body).getByText('Price not updated for 32 days'),
-      ).toBeVisible();
+      expect(stationRow('Fresh')).toHaveAccessibleName(/, updated 13 days ago$/);
+      // In words, in bold, on screen and in the row's name.
+      expect(stationRow('Stale')).toHaveAccessibleName(/, Old price, updated 32 days ago$/);
+      const [, stale] = listed();
+      expect(within(stale ?? document.body).getByText(/^Old price,/).tagName).toBe('STRONG');
     } finally {
       vi.useRealTimers();
     }

@@ -15,52 +15,44 @@
  *
  * Every text/background pair below is checked for WCAG AA contrast in both
  * themes in that same test, and the price bands for colour-blind safety.
+ *
+ * The look is "Docket" (docs/design-system.md): thermal paper on a counter,
+ * ink, and one accent, carbon-copy blue, used only for meaning.
  */
 
 :root {
   /* --- Primitives -------------------------------------------------------- */
-  --palette-white: #ffffff;
-  --palette-grey-50: #f6f7f9;
-  --palette-grey-100: #eceef2;
-  --palette-grey-300: #c3c8d1;
-  --palette-grey-400: #aab1bd;
-  --palette-grey-500: #737b8a;
-  --palette-grey-550: #7d8594;
-  --palette-grey-600: #5a6170;
-  --palette-grey-700: #3a404b;
-  --palette-grey-800: #2b303a;
-  --palette-grey-850: #232831;
-  --palette-grey-900: #161a21;
-  --palette-grey-925: #181c22;
-  --palette-grey-950: #0f1216;
-  --palette-teal-700: #0b6b63;
-  --palette-teal-800: #08544e;
-  --palette-teal-50: #e6f4f2;
-  --palette-teal-200: #8ad9d1;
-  --palette-teal-300: #5cc8bd;
-  --palette-teal-950: #12312e;
-  --palette-blue-600: #1f5fd1;
-  --palette-blue-400: #6ea8fe;
-  --palette-red-700: #a32020;
-  --palette-red-50: #fdeeee;
-  --palette-red-300: #ff9b94;
-  --palette-red-950: #3a1414;
-  --palette-amber-800: #7a4b00;
-  --palette-amber-50: #fff6e0;
-  --palette-amber-300: #f5c26b;
-  --palette-amber-950: #33260a;
+  --palette-counter: #e8e5dc;
+  --palette-thermal: #fbfaf6;
+  --palette-thermal-shade: #efece3;
+  --palette-ink: #1c1c1a;
+  --palette-ink-600: #58564f;
+  --palette-ink-500: #7a776f;
+  --palette-ink-400: #8e8b83;
+  --palette-night-950: #0e0f11;
+  --palette-night-900: #17181b;
+  --palette-night-800: #23252a;
+  --palette-night-600: #5c5a55;
+  --palette-night-500: #7d7a73;
+  --palette-night-400: #a8a59c;
+  --palette-night-50: #edebe4;
+  /* Carbon-copy blue: the one accent, for meaning only. */
+  --palette-carbon-700: #1f55a8;
+  --palette-carbon-300: #86b4f0;
+  --palette-red-700: #a3261a;
+  --palette-red-300: #ff9480;
   /*
    * Price bands: blue, grey, orange. Blue against orange is the one hue pair
    * that survives every common colour blindness, and the grey middle differs
-   * from both in lightness as well as hue. The old green/amber/red was
-   * nearly one colour to someone with deuteranopia.
+   * from both in lightness as well as hue. The cheapest band is the accent's
+   * own blue, so "cheapest" means one colour everywhere.
    */
-  --palette-band-low: #2457c5;
-  --palette-band-mid: #6d6875;
-  --palette-band-high: #9c4a00;
-  --palette-band-low-dark: #5b9cff;
-  --palette-band-mid-dark: #a0a0a0;
-  --palette-band-high-dark: #ff8a3d;
+  --palette-band-low: #1f55a8;
+  --palette-band-mid: #6b675f;
+  --palette-band-high: #a4520c;
+  --palette-band-low-dark: #86b4f0;
+  --palette-band-mid-dark: #9c988e;
+  --palette-band-high-dark: #f0954a;
   /*
    * The basemaps' own colours (OpenFreeMap Positron and Dark), for the
    * contrast test: land, water, and parks and woods, the one other large fill.
@@ -74,22 +66,27 @@
 
   /* --- Semantic: colour --------------------------------------------------- */
   color-scheme: light;
-  --color-bg: var(--palette-grey-50);
-  --color-surface: var(--palette-white);
-  --color-text: var(--palette-grey-900);
-  --color-text-muted: var(--palette-grey-600);
-  --color-border: var(--palette-grey-300);
-  --color-border-strong: var(--palette-grey-500);
-  --color-accent: var(--palette-teal-700);
-  --color-accent-hover: var(--palette-teal-800);
-  --color-on-accent: var(--palette-white);
-  --color-accent-subtle: var(--palette-teal-50);
-  --color-highlight: var(--palette-grey-100);
-  --color-focus: var(--palette-blue-600);
+  /* The counter the docket lies on, and the docket's paper. */
+  --color-bg: var(--palette-counter);
+  --color-surface: var(--palette-thermal);
+  --color-text: var(--palette-ink);
+  --color-text-muted: var(--palette-ink-600);
+  /* Rules between rows and dotted leaders: dividers, not boundaries. */
+  --color-border: var(--palette-ink-400);
+  /* Control edges, which must show (3:1, WCAG 1.4.11). */
+  --color-border-strong: var(--palette-ink-500);
+  /* Primary buttons and the pressed List/Map switch: ink, not the accent. */
+  --color-ink: var(--palette-ink);
+  --color-on-ink: var(--palette-thermal);
+  /* Meaning only: the cheapest price, a price that moved, the chart's day. */
+  --color-accent: var(--palette-carbon-700);
+  --color-on-accent: var(--palette-thermal);
+  /* A quiet shade of the paper: the active suggestion, loading placeholders. */
+  --color-highlight: var(--palette-thermal-shade);
+  --color-focus: var(--palette-carbon-700);
   --color-danger: var(--palette-red-700);
-  --color-danger-subtle: var(--palette-red-50);
-  --color-warning: var(--palette-amber-800);
-  --color-warning-subtle: var(--palette-amber-50);
+  /* An old price is said in words, in bold ink. */
+  --color-warning: var(--palette-ink);
 
   /*
    * Map markers. Read by StationMap at runtime (the map draws on a canvas, so
@@ -101,25 +98,34 @@
   --color-price-low: var(--palette-band-low);
   --color-price-mid: var(--palette-band-mid);
   --color-price-high: var(--palette-band-high);
-  --color-marker-outline: var(--palette-white);
-  --color-marker-selected: var(--palette-grey-900);
-  --color-map-origin: var(--palette-grey-900);
+  --color-marker-outline: var(--palette-thermal);
+  --color-marker-selected: var(--palette-ink);
+  --color-map-origin: var(--palette-ink);
   --color-map-land: var(--palette-positron-land);
   --color-map-water: var(--palette-positron-water);
   --color-map-green: var(--palette-positron-green);
 
   /* --- Semantic: type ------------------------------------------------------ */
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-size-price: 1.5rem;
+  /*
+   * Atkinson Hyperlegible Next and Mono (Braille Institute, OFL), self-hosted
+   * and preloaded (global.css, index.html). The fallbacks are local faces
+   * with metric overrides, so the swap moves nothing.
+   */
+  --font-text: 'Atkinson Hyperlegible Next', 'Atkinson Next Fallback', Arial, sans-serif;
+  --font-figures: 'Atkinson Hyperlegible Mono', 'Atkinson Mono Fallback', 'Courier New', monospace;
+  /* Utopia: 320 px at 1.2 to 1440 px at 1.25, 16 px base to 18 px. */
+  --step--2: clamp(0.69rem, 0.68rem + 0.06vw, 0.74rem);
+  --step--1: clamp(0.83rem, 0.81rem + 0.1vw, 0.91rem);
+  --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
+  --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
+  --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
+  --step-3: clamp(1.73rem, 1.62rem + 0.48vw, 2.2rem);
+  --step-4: clamp(2.07rem, 1.92rem + 0.69vw, 2.75rem);
   --font-weight-regular: 400;
-  --font-weight-bold: 650;
-  --line-height-body: 1.5;
-  --line-height-tight: 1.2;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
+  --line-height-body: 1.4;
+  --line-height-tight: 1.15;
 
   /* --- Semantic: space, shape, layers --------------------------------------- */
   --space-1: 0.25rem;
@@ -128,11 +134,13 @@
   --space-4: 1rem;
   --space-5: 1.5rem;
   --space-6: 2rem;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-pill: 999px;
+  --space-7: 3rem;
+  /* On controls only. The docket and the map are square. */
+  --radius: 3px;
   --border-width: 1px;
-  --focus-ring: 3px solid var(--color-focus);
+  /* The dashed and solid rules between the docket's sections. */
+  --rule-width: 1.5px;
+  --focus-ring: 2px solid var(--color-focus);
   --focus-offset: 2px;
   /* Big enough to hit with a thumb (WCAG 2.5.8 asks 24px; 44px is comfortable). */
   --target-size: 2.75rem;
@@ -143,12 +151,11 @@
   --content-width-widest: 112rem;
   --search-column-width: 22rem;
   /*
-   * Netlify's free plan pins a "Powered by Netlify" badge to the bottom-right
-   * corner of every page, and it cannot be turned off. Content that would end
+   * Netlify's free plan pinned a "Powered by Netlify" badge to the
+   * bottom-right corner of every page until round 9. Content that would end
    * up under it (the page's last lines, the sticky map's corner and its
-   * attribution) keeps this much clear. Measured on production: 181 by 48 px,
-   * its top 61 px above the bottom of the window, at every width. It is the
-   * last Tab stop on the page and never takes focus itself.
+   * attribution) still keeps this much clear, in case it returns (README,
+   * Maintenance).
    */
   --badge-clearance: 4rem;
   /*
@@ -163,29 +170,27 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --color-bg: var(--palette-grey-950);
-  --color-surface: var(--palette-grey-925);
-  --color-text: var(--palette-grey-50);
-  --color-text-muted: var(--palette-grey-400);
-  --color-border: var(--palette-grey-700);
-  --color-border-strong: var(--palette-grey-550);
-  --color-accent: var(--palette-teal-300);
-  --color-accent-hover: var(--palette-teal-200);
-  --color-on-accent: var(--palette-grey-950);
-  --color-accent-subtle: var(--palette-teal-950);
-  --color-highlight: var(--palette-grey-850);
-  --color-focus: var(--palette-blue-400);
+  --color-bg: var(--palette-night-950);
+  --color-surface: var(--palette-night-900);
+  --color-text: var(--palette-night-50);
+  --color-text-muted: var(--palette-night-400);
+  --color-border: var(--palette-night-600);
+  --color-border-strong: var(--palette-night-500);
+  --color-ink: var(--palette-night-50);
+  --color-on-ink: var(--palette-night-900);
+  --color-accent: var(--palette-carbon-300);
+  --color-on-accent: var(--palette-night-900);
+  --color-highlight: var(--palette-night-800);
+  --color-focus: var(--palette-carbon-300);
   --color-danger: var(--palette-red-300);
-  --color-danger-subtle: var(--palette-red-950);
-  --color-warning: var(--palette-amber-300);
-  --color-warning-subtle: var(--palette-amber-950);
+  --color-warning: var(--palette-night-50);
 
   --color-price-low: var(--palette-band-low-dark);
   --color-price-mid: var(--palette-band-mid-dark);
   --color-price-high: var(--palette-band-high-dark);
-  --color-marker-outline: var(--palette-grey-950);
-  --color-marker-selected: var(--palette-grey-50);
-  --color-map-origin: var(--palette-grey-50);
+  --color-marker-outline: var(--palette-night-950);
+  --color-marker-selected: var(--palette-night-50);
+  --color-map-origin: var(--palette-night-50);
   --color-map-land: var(--palette-dark-land);
   --color-map-water: var(--palette-dark-water);
   --color-map-green: var(--palette-dark-green);

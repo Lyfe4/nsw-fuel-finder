@@ -7,6 +7,9 @@
  *   preloads, and the stylesheets it links. This is the budget that matters
  *   to every visitor, so it is held close to where it is.
  * - THE HISTORY VIEW's chunk: the price chart, lazy like the map.
+ * - THE FONTS: every font index.html preloads (the first paint waits on
+ *   them), and every font in public/fonts. A preload must name a file that
+ *   exists: a typo would cost a wasted request and the fallback face.
  * - THE LARGEST LAZY CHUNK, and MapLibre's WORKER: the map. Off the critical
  *   path (src/features/map/LazyStationMap.tsx), but a phone opening the map
  *   on a slow connection pays for them, so they have ceilings too. A lazy
@@ -34,7 +37,14 @@ import { gzipSync } from 'node:zlib';
 const INITIAL_JS_BUDGET = 350 * 1024;
 // Measured at 15.6 kB raw / 3.6 kB gzipped in round 5. Raised in round 8 for
 // the same features: 20.6 kB raw / 4.5 kB gzipped.
-const INITIAL_CSS_BUDGET = 22 * 1024;
+// RAISED FOR THE REDESIGN, on purpose: 22.3 kB raw at its first step. The
+// four @font-face rules (two faces and their metric-matched fallbacks, which
+// keep the font swap from moving anything), the folded search line and the
+// docket's torn edge are new; the card styles they replace mostly went, but
+// not all of the old components are restyled yet. 24 kB is room for the
+// rest of the redesign to land, and should come back down as the old rules
+// go. Reconsider it when the redesign is done.
+const INITIAL_CSS_BUDGET = 24 * 1024;
 // The map chunk: MapLibre itself, measured at 1,016.0 kB raw / 273.1 kB
 // gzipped (MapLibre 6.14). It cannot be split further.
 const LAZY_CHUNK_BUDGET = 1100 * 1024;
@@ -45,6 +55,13 @@ const WORKER_BUDGET = 540 * 1024;
 // gzipped in round 6. Hand-drawn SVG, no chart library; 16 kB leaves room to
 // grow, not room for a library to slip in.
 const HISTORY_CHUNK_BUDGET = 16 * 1024;
+// The fonts (redesign, docs/design-system.md): Atkinson Hyperlegible Next
+// (33.2 kB) and Mono (17.3 kB), both preloaded because the first paint has
+// both (the wordmark is in the mono). Already compressed (woff2), so raw is
+// what crosses the network. 56 kB preloaded and 64 kB in all leave room for
+// a re-subset, not for a third face.
+const PRELOADED_FONTS_BUDGET = 56 * 1024;
+const ALL_FONTS_BUDGET = 64 * 1024;
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = join(repoRoot, 'dist');
@@ -126,6 +143,33 @@ const worker = measure(
   WORKER_BUDGET,
 );
 
+/* Fonts: what index.html preloads, and everything in dist/fonts. */
+const fontsDir = join(distDir, 'fonts');
+const fontFiles = readdirSync(fontsDir).filter((name) => name.endsWith('.woff2'));
+const preloadedFonts = [...html.matchAll(/<link\b[^>]*>/g)]
+  .map(([tag]) => tag)
+  .filter((tag) => tag.includes('rel="preload"') && tag.includes('as="font"'))
+  .map((tag) => /\bhref="([^"]+)"/.exec(tag)?.[1] ?? '');
+if (fontFiles.length === 0 || preloadedFonts.length === 0) {
+  console.error('bundle-budget: FAIL - no fonts in dist/fonts, or none preloaded in index.html.');
+  process.exit(1);
+}
+for (const url of preloadedFonts) {
+  if (!url.startsWith('/fonts/') || !fontFiles.includes(url.slice('/fonts/'.length))) {
+    failures.push(`index.html preloads ${url}, which is not a font in public/fonts.`);
+  }
+}
+const preloaded = measure(
+  'Preloaded fonts',
+  preloadedFonts.filter((url) => fontFiles.includes(url.slice('/fonts/'.length))),
+  PRELOADED_FONTS_BUDGET,
+);
+const fonts = measure(
+  'All fonts',
+  fontFiles.map((name) => `/fonts/${name}`),
+  ALL_FONTS_BUDGET,
+);
+
 if (failures.length > 0) {
   for (const failure of failures) console.error(`bundle-budget: FAIL - ${failure}`);
   console.error('Move the new code behind a dynamic import, or raise the budget on purpose.');
@@ -137,5 +181,7 @@ console.warn(
     INITIAL_CSS_BUDGET - css,
   )} initial CSS, ${kb(LAZY_CHUNK_BUDGET - lazy)} map chunk, ${kb(WORKER_BUDGET - worker)} worker, ${kb(
     HISTORY_CHUNK_BUDGET - historyView,
-  )} history.`,
+  )} history, ${kb(PRELOADED_FONTS_BUDGET - preloaded)} preloaded fonts, ${kb(
+    ALL_FONTS_BUDGET - fonts,
+  )} all fonts.`,
 );

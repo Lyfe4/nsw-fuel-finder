@@ -7,14 +7,15 @@ import styles from './PriceSummaryLine.module.css';
 import type { StationPrice } from '../../../shared/api';
 
 /**
- * One sentence over the list: "Cheapest 189.9, average 201.3 cents a litre.
- * Filling 50 litres at the cheapest saves $5.70 on the average." Words, not a
- * row of stat boxes, so it needs no labels of its own.
+ * Beside the heading, the docket's total in a few words: "save $3.02 on
+ * 50 L", or "average 239.9" when the saving is too small to mention. The
+ * cheapest price is already the first row's.
  *
- * Screen readers get the same sentence as one piece of plain text. The
- * visible copy makes the numbers bold, and VoiceOver on iOS stops at every
- * inline element when swiping, which would read it as five fragments
- * (seen in Chromium's accessibility tree: "Cheapest", "222.5", ", average"...).
+ * Screen readers get the whole sentence instead, as one piece of plain text:
+ * "Cheapest 189.9, average 201.3 cents a litre. Filling 50 litres at the
+ * cheapest saves $5.70 on the average." The short visible version is hidden
+ * from them, and the sentence has no inline elements, so VoiceOver on iOS
+ * reads it in one swipe (round 8 saw it read in five fragments).
  *
  * Of the stations shown, after any filters. No saving under 50 cents: "saves
  * $0.20" is noise.
@@ -31,12 +32,13 @@ export function PriceSummaryLine({ stations }: { stations: readonly StationPrice
   return (
     <p className={styles.summary}>
       <span aria-hidden="true">
-        Cheapest <strong>{cheapest}</strong>, average <strong>{average}</strong> cents a litre.
-        {saving && (
+        {saving ? (
           <>
-            {' '}
-            Filling {FILL_LITRES} litres at the cheapest saves <strong>{saving}</strong> on the
-            average.
+            save <strong className={styles.figure}>{saving}</strong> on {FILL_LITRES} L
+          </>
+        ) : (
+          <>
+            average <strong className={styles.figure}>{average}</strong>
           </>
         )}
       </span>

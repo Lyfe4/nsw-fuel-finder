@@ -19,3 +19,30 @@ export const results = () => screen.getByRole('region');
 export const announced = () => within(results()).getByRole('status').textContent;
 
 export const placeInput = () => screen.getByRole('combobox', { name: /suburb or postcode/i });
+
+/** The place box even while the form is folded away (hidden), for its value. */
+export const placeInputAnyway = () =>
+  screen.getByRole('combobox', { name: /suburb or postcode/i, hidden: true });
+
+/** On a phone after a search the form is folded into one line: open it. */
+export async function openSearch(user: UserEvent): Promise<void> {
+  const change = screen.queryByRole('button', { name: 'Change search' });
+  if (change?.getAttribute('aria-expanded') === 'false') await user.click(change);
+}
+
+/**
+ * The station names in a list, in order. A row is a heading holding one
+ * button named for the whole row ("Shell Erina 229.9 cents a litre, ..."):
+ * the name is what comes before the price.
+ */
+export const stationNames = (list: HTMLElement) =>
+  within(list)
+    .getAllByRole('heading', { level: 3 })
+    .map((heading) => heading.textContent.split(/\s*\d+\.\d\s/)[0]?.trim());
+
+/** A station's row button, by the station's name. */
+export const stationRow = (name: string) =>
+  screen.getByRole('button', {
+    name: (accessibleName) =>
+      accessibleName.startsWith(`${name} `) && /^\d/.test(accessibleName.slice(name.length + 1)),
+  });

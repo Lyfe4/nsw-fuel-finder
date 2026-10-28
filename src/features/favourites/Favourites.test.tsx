@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { renderApp } from '@/features/search/testing';
+import { renderApp, stationRow } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { fakeApi, json, prices, station, stationsResponse, summary } from '@/lib/testing/fakeApi';
 
@@ -42,7 +42,7 @@ describe('favourites storage', () => {
 });
 
 describe('favourites', () => {
-  it('a station is starred from the list: a toggle with one name and its state', async () => {
+  it('a station is starred from its card: a toggle with one name and its state', async () => {
     fakeApi({
       location: () => json(prices({ stations: [ERINA, GOSFORD] })),
       stations: () => json(stationsResponse([summary(ERINA)])),
@@ -50,6 +50,7 @@ describe('favourites', () => {
     const { user } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
 
+    await user.click(stationRow('Ampol Foodary Erina'));
     const star = screen.getByRole('button', { name: 'Favourite, Ampol Foodary Erina' });
     expect(star).toHaveAttribute('aria-pressed', 'false');
     await user.click(star);
@@ -77,6 +78,7 @@ describe('favourites', () => {
     const { user, container } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
 
+    await user.click(stationRow('Ampol Foodary Erina'));
     const star = screen.getByRole('button', { name: 'Favourite, Ampol Foodary Erina' });
     await user.click(star);
     expect(star).toHaveAttribute('aria-pressed', 'false');

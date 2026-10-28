@@ -25,14 +25,14 @@
   row-gap: var(--space-2);
   padding: var(--space-4);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius);
   background: var(--color-surface);
 }
 
 .price,
 .line,
 .lineShort {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--color-highlight);
   animation: pulse 1.4s ease-in-out infinite;
 }

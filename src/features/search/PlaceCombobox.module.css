@@ -1,25 +1,23 @@
 .field {
   position: relative;
   display: grid;
-  gap: var(--space-1);
+  /* As the form's own fields, so the three labels line up on a wide screen. */
+  gap: 2px;
 }
 
 .label {
+  font-size: var(--step--1);
   font-weight: var(--font-weight-bold);
-}
-
-.hint {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
 }
 
 .input {
   width: 100%;
   min-height: var(--target-size);
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border: var(--rule-width) solid var(--color-border-strong);
+  border-radius: var(--radius);
   background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .list,
@@ -39,7 +37,7 @@
   margin-top: var(--space-1);
   overflow-y: auto;
   border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--color-surface);
 }
 
@@ -57,8 +55,8 @@
  * so it is visible to someone who cannot tell the background shades apart.
  */
 .optionActive {
-  background: var(--color-accent-subtle);
-  box-shadow: inset 4px 0 0 var(--color-accent);
+  background: var(--color-highlight);
+  box-shadow: inset 3px 0 0 var(--color-text);
 }
 
 /* The input and its clear button: the button sits inside the box's right end. */
@@ -81,10 +79,10 @@
   height: 100%;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: none;
   color: var(--color-text-muted);
-  font-size: var(--font-size-xl);
+  font-size: var(--step-2);
   line-height: 1;
   cursor: pointer;
 }

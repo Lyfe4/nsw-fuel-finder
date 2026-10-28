@@ -163,14 +163,9 @@ try {
     // Desktop: the list beside the map, fitted to every station.
     {
       const { context, page } = await open({ theme, width: 1280, height: 800, scale: 1 });
-      await page.goto(url());
+      // The cheapest station's row open: its card in the list, its dot on the map.
+      await page.goto(url(`&station=${cheapest.stationCode}`));
       await settle(page, { map: true });
-      // The search form scrolled away: the results heading at the top, the list
-      // and the whole sticky map below it.
-      await page.evaluate(() => {
-        const heading = document.getElementById('results-heading');
-        if (heading) window.scrollTo(0, heading.getBoundingClientRect().top + window.scrollY - 16);
-      });
       await page.waitForTimeout(500);
       await shoot(page, `desktop-${theme}-results`);
       await page.goto(url(`&history=${cheapest.stationCode}`));
@@ -199,10 +194,13 @@ try {
       await page.goto(url());
       await page.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
       await settle(page);
-      await page.evaluate(() => {
-        document.getElementById('results-heading')?.scrollIntoView();
-      });
+      // From the top: the masthead, the folded search line, then the docket.
       await shoot(page, `phone-${theme}-results`);
+      // A station's row open, its card under it.
+      await page.goto(url(`&station=${cheapest.stationCode}`));
+      await page.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
+      await settle(page);
+      await shoot(page, `phone-${theme}-selected`);
       await page.goto(url(`&view=map`));
       await settle(page, { map: true });
       // From the List/Map switch down: the switch, the map, its key and the card.
@@ -231,7 +229,7 @@ try {
     }
   }
 
-  // Very wide (1600 px): the search form in a column of its own.
+  // Very wide (1600 px): the search form one row across the top.
   {
     const { context, page } = await open({ theme: 'light', width: 1600, height: 900, scale: 1 });
     await page.goto(url());
@@ -248,15 +246,15 @@ try {
   const css = `
     * { box-sizing: border-box; margin: 0; }
     body { width: var(--w); height: var(--h); overflow: hidden;
-      font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif; color: ${colour('white')};
-      background: radial-gradient(circle at 20% 10%, ${colour('teal-700')}, ${colour('grey-950')} 70%); }
+      font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif; color: ${colour('thermal')};
+      background: radial-gradient(circle at 20% 10%, ${colour('carbon-700')}, ${colour('night-950')} 70%); }
     .desktop { position: absolute; border-radius: 14px; overflow: hidden;
       box-shadow: 0 30px 80px rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.15); }
-    .desktop .bar { height: 30px; background: ${colour('grey-850')}; display: flex; gap: 8px; align-items: center; padding: 0 14px; }
-    .desktop .bar i { width: 11px; height: 11px; border-radius: 50%; background: ${colour('grey-700')}; }
+    .desktop .bar { height: 30px; background: ${colour('night-800')}; display: flex; gap: 8px; align-items: center; padding: 0 14px; }
+    .desktop .bar i { width: 11px; height: 11px; border-radius: 50%; background: ${colour('night-600')}; }
     .desktop img, .phone img { display: block; width: 100%; }
-    .phone { position: absolute; border-radius: 38px; overflow: hidden; border: 10px solid ${colour('grey-900')};
-      box-shadow: 0 30px 70px rgba(0,0,0,.6); background: ${colour('grey-900')}; }
+    .phone { position: absolute; border-radius: 38px; overflow: hidden; border: 10px solid ${colour('ink')};
+      box-shadow: 0 30px 70px rgba(0,0,0,.6); background: ${colour('ink')}; }
     h1 { font-size: var(--title); line-height: 1.05; font-weight: 750; letter-spacing: -0.02em; }
     p { font-size: var(--sub); line-height: 1.35; opacity: .9; margin-top: 18px; }
     .mark { width: 64px; height: 64px; margin-bottom: 26px; }
@@ -282,7 +280,7 @@ try {
     630,
     1,
     `<div style="position:absolute;left:70px;top:150px;width:560px">
-       ${mark}<h1>NSW Fuel Finder</h1>
+       ${mark}<h1>Fuel Finder</h1>
        <p>Live fuel prices near you, cheapest first, on a list and a map, with four months of price history.</p>
      </div>
      <div class="phone" style="left:700px;top:60px;width:300px;transform:rotate(-4deg)"><img src="${image('phone-light-map')}"></div>

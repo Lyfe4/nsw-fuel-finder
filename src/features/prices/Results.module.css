@@ -1,16 +1,49 @@
+/*
+ * The docket: one strip of paper on the counter, torn once along its top
+ * edge (a zigzag of the paper's own colour). The only container on the page.
+ */
 .results {
+  position: relative;
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-surface);
+}
+
+.results::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 0;
+  left: 0;
+  height: 7px;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x,
+    linear-gradient(225deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x;
+}
+
+/* The heading and the summary, on one line when they fit. */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
 }
 
 .heading {
-  font-size: var(--font-size-lg);
+  font-size: var(--step-0);
   line-height: var(--line-height-tight);
 }
 
 .message,
 .asOf {
   color: var(--color-text-muted);
+}
+
+.asOf {
+  font-size: var(--step--2);
 }
 
 /* Results are coming: keep their room, as LoadingStations does (tokens.css). */
@@ -24,15 +57,11 @@
   display: grid;
   justify-items: start;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: var(--border-width) dashed var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: var(--space-2) 0;
 }
 
 /* Why these stations are further than asked: said before the list, not after it. */
 .nearest {
-  padding: var(--space-3) var(--space-4);
-  border-left: var(--space-1) solid var(--color-accent);
-  background: var(--color-surface);
+  padding: var(--space-2) 0;
+  border-block: var(--border-width) dashed var(--color-border);
 }

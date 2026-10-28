@@ -3,7 +3,10 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--space-3) var(--space-4);
+  gap: var(--space-1) var(--space-4);
+  padding-block: var(--space-1);
+  border-block: var(--rule-width) dashed var(--color-text);
+  font-size: var(--step--1);
 }
 
 .sort {
@@ -21,8 +24,9 @@
   min-height: var(--target-size);
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--color-surface);
+  color: var(--color-text);
 }
 
 /* Grows to the full width when open, so the checkboxes have room. */
@@ -55,10 +59,8 @@
   justify-items: start;
   gap: var(--space-3);
   margin-top: var(--space-2);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: var(--space-3) 0;
+  border-top: var(--border-width) dashed var(--color-border);
 }
 
 /* The full width of the panel, so the brands can spread into columns. */
@@ -73,7 +75,7 @@
 .hint,
 .count {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--step--1);
 }
 
 /* Columns of checkboxes, as many as fit: 30 brands in a phone-length column would be a long scroll. */
@@ -103,7 +105,7 @@
   width: 1.25rem;
   height: 1.25rem;
   margin: 0;
-  accent-color: var(--color-accent);
+  accent-color: var(--color-ink);
 }
 
 .clear {

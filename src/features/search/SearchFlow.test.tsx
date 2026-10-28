@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { apiError, fakeApi, json, prices, suggestions } from '@/lib/testing/fakeApi';
+import { setScreen } from '@/lib/testing/matchMedia';
 
-import { announced, placeInput, renderApp, results } from './testing';
+import { announced, openSearch, placeInput, placeInputAnyway, renderApp, results } from './testing';
 
 describe('searching by suburb or postcode', () => {
   it('starts with a prompt and no requests, and passes axe', async () => {
@@ -45,8 +46,14 @@ describe('searching by suburb or postcode', () => {
     );
     expect(api.calls('location')).toEqual([{ query: 'Erina', fuel: 'U91', radius: '5' }]);
     expect(window.location.search).toBe('?fuel=U91&query=Erina');
-    // Focus stays where the user was typing.
-    expect(placeInput()).toHaveFocus();
+    // On a phone the form folds into one line once the search has worked,
+    // and focus, which was in it, goes to the results heading.
+    expect(screen.getByRole('heading', { level: 2 })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Change search' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(placeInputAnyway()).not.toBeVisible();
     await expectNoAxeViolations(container);
   });
 
@@ -56,15 +63,22 @@ describe('searching by suburb or postcode', () => {
 
     const list = await screen.findByRole('list', { name: 'Stations, cheapest first' });
     const items = within(list).getAllByRole('listitem');
-    expect(items.map((item) => within(item).getByRole('heading').textContent)).toEqual([
-      'Ampol Foodary Erina',
-      'Metro Petroleum West Gosford',
+    // Each row is a heading holding one button, named for the whole row; the
+    // price reads as words, not as a bare number.
+    expect(items.map((item) => within(item).getByRole('button').textContent)).toEqual([
+      expect.stringMatching(/^Ampol Foodary Erina/),
+      expect.stringMatching(/^Metro Petroleum West Gosford/),
     ]);
-    // The price reads as words, not as "¢/L".
-    expect(within(list).getAllByText('cents a litre')).toHaveLength(2);
+    expect(
+      within(items[0] ?? document.body).getByRole('heading', { level: 3 }),
+    ).toHaveAccessibleName(
+      /^Ampol Foodary Erina 229\.9 cents a litre, cheapest, [\d.]+ k?m away, updated .+$/,
+    );
     // The fixture's snapshot is 2:30 pm on 23 Oct; any later day adds the date.
     expect(
-      within(results()).getByText(/^Unleaded 91 · prices as of (\w+, \d+ \w+, )?2:30 pm$/),
+      within(results()).getByText(
+        /^Unleaded 91 prices as of (\w+, \d+ \w+, )?2:30 pm, from FuelCheck\.$/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -104,7 +118,7 @@ describe('searching by suburb or postcode', () => {
         { query: 'Kingswood (Penrith) NSW 2747', fuel: 'U91', radius: '5' },
       ]);
     });
-    expect(placeInput()).toHaveValue('Kingswood (Penrith) NSW 2747');
+    expect(placeInputAnyway()).toHaveValue('Kingswood (Penrith) NSW 2747');
     // Suggestions are asked for once typing settles, not per keystroke.
     expect(api.calls('places').length).toBeLessThan(3);
   });
@@ -135,7 +149,7 @@ describe('searching by suburb or postcode', () => {
     });
     await user.keyboard('{Enter}');
 
-    expect(placeInput()).toHaveAttribute('aria-expanded', 'false');
+    expect(placeInputAnyway()).toHaveAttribute('aria-expanded', 'false');
     expect(within(listbox).queryAllByRole('option')).toHaveLength(0);
     expect(window.location.search).toBe('?fuel=U91&query=erina');
   });
@@ -196,6 +210,7 @@ describe('searching by suburb or postcode', () => {
     const { user } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
 
+    await openSearch(user);
     await user.clear(placeInput());
     await user.type(placeInput(), '2250{Enter}');
     await waitFor(() => {
@@ -206,7 +221,7 @@ describe('searching by suburb or postcode', () => {
       window.history.replaceState(null, '', '/?fuel=U91&query=Erina');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
-    expect(placeInput()).toHaveValue('Erina');
+    expect(placeInputAnyway()).toHaveValue('Erina');
   });
 
   it('says what to do when Search is pressed with nothing typed', async () => {
@@ -223,8 +238,7 @@ describe('searching by suburb or postcode', () => {
     fakeApi();
     const { user } = renderApp();
 
-    await user.tab();
-    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveFocus();
+    // The theme is in the footer now, at the end of the page.
     await user.tab();
     expect(screen.getByRole('combobox', { name: 'Fuel' })).toHaveFocus();
     await user.tab();
@@ -263,6 +277,83 @@ describe('searching by suburb or postcode', () => {
   });
 });
 
+describe('the folded search, on a phone', () => {
+  it('after a search is one line: the fuel is still one tap, place and distance behind Change', async () => {
+    const api = fakeApi();
+    const { user, container } = renderApp('/?query=Erina&radius=10');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+
+    // One Fuel select on screen: the folded line's, with its own visible name.
+    const fuel = screen.getByRole('combobox', { name: 'Fuel' });
+    expect(fuel).toBeVisible();
+    const change = screen.getByRole('button', { name: 'Change search' });
+    expect(change.previousElementSibling).toHaveTextContent(/Erina.*10 km/);
+    await expectNoAxeViolations(container);
+
+    await user.selectOptions(fuel, 'Diesel');
+    await waitFor(() => {
+      expect(api.calls('location').at(-1)).toEqual({ query: 'Erina', fuel: 'DL', radius: '10' });
+    });
+    expect(screen.getByRole('button', { name: 'Change search' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('Change opens the form, keeps focus, and the next Tab is the form’s first field', async () => {
+    fakeApi();
+    const { user } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+
+    const change = screen.getByRole('button', { name: 'Change search' });
+    await user.click(change);
+    expect(change).toHaveAttribute('aria-expanded', 'true');
+    expect(change).toHaveFocus();
+    expect(placeInput()).toBeVisible();
+    await user.tab();
+    expect(screen.getByRole('combobox', { name: 'Fuel' })).toHaveFocus();
+
+    await user.click(change);
+    expect(change).toHaveAttribute('aria-expanded', 'false');
+    expect(placeInputAnyway()).not.toBeVisible();
+  });
+
+  it('a search that fails stays open, with focus in the place box to fix it', async () => {
+    fakeApi({
+      location: (params) =>
+        params.get('query') === 'Erinna'
+          ? apiError(404, 'location_not_found', 'No place called “Erinna” in NSW.')
+          : json(prices()),
+    });
+    const { user } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+
+    await openSearch(user);
+    await user.clear(placeInput());
+    await user.type(placeInput(), 'Erinna{Enter}');
+    expect(await screen.findByRole('alert')).toHaveTextContent('No place called “Erinna”');
+    expect(placeInput()).toBeVisible();
+    expect(placeInput()).toHaveFocus();
+
+    // Fixed and searched again: now it folds, focus on the results.
+    await user.clear(placeInput());
+    await user.type(placeInput(), 'Erina{Enter}');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2 })).toHaveFocus();
+    });
+    expect(placeInputAnyway()).not.toBeVisible();
+  });
+
+  it('never folds on a wide screen, where the form is one row', async () => {
+    setScreen({ wide: true });
+    fakeApi();
+    renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    expect(screen.queryByRole('button', { name: 'Change search' })).toBeNull();
+    expect(placeInput()).toBeVisible();
+  });
+});
+
 describe('the clear button in the suburb box', () => {
   it('appears with text, clears it, and leaves focus in the box, ready to type', async () => {
     fakeApi();
@@ -282,6 +373,7 @@ describe('the clear button in the suburb box', () => {
     fakeApi();
     const { user } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    await openSearch(user);
     placeInput().focus();
     await user.tab();
     expect(screen.getByRole('button', { name: 'Clear suburb or postcode' })).toHaveFocus();

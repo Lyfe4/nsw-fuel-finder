@@ -1,8 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatAge, formatAsOf, formatDistance, formatPrice } from './format';
+import { formatAddress, formatAge, formatAsOf, formatDistance, formatPrice } from './format';
 
 describe('format', () => {
+  it.each([
+    ['57 CENTRAL COAST HWY, WEST GOSFORD NSW 2250', '57 Central Coast Hwy, West Gosford NSW 2250'],
+    ['6-8 CENTRAL COAST HWY, KARIONG NSW 2250', '6-8 Central Coast Hwy, Kariong NSW 2250'],
+    ["1A O'CONNELL ST, WAGGA-WAGGA NSW 2650", "1A O'Connell St, Wagga-Wagga NSW 2650"],
+    ['12 NORTHBOURNE AVE, BRADDON ACT 2612', '12 Northbourne Ave, Braddon ACT 2612'],
+    // Anything with a lower-case letter was written with care: left alone.
+    [
+      '55 Central Coast Highway, Gosford West NSW 2250',
+      '55 Central Coast Highway, Gosford West NSW 2250',
+    ],
+    ['459 Pacific Hwy, WYOMING NSW 2250', '459 Pacific Hwy, WYOMING NSW 2250'],
+    ['1 McGraths Hill Rd, McGRATHS HILL NSW 2756', '1 McGraths Hill Rd, McGRATHS HILL NSW 2756'],
+  ])('address %s -> %s', (address, text) => {
+    expect(formatAddress(address)).toBe(text);
+  });
+
   it.each([
     [227.5, '227.5'],
     [230, '230.0'],

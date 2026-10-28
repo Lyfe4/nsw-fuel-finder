@@ -1,31 +1,62 @@
-.card {
+/* Under its row: no box of its own, the row's rule above and below it. */
+.inList {
   display: grid;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background: var(--color-accent-subtle);
+  padding-bottom: var(--space-3);
+}
+
+/* Under the map on a phone: a strip of the same paper, torn off by a dashed rule. */
+.onMap {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-top: var(--rule-width) dashed var(--color-border);
+  background: var(--color-surface);
+}
+
+.top {
+  display: flex;
+  align-items: last baseline;
+  gap: var(--space-2);
 }
 
 .name {
-  font-size: var(--font-size-md);
+  font-size: var(--step-0);
   line-height: var(--line-height-tight);
 }
 
-.price {
-  line-height: var(--line-height-tight);
+.leader {
+  flex: 1;
+  min-width: var(--space-4);
+  border-bottom: 2px dotted var(--color-border);
+  transform: translateY(-0.3em);
 }
 
-.amount {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
+.amount,
+.cheapest {
+  font-family: var(--font-figures);
+  font-size: var(--step-2);
+  font-weight: var(--font-weight-heavy);
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.age,
-.address {
+.cheapest {
+  color: var(--color-accent);
+}
+
+.detail {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  font-size: var(--step--1);
+}
+
+.change {
+  font-weight: var(--font-weight-bold);
+}
+
+.history {
+  font-size: var(--step--1);
+  font-weight: var(--font-weight-bold);
 }
 
 .actions {
@@ -33,4 +64,8 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2);
+}
+
+.close {
+  margin-left: auto;
 }

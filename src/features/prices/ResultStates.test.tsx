@@ -2,7 +2,14 @@ import { focusManager } from '@tanstack/react-query';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { announced, placeInput, renderApp, results } from '@/features/search/testing';
+import {
+  announced,
+  openSearch,
+  placeInput,
+  renderApp,
+  results,
+  stationNames,
+} from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { apiError, FETCHED_AT, fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
 
@@ -34,11 +41,7 @@ describe('result states', () => {
       ),
     ).toBeVisible();
     const list = screen.getByRole('list', { name: 'Stations, nearest first' });
-    expect(
-      within(list)
-        .getAllByRole('heading', { level: 3 })
-        .map((h) => h.textContent),
-    ).toEqual(['Enngonia Store', 'Brewarrina Fuel']);
+    expect(stationNames(list)).toEqual(['Enngonia Store', 'Brewarrina Fuel']);
     expect(announced()).toBe(
       'None within 25 km. The nearest 2 selling Unleaded 91 are 38 to 72 km away. Cheapest of them is 229.9 cents a litre at Brewarrina Fuel.',
     );
@@ -65,6 +68,8 @@ describe('result states', () => {
     const api = fakeApi();
     const { user } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    // On a phone the distance is behind Change once there are results.
+    await openSearch(user);
     const distance = screen.getByRole('combobox', { name: 'Within' });
     expect(
       within(distance)

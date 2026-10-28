@@ -5,7 +5,7 @@
  */
 .down,
 .up {
-  font-size: var(--font-size-sm);
+  font-size: var(--step--1);
   font-weight: var(--font-weight-bold);
   white-space: nowrap;
 }

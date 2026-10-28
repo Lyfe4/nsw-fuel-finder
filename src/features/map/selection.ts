@@ -12,14 +12,12 @@ import type { ResultsLayout } from '../search/searchState';
  * the control that now stands for the same station.
  */
 
-/** Wide screens show the list and the map side by side; narrow ones, one at a time. */
-export type ScreenWidth = 'wide' | 'narrow';
+/** Where a station's card is: under its row in the list, or under the map (phones, Map view). */
+export type CardPlace = 'list' | 'map';
 
 export type FocusTarget =
   | { kind: 'stay' }
-  /** The selected station's card, beside the map. */
-  | { kind: 'card' }
-  /** A station's "Show on map" button in the list. */
+  /** A station's row in the list: the one button that selects it. */
   | { kind: 'list-button'; station: string }
   /** The "Map" button of the list/map switch (phones only). */
   | { kind: 'view-switch' }
@@ -33,11 +31,13 @@ export interface SelectionChange {
   focus: FocusTarget;
 }
 
-/** "Show on map" in the list. On a phone the list goes away, so focus goes to the card. */
-export function showOnMap(station: string, width: ScreenWidth): SelectionChange {
-  return width === 'wide'
-    ? { station, focus: { kind: 'stay' } }
-    : { station, view: 'map', focus: { kind: 'card' } };
+/**
+ * A station's row pressed in the list. The row is a disclosure: it opens
+ * the station's card under it (and selects it on the map), or closes it if
+ * it was open. The row stays where it was, so focus stays on it.
+ */
+export function pickInList(station: string, selected: string | null): SelectionChange {
+  return { station: station === selected ? null : station, focus: { kind: 'stay' } };
 }
 
 /**
@@ -49,16 +49,14 @@ export function pickOnMap(station: string): SelectionChange {
   return { station, focus: { kind: 'stay' } };
 }
 
-/** The card's "Show in list" (phones only): back to the list, on that station. */
-export function showInList(station: string): SelectionChange {
-  return { station, view: 'list', focus: { kind: 'list-button', station } };
-}
-
-/** The card's close button. The card goes away, so focus moves to what led to it. */
-export function closeSelection(station: string, width: ScreenWidth): SelectionChange {
+/**
+ * The card's Close, or Escape inside it. The card goes away, so focus moves
+ * to what led to it: the station's row, or on a phone's map the Map switch.
+ */
+export function closeSelection(station: string, place: CardPlace): SelectionChange {
   return {
     station: null,
-    focus: width === 'wide' ? { kind: 'list-button', station } : { kind: 'view-switch' },
+    focus: place === 'list' ? { kind: 'list-button', station } : { kind: 'view-switch' },
   };
 }
 
@@ -69,15 +67,6 @@ export function closeSelection(station: string, width: ScreenWidth): SelectionCh
  */
 export function clearOnMap(): SelectionChange {
   return { station: null, focus: { kind: 'map' } };
-}
-
-/** Escape in the map's panel: in the card it is the card's Close, anywhere else a tap on nothing. */
-export function escapeSelection(
-  station: string,
-  width: ScreenWidth,
-  inCard: boolean,
-): SelectionChange {
-  return inCard ? closeSelection(station, width) : clearOnMap();
 }
 
 /** The selected station, if the URL names one that is in these results. */

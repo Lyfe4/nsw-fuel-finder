@@ -2,25 +2,25 @@
  * The static pages' own styles: 404.html and privacy.html. They cannot share
  * the app's bundle (its file names are hashed per build), so the few colours
  * they need are copied from src/styles/tokens.css: the light and dark
- * backgrounds, text and accent. They follow the device setting only: without
+ * backgrounds, text and muted text. They follow the device setting only: without
  * script they cannot read the theme stored by the app.
  */
 :root {
   color-scheme: light dark;
-  --bg: #f6f7f9;
-  --text: #161a21;
-  --muted: #5a6170;
-  --accent: #0b6b63;
-  --on-accent: #ffffff;
+  --bg: #e8e5dc;
+  --text: #1c1c1a;
+  --muted: #58564f;
+  --accent: #1c1c1a;
+  --on-accent: #e8e5dc;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1216;
-    --text: #f6f7f9;
-    --muted: #aab1bd;
-    --accent: #5cc8bd;
-    --on-accent: #0f1216;
+    --bg: #0e0f11;
+    --text: #edebe4;
+    --muted: #a8a59c;
+    --accent: #edebe4;
+    --on-accent: #0e0f11;
   }
 }
 

@@ -9,7 +9,7 @@
 }
 
 .heading {
-  font-size: var(--font-size-lg);
+  font-size: var(--step-1);
   line-height: var(--line-height-tight);
 }
 
@@ -18,10 +18,7 @@
 }
 
 .problem {
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-danger);
-  border-left-width: 6px;
-  border-radius: var(--radius-md);
-  background: var(--color-danger-subtle);
+  padding: var(--space-3) 0;
   color: var(--color-danger);
+  font-weight: var(--font-weight-bold);
 }

@@ -1,9 +1,25 @@
-/* Looks like "Show on map" beside it, and is as easy to hit (WCAG 2.5.8). */
+/* A text link, as easy to hit as a button (WCAG 2.5.8). */
 .link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   min-height: var(--target-size);
+}
+
+/* In the station card: the primary action, drawn as the ink button. */
+.primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--target-size);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+  font-size: var(--step--1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+  text-decoration: none;
 }
 
 .icon {

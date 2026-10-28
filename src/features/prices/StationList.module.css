@@ -1,118 +1,99 @@
 .list {
-  display: grid;
-  gap: var(--space-3);
   padding: 0;
   list-style: none;
 }
 
-/*
- * The price sits in its own column on the left, visually first, while the
- * name stays first in reading order (see StationList.tsx).
- */
+/* Rows are divided by a dashed rule, not boxed. */
 .item {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas:
-    'price name'
-    'price meta'
-    'price address'
-    'price updated'
-    'price actions';
-  column-gap: var(--space-4);
-  row-gap: var(--space-1);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  border-bottom: var(--border-width) dashed var(--color-border);
+}
+
+/* The open row: a rule of ink down its left, out in the docket's margin. */
+.selected {
+  margin-left: calc(-1 * var(--space-3));
+  padding-left: calc(var(--space-3) - 3px);
+  border-left: 3px solid var(--color-text);
+}
+
+.heading {
+  font: inherit;
+}
+
+/* The row: one button, the whole width, a comfortable target. */
+.row {
+  display: block;
+  width: 100%;
+  min-height: var(--target-size);
+  padding: var(--space-2) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+/* Drawn inside the row, so the list never clips it. */
+.row:focus-visible {
+  outline-offset: -2px;
+}
+
+.top {
+  display: flex;
+  align-items: last baseline;
+  gap: var(--space-2);
 }
 
 .name {
-  grid-area: name;
-  font-size: var(--font-size-md);
-  line-height: var(--line-height-tight);
-}
-
-.price {
-  grid-area: price;
-  align-self: start;
-  min-width: 5.5rem;
-  line-height: var(--line-height-tight);
-}
-
-.amount {
-  display: block;
-  font-size: var(--font-size-price);
   font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
 }
 
-.unit {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+.row:hover .name {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* The docket's dotted leader from the name to its price. */
+.leader {
+  flex: 1;
+  min-width: var(--space-4);
+  border-bottom: 2px dotted var(--color-border);
+  transform: translateY(-0.3em);
+}
+
+.amount,
+.cheapest {
+  font-family: var(--font-figures);
+  font-size: var(--step-1);
+  font-weight: var(--font-weight-heavy);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cheapest {
+  color: var(--color-accent);
 }
 
 .meta {
-  grid-area: meta;
-}
-
-.address {
-  grid-area: address;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  overflow-wrap: anywhere;
-}
-
-.updated {
-  grid-area: updated;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-/* Picked out on the map: an accent edge that does not rely on colour alone (it is thicker too). */
-.selected {
-  border-color: var(--color-accent);
-  box-shadow: inset var(--space-1) 0 0 var(--color-accent);
-  background: var(--color-accent-subtle);
-}
-
-.actions {
-  grid-area: actions;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--step--1);
 }
 
-/* Quiet to look at, but still a full-size target (WCAG 2.5.8). */
-.actions .showOnMap {
-  min-height: var(--target-size);
-}
-
-.shown {
+/* Not colour alone: the word. */
+.flag {
   color: var(--color-accent);
-  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
 }
 
-/* Not colour alone: the word, in bold, in a box. */
-.badge {
-  display: block;
-  width: fit-content;
-  margin-top: var(--space-1);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-body);
-}
-
-/* A price nobody has touched for a fortnight: bold, in the warning colour, in words. */
+/* A price nobody has touched for a fortnight: bold ink, in words. */
 .old {
-  grid-area: updated;
   color: var(--color-warning);
-  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-heavy);
 }
 
 .more {
@@ -126,30 +107,5 @@
 
 .count {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-/* Today's move, under the price in its column: "↓ 2.0 today". */
-.change {
-  display: block;
-  margin-top: var(--space-1);
-}
-
-/*
- * New cards (a search's results, "Show more") settle into place: a short
- * rise and fade, transform and opacity only, so nothing around them moves
- * (no layout shift). Never from invisible, so the price is readable from the
- * first frame. None at all with reduced motion.
- */
-@media (prefers-reduced-motion: no-preference) {
-  .item {
-    animation: card-in 180ms ease-out;
-  }
-}
-
-@keyframes card-in {
-  from {
-    opacity: 0.5;
-    transform: translateY(0.375rem);
-  }
+  font-size: var(--step--1);
 }

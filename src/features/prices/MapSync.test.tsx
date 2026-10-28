@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { resetWarmedForTests } from '@/features/map/mapStyle';
 import type { StationMapProps } from '@/features/map/StationMap';
-import { renderApp } from '@/features/search/testing';
+import { renderApp, stationRow } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
 import { setScreen } from '@/lib/testing/matchMedia';
@@ -55,13 +55,11 @@ function setup(url = '/?query=Erina') {
 
 const list = () => screen.findByRole('list', { name: 'Stations, cheapest first' });
 const item = (name: string) => {
-  const stations = screen.getByRole('list', { hidden: true, name: 'Stations, cheapest first' });
-  const heading = within(stations).getByRole('heading', { level: 3, name, hidden: true });
-  const li = heading.closest('li');
+  const li = stationRow(name).closest('li');
   if (!li) throw new Error(`no list item for ${name}`);
   return li;
 };
-const showOnMap = (name: string) => screen.getByRole('button', { name: `Show on map, ${name}` });
+const open = (name: string) => stationRow(name).getAttribute('aria-expanded') === 'true';
 const viewButton = (name: 'List' | 'Map') => screen.getByRole('button', { name });
 const canvas = () => screen.getByTestId('map-canvas');
 /** A tap on the map away from every station, as StationMap reports it. */
@@ -94,21 +92,63 @@ describe('list and map, on a phone', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('"Show on map" switches to the map with focus on the station’s card', async () => {
-    const { user } = setup();
+  it('a row opens its card in the list, selects it, and does not load the map', async () => {
+    const { user, container } = setup();
     await list();
-    await user.click(showOnMap('Metro Gosford'));
+    await user.click(stationRow('Metro Gosford'));
 
-    const card = await screen.findByRole('heading', { level: 3, name: 'Metro Gosford' });
-    expect(card).toHaveFocus();
-    expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map&station=2');
-    expect(map.props?.selected).toBe('2');
-
-    // "Show in list" goes back, with focus on the same station's button.
-    await user.click(screen.getByRole('button', { name: 'Show in list' }));
-    expect(showOnMap('Metro Gosford')).toHaveFocus();
-    expect(item('Metro Gosford')).toHaveTextContent('Shown on map');
+    expect(open('Metro Gosford')).toBe(true);
+    expect(stationRow('Metro Gosford')).toHaveFocus();
     expect(window.location.search).toBe('?fuel=U91&query=Erina&station=2');
+    expect(
+      within(item('Metro Gosford')).getByRole('button', { name: 'Close, Metro Gosford' }),
+    ).toBeVisible();
+    // Still the list: a phone reading a station does not download MapLibre.
+    expect(screen.queryByTestId('map')).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    // Map then shows it selected, with the card under the map.
+    await user.click(viewButton('Map'));
+    await screen.findByTestId('map');
+    expect(map.props?.selected).toBe('2');
+    expect(screen.getByRole('heading', { level: 3, name: 'Metro Gosford' })).toBeVisible();
+    await expectNoAxeViolations(container);
+
+    // And back: the row is still open.
+    await user.click(viewButton('List'));
+    expect(open('Metro Gosford')).toBe(true);
+  });
+
+  it('pressing an open row again closes it, focus staying on the row', async () => {
+    const { user } = setup('/?query=Erina&station=2');
+    await list();
+    expect(open('Metro Gosford')).toBe(true);
+    await user.click(stationRow('Metro Gosford'));
+    expect(open('Metro Gosford')).toBe(false);
+    expect(stationRow('Metro Gosford')).toHaveFocus();
+    expect(window.location.search).toBe('?fuel=U91&query=Erina');
+  });
+
+  it('opening one row closes the other', async () => {
+    const { user } = setup('/?query=Erina&station=2');
+    await list();
+    await user.click(stationRow('Shell Wyoming'));
+    expect(open('Shell Wyoming')).toBe(true);
+    expect(open('Metro Gosford')).toBe(false);
+  });
+
+  it('Close, or Escape, in a row’s card closes it and returns focus to the row', async () => {
+    const { user } = setup('/?query=Erina&station=2');
+    await list();
+    await user.click(screen.getByRole('button', { name: 'Close, Metro Gosford' }));
+    expect(stationRow('Metro Gosford')).toHaveFocus();
+    expect(window.location.search).toBe('?fuel=U91&query=Erina');
+
+    await user.click(stationRow('Metro Gosford'));
+    screen.getByRole('button', { name: 'Favourite, Metro Gosford' }).focus();
+    await user.keyboard('{Escape}');
+    expect(open('Metro Gosford')).toBe(false);
+    expect(stationRow('Metro Gosford')).toHaveFocus();
   });
 
   it('closing the card moves focus to the Map switch, never to the page', async () => {
@@ -123,7 +163,7 @@ describe('list and map, on a phone', () => {
     setup('/?query=Erina&view=map&station=3');
     await screen.findByTestId('map');
     // Focus in the card, which is about to go: it must land on the map, not the page.
-    screen.getByRole('button', { name: 'Show in list' }).focus();
+    screen.getByRole('button', { name: 'Favourite, Shell Wyoming' }).focus();
     tapNothing();
     expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map');
     expect(screen.queryByRole('heading', { level: 3, name: 'Shell Wyoming' })).toBeNull();
@@ -133,7 +173,7 @@ describe('list and map, on a phone', () => {
   it('Escape in the card is its Close: focus to the Map switch', async () => {
     const { user } = setup('/?query=Erina&view=map&station=3');
     await screen.findByTestId('map');
-    screen.getByRole('button', { name: 'Show in list' }).focus();
+    screen.getByRole('button', { name: 'Favourite, Shell Wyoming' }).focus();
     await user.keyboard('{Escape}');
     expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map');
     expect(viewButton('Map')).toHaveFocus();
@@ -150,19 +190,22 @@ describe('list and map, on a wide screen', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('"Show on map" highlights the station on the map and keeps focus on the button', async () => {
+  it('a row highlights its station on the map, opens its card in the list, and keeps focus', async () => {
     setScreen({ wide: true });
-    const { user } = setup();
+    const { user, container } = setup();
     await list();
-    await user.click(showOnMap('Shell Wyoming'));
+    await user.click(stationRow('Shell Wyoming'));
 
-    expect(showOnMap('Shell Wyoming')).toHaveFocus();
-    expect(item('Shell Wyoming')).toHaveTextContent('Shown on map');
+    expect(stationRow('Shell Wyoming')).toHaveFocus();
+    expect(open('Shell Wyoming')).toBe(true);
     expect(map.props).toMatchObject({ selected: '3', showRequest: 1 });
+    // One card, in the list: none repeated under the map.
+    expect(screen.getAllByRole('button', { name: 'Close, Shell Wyoming' })).toHaveLength(1);
+    await expectNoAxeViolations(container);
 
-    // Asking again re-centres the map, even though the selection is the same.
-    await user.click(showOnMap('Shell Wyoming'));
-    expect(map.props?.showRequest).toBe(2);
+    // Pressed again, it closes.
+    await user.click(stationRow('Shell Wyoming'));
+    expect(map.props?.selected).toBeNull();
   });
 
   it('picking a dot highlights and scrolls to the list item, without taking focus', async () => {
@@ -178,16 +221,11 @@ describe('list and map, on a wide screen', () => {
     search.focus();
 
     await waitFor(() => {
-      expect(item('Metro Gosford')).toHaveTextContent('Shown on map');
+      expect(open('Metro Gosford')).toBe(true);
     });
     expect(scrolled.mock.contexts.at(-1)).toBe(item('Metro Gosford'));
     expect(search).toHaveFocus();
-    expect(
-      within(screen.getByTestId('map').parentElement?.parentElement ?? document.body).getByRole(
-        'heading',
-        { level: 3, name: 'Metro Gosford' },
-      ),
-    ).toBeInTheDocument();
+    expect(within(item('Metro Gosford')).getByRole('link', { name: /^Directions/ })).toBeVisible();
   });
 
   it('closing the card returns focus to the station’s list button', async () => {
@@ -195,7 +233,7 @@ describe('list and map, on a wide screen', () => {
     const { user } = setup('/?query=Erina&station=1');
     await screen.findByTestId('map');
     await user.click(screen.getByRole('button', { name: 'Close, Ampol Erina' }));
-    expect(showOnMap('Ampol Erina')).toHaveFocus();
+    expect(stationRow('Ampol Erina')).toHaveFocus();
     expect(window.location.search).toBe('?fuel=U91&query=Erina');
   });
 
@@ -208,7 +246,7 @@ describe('list and map, on a wide screen', () => {
     tapNothing();
     expect(window.location.search).toBe('?fuel=U91&query=Erina');
     expect(screen.queryByRole('button', { name: 'Close, Ampol Erina' })).toBeNull();
-    expect(item('Ampol Erina')).not.toHaveTextContent('Shown on map');
+    expect(open('Ampol Erina')).toBe(false);
     expect(search).toHaveFocus();
   });
 
@@ -244,14 +282,14 @@ describe('list and map, on a wide screen', () => {
     screen.getByRole('button', { name: 'Close, Ampol Erina' }).focus();
     await user.keyboard('{Escape}');
     expect(window.location.search).toBe('?fuel=U91&query=Erina');
-    expect(showOnMap('Ampol Erina')).toHaveFocus();
+    expect(stationRow('Ampol Erina')).toHaveFocus();
   });
 
   it('a shared link opens on its station; a new search clears it', async () => {
     setScreen({ wide: true });
     const { user } = setup('/?query=Erina&station=2');
     await list();
-    expect(item('Metro Gosford')).toHaveTextContent('Shown on map');
+    expect(open('Metro Gosford')).toBe(true);
 
     const search = screen.getByRole('combobox', { name: /suburb or postcode/i });
     await user.clear(search);
@@ -327,15 +365,16 @@ describe('when a wide screen’s map starts', () => {
     expect(screen.queryByRole('button', { name: 'Show the map' })).not.toBeInTheDocument();
   });
 
-  it('on "Show on map" too, which keeps focus on the list', async () => {
+  it('not when a row is opened: reading a station never costs the software map’s freeze', async () => {
     renderer('Google SwiftShader');
     const { user } = setupWide();
     await list();
     await screen.findByRole('button', { name: 'Show the map' });
-    await user.click(showOnMap('Metro Gosford'));
-    expect(await screen.findByTestId('map')).toBeVisible();
-    expect(map.props).toMatchObject({ selected: '2', focusOnStart: false });
-    expect(showOnMap('Metro Gosford')).toHaveFocus();
+    await user.click(stationRow('Metro Gosford'));
+    expect(open('Metro Gosford')).toBe(true);
+    expect(screen.queryByTestId('map')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show the map' })).toBeVisible();
+    expect(stationRow('Metro Gosford')).toHaveFocus();
   });
 
   it('when asked in Chrome, whose debug extension names the software renderer', async () => {

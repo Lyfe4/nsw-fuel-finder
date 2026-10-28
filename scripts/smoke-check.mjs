@@ -258,18 +258,16 @@ try {
     if (itemBox && itemBox.y > 0 && itemBox.y + itemBox.height < 800) break;
   }
   const second = items.nth(index);
-  const name = await second.getByRole('heading').textContent();
-  const show = second.getByRole('button', { name: /^Show on map/ });
+  // The row: a heading holding one button, which opens the station's card.
+  const show = second.getByRole('heading').getByRole('button');
+  const isOpen = () => show.evaluate((el) => el.getAttribute('aria-expanded') === 'true');
+  const cards = () => page.getByRole('button', { name: /^Close/ }).count();
   await show.click();
   await page.waitForURL(/station=/);
   const picked = station(page.url());
-  check('"Show on map" selects the station in the URL', Boolean(picked), picked ?? '');
-  check('the list item is highlighted', await second.getByText('Shown on map').isVisible());
-  check('focus stays on the button', await show.evaluate((el) => el === document.activeElement));
-  check(
-    'the card beside the map names the station',
-    (await page.locator(`h3:has-text("${name}")`).count()) === 2,
-  );
+  check('a station’s row selects it in the URL', Boolean(picked), picked ?? '');
+  check('the row opens, with its card under it', (await isOpen()) && (await cards()) === 1);
+  check('focus stays on the row', await show.evaluate((el) => el === document.activeElement));
 
   const badge = await badgePresent(page);
   check(
@@ -287,7 +285,7 @@ try {
   await page.getByRole('button', { name: /^Close/ }).click();
   await page.waitForURL((url) => !url.searchParams.has('station'));
   check(
-    'closing the card returns focus to the list button',
+    'closing the card returns focus to the station’s row',
     await show.evaluate((el) => el === document.activeElement),
   );
 
@@ -310,10 +308,7 @@ try {
     station(page.url()) === picked,
     station(page.url()) ?? 'none',
   );
-  check(
-    'and the list item is highlighted again',
-    await second.getByText('Shown on map').isVisible(),
-  );
+  check('and its row opens again', await isOpen());
 
   // Escape on the map clears the selection; the map keeps focus.
   await canvas.focus();
@@ -347,7 +342,7 @@ try {
     cleared > 0,
     cleared ? `spot ${String(cleared)}` : 'every spot tried held a station',
   );
-  check('and closes the card', (await page.locator(`h3:has-text("${name}")`).count()) === 1);
+  check('and closes the card', (await cards()) === 0 && !(await isOpen()));
 
   // Selected again, for the checks that follow.
   await show.click();
@@ -364,7 +359,7 @@ try {
   );
   check(
     'the station is still selected on the dark map',
-    station(page.url()) === picked && (await second.getByText('Shown on map').isVisible()),
+    station(page.url()) === picked && (await isOpen()),
   );
   await page.getByRole('combobox', { name: 'Theme' }).selectOption('system');
 
@@ -379,7 +374,7 @@ try {
   check('"Show 20 more" lists 40', (await list.getByRole('listitem').count()) === 40);
   check(
     'and focus moves to the 21st station',
-    await page.evaluate(() => document.activeElement?.tagName === 'H3'),
+    await page.evaluate(() => document.activeElement?.parentElement?.tagName === 'H3'),
   );
 
   // Distance: four steps, in the URL.
@@ -395,11 +390,11 @@ try {
 
   // Round 8: the summary sentence, sort, filters and directions.
   check(
-    'the price summary is one sentence over the list',
-    await page
-      .getByRole('paragraph')
-      .filter({ hasText: /^Cheapest [\d.]+, average [\d.]+ cents a litre\./ })
-      .isVisible(),
+    'the summary is a few words beside the heading, and one sentence for screen readers',
+    (await page.getByText(/^(save \$[\d.]+ on 50 L|average [\d.]+)$/).isVisible()) &&
+      (await page
+        .getByText(/^Cheapest [\d.]+, average [\d.]+ cents a litre\./)
+        .evaluate((el) => el.getAttribute('aria-hidden') === null)),
   );
   const sort = page.getByRole('combobox', { name: 'Sort' });
   await sort.selectOption('distance');
@@ -418,18 +413,16 @@ try {
   await sort.selectOption('price');
   await page.getByText('Filters:').click();
   const firstBrand = page.getByRole('group', { name: 'Brands' }).getByRole('checkbox').first();
-  const brandName = (await firstBrand.locator('xpath=..').textContent())?.replace(/ \(\d+\)$/, '');
+  const brandLabel = (await firstBrand.locator('xpath=..').textContent()) ?? '';
+  const brandCount = Number(/\((\d+)\)$/.exec(brandLabel)?.[1]);
   await firstBrand.check();
   await page.waitForURL(/brand=/);
-  const brands = await list.evaluate((el) =>
-    [...el.querySelectorAll(':scope > li')].map(
-      (li) => /^(.*) · /.exec(li.querySelector('p:nth-of-type(2)')?.textContent ?? '')?.[1],
-    ),
-  );
+  // The row no longer shows the brand (its card does): count the rows instead.
+  const rows = await list.getByRole('listitem').count();
   check(
-    'ticking a brand lists only that brand, kept in the URL',
-    brands.length > 0 && brands.every((brand) => brand === brandName),
-    `${brandName ?? ''}: ${String(brands.length)}`,
+    'ticking a brand lists only that brand’s stations, kept in the URL',
+    rows > 0 && rows === Math.min(brandCount, 20),
+    `${brandLabel}: ${String(rows)}`,
   );
   check(
     'the heading says how many of how many',
@@ -443,6 +436,9 @@ try {
   );
   await page.getByRole('button', { name: 'Clear filters' }).click();
   await page.waitForURL((url) => !url.searchParams.has('brand'));
+  // Directions, the star and the history link are in a station's card.
+  await list.getByRole('heading').first().getByRole('button').click();
+  await page.waitForURL(/station=/);
   const directions = list
     .getByRole('link', { name: /^Directions to .*, opens in a new tab$/ })
     .first();
@@ -529,18 +525,15 @@ try {
       (await search.evaluate((el) => el === document.activeElement)),
   );
 
-  // Very wide: the search form in its own column, still in view down the list.
+  // Very wide: the search form is one row above the results.
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto(`${BASE}/?fuel=U91&query=2150&radius=10`);
   await list.getByRole('listitem').first().waitFor();
-  await page.evaluate(() => {
-    window.scrollTo(0, 1500);
-  });
   const form = await page.getByRole('search').boundingBox();
   const listBox = await list.boundingBox();
   check(
-    'at 1600 px the search form sits beside the list and stays in view',
-    Boolean(form && listBox) && form.x + form.width < listBox.x && form.y >= 0 && form.y < 100,
+    'at 1600 px the search form is one row above the results',
+    Boolean(form && listBox) && form.height < 120 && form.y + form.height <= listBox.y,
   );
   await page.setViewportSize({ width: 1280, height: 800 });
 
@@ -557,6 +550,22 @@ try {
   await mobile.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
   const mapButton = mobile.getByRole('button', { name: 'Map', exact: true });
   check('phone shows the List/Map switch', await mapButton.isVisible());
+  check(
+    'on a phone the search folds into one line after a search, the fuel still a select',
+    (await mobile.getByRole('button', { name: 'Change search' }).isVisible()) &&
+      (await mobile.getByRole('combobox', { name: 'Fuel' }).isVisible()) &&
+      !(await mobile.getByRole('combobox', { name: /suburb or postcode/i }).isVisible()),
+  );
+  check(
+    'the first price is on the first screen',
+    (
+      (await mobile
+        .getByRole('list', { name: 'Stations, cheapest first' })
+        .getByRole('heading')
+        .first()
+        .boundingBox()) ?? { y: Infinity }
+    ).y < 500,
+  );
   check('MapLibre is not downloaded for the list', (await mapChunks(mobile)) === 0);
   await mapButton.click();
   await mobile.locator('canvas.maplibregl-canvas').waitFor();
@@ -572,10 +581,17 @@ try {
   // nothing clears it.
   await mobile.getByRole('button', { name: 'List', exact: true }).click();
   await mobile
-    .getByRole('button', { name: /^Show on map/ })
+    .getByRole('list', { name: 'Stations, cheapest first' })
+    .getByRole('heading')
     .first()
+    .getByRole('button')
     .click();
   await mobile.waitForURL(/station=/);
+  check(
+    'on a phone a row opens its card in the list, without switching to the map',
+    new URL(mobile.url()).searchParams.get('view') === null,
+  );
+  await mapButton.click();
   await mobile.waitForTimeout(1500);
   const phoneCanvas = mobile.locator('canvas.maplibregl-canvas');
   const phoneBox = await phoneCanvas.boundingBox();

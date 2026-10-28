@@ -10,7 +10,7 @@ const rootElement = document.getElementById('root');
 // Non-null assertions are banned, so the missing-element case is handled for
 // real. `getElementById` returns `HTMLElement | null` and this narrows it.
 if (!rootElement) {
-  throw new Error('NSW Fuel Finder could not start: no #root element in index.html');
+  throw new Error('Fuel Finder could not start: no #root element in index.html');
 }
 
 createRoot(rootElement).render(

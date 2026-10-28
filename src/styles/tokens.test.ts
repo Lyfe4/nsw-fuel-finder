@@ -120,21 +120,23 @@ const PAIRS: [string, string, number][] = [
   ['--color-text', '--color-surface', 4.5],
   ['--color-text-muted', '--color-surface', 4.5],
   ['--color-text-muted', '--color-bg', 4.5],
-  ['--color-text-muted', '--color-accent-subtle', 4.5],
+  // Primary buttons and the pressed List/Map switch.
+  ['--color-on-ink', '--color-ink', 4.5],
+  ['--color-ink', '--color-surface', 4.5],
+  ['--color-ink', '--color-bg', 4.5],
+  // The cheapest price and "Cheapest", a price's move today, the cheapest map tag.
   ['--color-on-accent', '--color-accent', 4.5],
-  ['--color-on-accent', '--color-accent-hover', 4.5],
   ['--color-accent', '--color-surface', 4.5],
   ['--color-accent', '--color-bg', 4.5],
-  ['--color-accent', '--color-accent-subtle', 4.5],
+  ['--color-accent', '--color-highlight', 4.5],
+  // The active place suggestion, the map's loading placeholder, the loading skeleton.
   ['--color-text', '--color-highlight', 4.5],
-  // The map's loading placeholder and the loading skeleton.
   ['--color-text-muted', '--color-highlight', 4.5],
-  ['--color-text', '--color-accent-subtle', 4.5],
-  ['--color-danger', '--color-danger-subtle', 4.5],
-  ['--color-warning', '--color-warning-subtle', 4.5],
-  // An old price is warning text on a station card, selected or not.
+  ['--color-danger', '--color-surface', 4.5],
+  ['--color-danger', '--color-bg', 4.5],
+  // An old price is warning text on a station row, on paper or the counter.
   ['--color-warning', '--color-surface', 4.5],
-  ['--color-warning', '--color-accent-subtle', 4.5],
+  ['--color-warning', '--color-bg', 4.5],
   // Non-text: the focus ring and control borders need 3:1 (WCAG 1.4.11).
   ['--color-focus', '--color-surface', 3],
   ['--color-focus', '--color-bg', 3],
@@ -161,6 +163,14 @@ describe('design tokens', () => {
   it.each(Object.entries(modules))('%s writes no colour of its own', (_, css) => {
     const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
     expect(withoutComments).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|--palette-/i);
+  });
+
+  it.each(Object.entries(modules))('%s uses only tokens that exist', (_, css) => {
+    const used = [...css.matchAll(/var\((--[\w-]+)/g)].map(([, name]) => name ?? '');
+    // Custom properties a module sets for itself are its own business.
+    const own = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(([, name]) => name));
+    const missing = used.filter((name) => !own.has(name) && !light.has(name));
+    expect(missing).toEqual([]);
   });
 
   it('dark mode re-points every colour token, and only colour tokens', () => {

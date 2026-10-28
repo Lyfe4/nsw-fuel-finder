@@ -69,8 +69,12 @@ export function LazyStationMap({ automatic, ...props }: LazyStationMapProps) {
   const [start, setStart] = useState<Start>(() =>
     automatic && !mapChosen() ? 'waiting' : 'started',
   );
-  // "Show on map" in the list asks for the map too.
-  if (props.showRequest > 0 && start !== 'started') setStart('started');
+  /*
+   * Opening a station's row does not start a map that is waiting to be
+   * asked (software WebGL): the row is how a station is read now, and the
+   * software map's first draw would freeze the page for a second or more
+   * every time. "Show the map" is the one way to start it.
+   */
 
   // The "Show the map" button goes away when pressed. Focus goes to the
   // placeholder while MapLibre downloads, then to the map itself.

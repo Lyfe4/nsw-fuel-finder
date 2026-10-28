@@ -1,12 +1,10 @@
+/* A problem: the sentence in the danger colour, the action under it. No tinted box. */
 .problem {
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-danger);
-  border-left-width: 6px;
-  border-radius: var(--radius-md);
-  background: var(--color-danger-subtle);
+  padding: var(--space-3) 0;
   color: var(--color-danger);
+  font-weight: var(--font-weight-bold);
 }
 
 .actions {
@@ -23,22 +21,16 @@
   list-style: none;
 }
 
+/* Old prices: said in words, in bold ink, between dashed rules. */
 .stale {
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--color-warning);
-  border-left-width: 6px;
-  border-radius: var(--radius-md);
-  background: var(--color-warning-subtle);
+  padding: var(--space-2) 0;
+  border-block: var(--border-width) dashed var(--color-border);
   color: var(--color-warning);
 }
 
-/* "Which did you mean?": a question, not an error, so the accent, not the danger red. */
+/* "Which did you mean?": a question, not an error. */
 .question {
   display: grid;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-accent);
-  border-left-width: 6px;
-  border-radius: var(--radius-md);
-  background: var(--color-accent-subtle);
+  padding: var(--space-3) 0;
 }

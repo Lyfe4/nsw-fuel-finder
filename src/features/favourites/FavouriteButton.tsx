@@ -22,7 +22,16 @@ import { useFavourites } from './useFavourites';
  * press failed) rather than doing nothing. The button stays enabled: a
  * disabled one would explain nothing, and drop out of the Tab order.
  */
-export function FavouriteButton({ code, name }: { code: string; name: string }) {
+export function FavouriteButton({
+  code,
+  name,
+  variant = 'quiet',
+}: {
+  code: string;
+  name: string;
+  /** Quiet text (rows, history) or a bordered button (the station card). */
+  variant?: 'quiet' | 'secondary';
+}) {
   const { favourites, toggleFavourite } = useFavourites();
   const [pressed, setPressed] = useState(false);
   const [full, setFull] = useState(false);
@@ -33,7 +42,7 @@ export function FavouriteButton({ code, name }: { code: string; name: string }) 
   return (
     <>
       <Button
-        variant="quiet"
+        variant={variant}
         className={styles.button}
         aria-pressed={saved}
         onClick={() => {

@@ -98,7 +98,7 @@ try {
       theme: document.documentElement.dataset.theme,
       background: getComputedStyle(document.body).backgroundColor,
     }));
-    const dark = painted.background === 'rgb(15, 18, 22)';
+    const dark = painted.background === 'rgb(14, 15, 17)'; // --palette-night-950
     check(
       `first paint, device ${scheme}, stored ${stored ?? 'nothing'}: ${expected}`,
       painted.theme === expected && dark === (expected === 'dark'),
@@ -124,9 +124,12 @@ try {
     await page.waitForFunction(() => !document.body.textContent?.includes('Loading map…'), null, {
       timeout: 30_000,
     });
+    // A station's row opens its card in the list.
     await page
-      .getByRole('button', { name: /^Show on map/ })
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .getByRole('heading')
       .first()
+      .getByRole('button')
       .click();
     await page.waitForURL(/station=/);
     await axe(page, `${theme}, wide results with map and card`);
@@ -164,6 +167,13 @@ try {
     await page.getByRole('button', { name: 'Show 20 more' }).waitFor();
 
     // A station's price history, its table open, and favourites with one saved.
+    // The star and the history link are in the station's card: open its row.
+    await page
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .getByRole('heading')
+      .first()
+      .getByRole('button')
+      .click();
     await page
       .getByRole('button', { name: /^Favourite/ })
       .first()

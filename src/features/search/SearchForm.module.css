@@ -1,72 +1,124 @@
+/*
+ * No box: the form sits on the counter under the masthead. Phone: fuel and
+ * distance on one row, the place and Search on the next. Wide: all one row.
+ */
 .form {
   display: grid;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  grid-template-areas:
+    'fuel within'
+    'place submit'
+    'error error'
+    'locate locate';
+  align-items: end;
+  gap: var(--space-2) var(--space-2);
 }
 
 .field {
   display: grid;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
-/* Fuel and distance side by side: the fuel takes the room, the distance only what it needs. */
-.choices {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
+.field:first-child {
+  grid-area: fuel;
+}
+
+.field:nth-child(2) {
+  grid-area: within;
+}
+
+.place {
+  grid-area: place;
 }
 
 .label {
+  font-size: var(--step--1);
   font-weight: var(--font-weight-bold);
 }
 
 .select {
   min-height: var(--target-size);
   padding: var(--space-2) var(--space-3);
-  border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border: var(--rule-width) solid var(--color-border-strong);
+  border-radius: var(--radius);
   background: var(--color-surface);
-}
-
-/* Stacked on a phone; the button sits beside the input when there is room. */
-.placeRow {
-  display: grid;
-  gap: var(--space-2);
-}
-
-@media (min-width: 30rem) {
-  .placeRow {
-    grid-template-columns: 1fr auto;
-    align-items: end;
-  }
+  color: var(--color-text);
 }
 
 .submit {
-  width: 100%;
-}
-
-@media (min-width: 30rem) {
-  .submit {
-    width: auto;
-  }
+  grid-area: submit;
 }
 
 .error {
+  grid-area: error;
   color: var(--color-danger);
-  font-size: var(--font-size-sm);
+  font-size: var(--step--1);
 }
 
-.or {
+.locate {
+  grid-area: locate;
+  justify-self: start;
+  font-size: var(--step--1);
+  font-weight: var(--font-weight-bold);
+}
+
+/*
+ * Folded (a phone, after a search): one line. The fuel is a native select
+ * drawn as bold text, with a caret; its focus ring is the global one.
+ */
+.folded {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
-.note {
+.fuelSelect,
+.fuelText {
+  font-weight: var(--font-weight-bold);
+}
+
+.fuelSelect {
+  /* As wide as the chosen fuel, so the caret sits beside it. Chromium only so far; elsewhere it is as wide as the longest option, which still works. */
+  field-sizing: content;
+  min-height: var(--target-size);
+  margin-left: calc(-1 * var(--space-1));
+  padding: 0 var(--space-4) 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius);
+  appearance: none;
+  background: transparent linear-gradient(45deg, transparent 50%, currentColor 50%) right 6px
+    center / 5px 5px no-repeat;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.fuelSelect:hover {
+  text-decoration: underline;
+}
+
+.where {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+}
+
+.change {
+  min-height: 2.25rem;
+  margin-left: auto;
+  padding-block: var(--space-1);
+}
+
+@media (min-width: 60rem) {
+  .form {
+    grid-template-columns: minmax(10rem, 1fr) 7rem minmax(14rem, 1.6fr) auto auto;
+    grid-template-areas:
+      'fuel within place submit locate'
+      'error error error error error';
+    column-gap: var(--space-3);
+  }
+
+  .locate {
+    align-self: center;
+    min-height: var(--target-size);
+  }
 }
