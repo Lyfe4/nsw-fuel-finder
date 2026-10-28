@@ -114,7 +114,7 @@ export const PALETTES = {
       bandMid: '#77736a',
       bandHigh: '#a4520c',
       land: '#f3f1ea',
-      water: '#d4d1c8',
+      water: '#d3dfe4',
       green: '#e6e4da',
     },
     dark: {
@@ -133,7 +133,7 @@ export const PALETTES = {
       bandMid: '#9c988e',
       bandHigh: '#f0954a',
       land: '#141518',
-      water: '#22242a',
+      water: '#1b2932',
       green: '#1a1c1e',
     },
   },

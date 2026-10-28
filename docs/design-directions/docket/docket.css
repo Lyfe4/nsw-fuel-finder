@@ -1,0 +1,932 @@
+/*
+ * Docket, round 2 mockups: the chosen direction with the owner's notes
+ * applied. Shared by phone.html and desktop.html. Tokens are laid out as
+ * src/styles/tokens.css will be: primitives, then semantic tokens, then a
+ * dark block that re-points only the semantic colours.
+ */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url(../fonts/atkinson-next-wght.woff2) format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Mono';
+  src: url(../fonts/atkinson-mono-wght.woff2) format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  /* --- Primitives --- */
+  --palette-counter: #e8e5dc;
+  --palette-thermal: #fbfaf6;
+  --palette-ink: #1c1c1a;
+  --palette-ink-600: #58564f;
+  --palette-ink-500: #7a776f;
+  --palette-ink-400: #8e8b83;
+  --palette-ink-200: #d6d3ca;
+  --palette-night-950: #0e0f11;
+  --palette-night-900: #17181b;
+  --palette-night-700: #2c2e33;
+  --palette-night-600: #5c5a55;
+  --palette-night-500: #7d7a73;
+  --palette-night-400: #a8a59c;
+  --palette-night-50: #edebe4;
+  --palette-carbon-700: #1f55a8;
+  --palette-carbon-300: #86b4f0;
+  --palette-band-low: #1f55a8;
+  --palette-band-mid: #77736a;
+  --palette-band-high: #a4520c;
+  --palette-band-low-dark: #86b4f0;
+  --palette-band-mid-dark: #9c988e;
+  --palette-band-high-dark: #f0954a;
+  --palette-map-land: #f3f1ea;
+  --palette-map-water: #d3dfe4;
+  --palette-map-shore: #8fa7b1;
+  --palette-map-green: #e6e4da;
+  --palette-map-land-dark: #141518;
+  --palette-map-water-dark: #1b2932;
+  --palette-map-shore-dark: #3d5562;
+  --palette-map-green-dark: #1a1c1e;
+
+  /* --- Semantic: colour --- */
+  --color-bg: var(--palette-counter);
+  --color-surface: var(--palette-thermal);
+  --color-text: var(--palette-ink);
+  --color-text-muted: var(--palette-ink-600);
+  --color-rule: var(--palette-ink-400);
+  --color-rule-quiet: var(--palette-ink-200);
+  --color-border-strong: var(--palette-ink-500);
+  --color-accent: var(--palette-carbon-700);
+  --color-on-accent: var(--palette-thermal);
+  --color-focus: var(--palette-carbon-700);
+  --color-price-low: var(--palette-band-low);
+  --color-price-mid: var(--palette-band-mid);
+  --color-price-high: var(--palette-band-high);
+  --color-map-land: var(--palette-map-land);
+  --color-map-water: var(--palette-map-water);
+  --color-map-shore: var(--palette-map-shore);
+  --color-map-green: var(--palette-map-green);
+
+  /* --- Semantic: type --- */
+  --font-text: 'Atkinson Hyperlegible Next', Verdana, sans-serif;
+  --font-figures: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+  /* Utopia: 320 px at 1.2 to 1440 px at 1.25, 16 px to 18 px base. */
+  --step--2: clamp(0.69rem, 0.68rem + 0.06vw, 0.74rem);
+  --step--1: clamp(0.83rem, 0.81rem + 0.1vw, 0.91rem);
+  --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
+  --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
+  --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
+  --step-3: clamp(1.73rem, 1.62rem + 0.48vw, 2.2rem);
+  --step-4: clamp(2.07rem, 1.92rem + 0.69vw, 2.75rem);
+
+  /* --- Semantic: space (4 px base) --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --radius: 3px;
+}
+:root[data-theme='dark'] {
+  --color-bg: var(--palette-night-950);
+  --color-surface: var(--palette-night-900);
+  --color-text: var(--palette-night-50);
+  --color-text-muted: var(--palette-night-400);
+  --color-rule: var(--palette-night-600);
+  --color-rule-quiet: var(--palette-night-700);
+  --color-border-strong: var(--palette-night-500);
+  --color-accent: var(--palette-carbon-300);
+  --color-on-accent: var(--palette-night-900);
+  --color-focus: var(--palette-carbon-300);
+  --color-price-low: var(--palette-band-low-dark);
+  --color-price-mid: var(--palette-band-mid-dark);
+  --color-price-high: var(--palette-band-high-dark);
+  --color-map-land: var(--palette-map-land-dark);
+  --color-map-water: var(--palette-map-water-dark);
+  --color-map-shore: var(--palette-map-shore-dark);
+  --color-map-green: var(--palette-map-green-dark);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+body {
+  background: #777;
+  font-family: var(--font-text);
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+  align-items: flex-start;
+}
+.screen {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--step-0);
+  line-height: 1.45;
+  position: relative;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.phone {
+  width: 390px;
+  height: 844px;
+}
+.desktop {
+  width: 1280px;
+  height: 800px;
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Short labels only: letter-spaced mono caps. */
+.label {
+  font-family: var(--font-figures);
+  font-size: var(--step--2);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* --- Masthead: one line --- */
+.mast {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px var(--space-4) 6px;
+}
+.wordmark {
+  font-family: var(--font-figures);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.region {
+  font-family: var(--font-figures);
+  font-size: var(--step--2);
+  color: var(--color-text-muted);
+  letter-spacing: 0.06em;
+}
+
+/* --- Search --- */
+.search {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: end;
+}
+.field {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+.field.narrow {
+  flex: 0 0 96px;
+}
+.field label .hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-text);
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+select,
+input {
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  height: 44px;
+  padding: 0 var(--space-3);
+  width: 100%;
+  appearance: none;
+}
+select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 19px,
+    calc(100% - 12px) 19px;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+.go {
+  height: 44px;
+  padding: 0 var(--space-4);
+  font-family: var(--font-figures);
+  font-size: var(--step--1);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--color-text);
+  color: var(--color-surface);
+  border: 0;
+  border-radius: var(--radius);
+}
+.loc {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+.textbtn {
+  font: inherit;
+  font-weight: 700;
+  color: var(--color-text);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* The designed focus state: a 2 px ring in the accent, 2 px off the element. */
+.focus-demo {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.fav {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 var(--space-4);
+  padding: 8px 0;
+  border-top: 1.5px solid var(--color-text);
+}
+.fav .count {
+  font-family: var(--font-figures);
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+
+/* --- The docket: one strip, torn once at the top --- */
+.docket {
+  margin: var(--space-2) 10px 0;
+  background: var(--color-surface);
+  position: relative;
+  padding: 18px var(--space-3) var(--space-3);
+}
+.docket::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  height: 7px;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x,
+    linear-gradient(225deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x;
+}
+h2 {
+  font-size: var(--step-0);
+  font-weight: 750;
+  line-height: 1.25;
+}
+.asof {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Leaders: name, dots, price, on the last line's baseline. */
+.line {
+  display: flex;
+  align-items: last baseline;
+  gap: 6px;
+}
+.line .lead {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 2px dotted var(--color-rule);
+  transform: translateY(-5px);
+}
+
+.totals {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1.5px dashed var(--color-text);
+  font-family: var(--font-figures);
+  font-size: var(--step--1);
+}
+.totals .line + .line {
+  margin-top: 2px;
+}
+.totals .term {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.totals .cheap b {
+  color: var(--color-accent);
+}
+.totals .grand {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 4px double var(--color-text);
+  font-size: var(--step-1);
+  font-weight: 800;
+}
+.totals .grand small {
+  font-family: var(--font-text);
+  font-size: var(--step--1);
+  font-weight: 400;
+  display: block;
+  color: var(--color-text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* From Road Atlas: the spread of prices, in the map's three bands. */
+.scale {
+  margin-top: var(--space-3);
+  position: relative;
+  height: 30px;
+}
+.scale .bar {
+  display: flex;
+  height: 6px;
+}
+.scale .bar i {
+  flex: 1;
+}
+.scale .bar i:nth-child(1) {
+  background: var(--color-price-low);
+}
+.scale .bar i:nth-child(2) {
+  background: var(--color-price-mid);
+}
+.scale .bar i:nth-child(3) {
+  background: var(--color-price-high);
+}
+.scale .tick {
+  position: absolute;
+  top: 10px;
+  font-family: var(--font-figures);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.scale .tick::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  height: 10px;
+  border-left: 1.5px solid var(--color-text);
+}
+.scale .tick.start {
+  transform: none;
+}
+.scale .tick.start::before {
+  left: 0;
+}
+.scale .tick.end {
+  transform: translateX(-100%);
+}
+.scale .tick.end::before {
+  left: auto;
+  right: 0;
+}
+
+.tools {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1.5px dashed var(--color-text);
+  border-bottom: 1.5px dashed var(--color-text);
+}
+.switch {
+  display: flex;
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.switch button {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+}
+.switch button[aria-pressed='true'] {
+  background: var(--color-text);
+  color: var(--color-surface);
+}
+.tools select {
+  height: 34px;
+  font-size: var(--step--1);
+  width: auto;
+  border-width: 1px;
+}
+.filters {
+  margin-left: auto;
+  font-size: var(--step--1);
+}
+
+/* --- Station rows --- */
+ol {
+  list-style: none;
+  padding: 0;
+}
+li.station {
+  padding: 10px 0 9px;
+  border-bottom: 1px dashed var(--color-rule);
+}
+.name {
+  font-size: var(--step-0);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.name a {
+  color: inherit;
+  text-decoration: none;
+}
+.amount {
+  font-family: var(--font-figures);
+  font-size: 1.45rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.cheapest .amount {
+  color: var(--color-accent);
+}
+.sub {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+/* Cheapest: an inverted strip, like a highlighted line on a docket. */
+.flag {
+  font-family: var(--font-figures);
+  font-size: var(--step--2);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.change {
+  font-family: var(--font-figures);
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+.old {
+  color: var(--color-text);
+  font-weight: 800;
+}
+.addr {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+/* Quiet: muted, smaller, a hairline underline. Still one Tab stop each. */
+.acts {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--step--2);
+  margin-top: 5px;
+  white-space: nowrap;
+}
+.acts > :not(.btn) {
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--step--1);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--color-rule);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.more {
+  padding: var(--space-3) 0 var(--space-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+
+/* --- Buttons --- */
+.btn {
+  font-family: var(--font-figures);
+  font-size: var(--step--2);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  height: 40px;
+  padding: 0 9px;
+  border: 1.5px solid var(--color-text);
+  background: transparent;
+  color: var(--color-text);
+  border-radius: var(--radius);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.btn.primary {
+  background: var(--color-text);
+  color: var(--color-surface);
+}
+
+/* --- Map: a monochrome print. Plain water, ink roads, boxed price tags --- */
+.mapwrap {
+  position: relative;
+}
+svg {
+  display: block;
+}
+.land {
+  fill: var(--color-map-land);
+}
+.water {
+  fill: var(--color-map-water);
+  stroke: var(--color-map-shore);
+  stroke-width: 1.2;
+}
+.park {
+  fill: var(--color-map-green);
+}
+.road-minor {
+  stroke: var(--color-text-muted);
+  stroke-width: 0.8;
+  fill: none;
+}
+.road-major-casing {
+  stroke: var(--color-text);
+  stroke-width: 2.4;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.road-major {
+  stroke: none;
+  fill: none;
+}
+.road-motorway-casing {
+  stroke: var(--color-text);
+  stroke-width: 6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.road-motorway {
+  stroke: var(--color-map-land);
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.shield rect {
+  fill: var(--color-map-land);
+  stroke: var(--color-text);
+  stroke-width: 1.5;
+}
+.shield text {
+  fill: var(--color-text);
+  font: 800 9.5px var(--font-figures);
+}
+.place-label {
+  font: 700 9px var(--font-figures);
+  letter-spacing: 0.1em;
+  fill: var(--color-text);
+  paint-order: stroke;
+  stroke: var(--color-map-land);
+  stroke-width: 3px;
+}
+.place-label.town {
+  font-size: 11px;
+  font-weight: 800;
+}
+.water-label {
+  font: italic 600 11px var(--font-text);
+  fill: var(--color-text-muted);
+  letter-spacing: 0.06em;
+}
+.origin-ring {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+.origin-dot {
+  fill: var(--color-text);
+}
+.dot {
+  stroke: var(--color-map-land);
+  stroke-width: 2;
+}
+.dot.low {
+  fill: var(--color-price-low);
+}
+.dot.mid {
+  fill: var(--color-price-mid);
+}
+.dot.high {
+  fill: var(--color-price-high);
+}
+.dot.selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.tag rect {
+  fill: var(--color-surface);
+  stroke: var(--color-text);
+  stroke-width: 1;
+}
+.tag text {
+  font: 800 10.5px var(--font-figures);
+  fill: var(--color-text);
+}
+.tag.cheapest rect {
+  fill: var(--color-accent);
+  stroke: var(--color-accent);
+}
+.tag.cheapest text {
+  fill: var(--color-on-accent);
+}
+.tag .word {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+.zoom {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: grid;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+  font-family: var(--font-figures);
+}
+.zoom span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+.zoom span + span {
+  border-top: 1.5px solid var(--color-text);
+}
+.attrib {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: var(--color-surface);
+  font-size: 10px;
+  padding: 2px 6px;
+  color: var(--color-text-muted);
+}
+.legend {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.legend .l {
+  background: var(--color-price-low);
+}
+.legend .m {
+  background: var(--color-price-mid);
+}
+.legend .h {
+  background: var(--color-price-high);
+}
+.stub {
+  background: var(--color-surface);
+  padding: var(--space-3);
+  border-top: 2px dashed var(--color-rule);
+}
+.stub .amount {
+  font-size: 2.1rem;
+}
+.stub .acts {
+  margin-top: var(--space-3);
+  gap: 6px;
+}
+
+/* --- History --- */
+.back {
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.eyebrow {
+  color: var(--color-text-muted);
+  margin-top: var(--space-3);
+}
+.history h2 {
+  font-size: var(--step-2);
+  font-weight: 750;
+  line-height: 1.15;
+  margin-top: 2px;
+}
+.history .now {
+  margin-top: var(--space-3);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.history .now .amount {
+  font-size: var(--step-4);
+  line-height: 1;
+}
+.history .now .unit {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+.history .story {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1.5px dashed var(--color-text);
+  font-size: var(--step--1);
+  line-height: 1.5;
+}
+.chart {
+  margin-top: var(--space-2);
+}
+.chart .grid {
+  stroke: var(--color-rule-quiet);
+  stroke-width: 1;
+}
+.chart .axis {
+  font: 400 10.5px var(--font-figures);
+  fill: var(--color-text-muted);
+}
+.chart .band {
+  fill: var(--color-rule-quiet);
+}
+.chart .trace {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.chart .cursor {
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+}
+.chart .cursor-dot {
+  fill: var(--color-accent);
+}
+.chart .endlabel {
+  font: 800 11px var(--font-figures);
+  fill: var(--color-text);
+}
+.readout {
+  gap: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-figures);
+  font-size: var(--step--1);
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--color-rule);
+}
+.readout b {
+  color: var(--color-accent);
+}
+.slider-hint {
+  font-size: var(--step--2);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+.fuels {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1.5px dashed var(--color-text);
+}
+.fuels .item {
+  padding: 5px 0;
+}
+.fuels .item .amount {
+  font-size: var(--step-0);
+}
+.fuels .item .when {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+  width: 7.5em;
+  text-align: right;
+}
+.fuels .item.this .fname {
+  font-weight: 700;
+}
+.disclosure {
+  margin-top: var(--space-3);
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+.credit {
+  margin-top: var(--space-3);
+  font-size: var(--step--2);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* --- Desktop: list (the docket) and map side by side --- */
+.desktop .mast {
+  padding: 18px var(--space-6) 8px;
+}
+.desktop .wordmark {
+  font-size: 1.3rem;
+}
+.desktop .search {
+  grid-template-columns: 1fr 120px 1.6fr auto auto;
+  align-items: end;
+  padding: var(--space-3) var(--space-6) var(--space-4);
+  gap: var(--space-3);
+  border-bottom: 1.5px solid var(--color-text);
+}
+.desktop .search .loc {
+  align-self: center;
+  padding-top: 18px;
+  max-width: 13rem;
+}
+.desktop .split {
+  display: grid;
+  grid-template-columns: 480px 1fr;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-6) 0;
+}
+.desktop .split .docket {
+  margin: 6px 0 0;
+}
+.desktop .fav {
+  margin: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+.desktop .side {
+  position: sticky;
+  top: 0;
+}
+.desktop .side .mapwrap {
+  border: 1.5px solid var(--color-text);
+}
+.desktop .side .stub {
+  border: 1.5px solid var(--color-text);
+  border-top: 2px dashed var(--color-rule);
+}
+.desktop .history-wrap {
+  padding: var(--space-4) var(--space-6) 0;
+  display: grid;
+  grid-template-columns: 600px 1fr;
+  gap: var(--space-6);
+}
+.desktop .history-wrap .docket {
+  margin: 6px 0 0;
+}
+
+/* The station shown on the map: a rule down its left, and "On the map" in words. */
+li.station.selected {
+  border-left: 3px solid var(--color-text);
+  padding-left: 9px;
+  margin-left: -12px;
+}
+.readout {
+  flex-wrap: wrap;
+}
+.readout > span:first-child {
+  white-space: nowrap;
+}
