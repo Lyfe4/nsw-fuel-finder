@@ -16,6 +16,11 @@ export interface FavouritesPanelProps {
   now: Date;
   /** Open when there is no search yet: that is when favourites are the point of the visit. */
   openByDefault: boolean;
+  /**
+   * The last one was removed and the panel went with it: where focus goes
+   * instead of <body> (the results heading, or the search).
+   */
+  onEmptied: () => void;
 }
 
 /**
@@ -23,13 +28,26 @@ export interface FavouritesPanelProps {
  * first. A native <details>: one Tab stop when closed, and its open state is
  * the browser's to announce. Open on a first visit; closed once there is a
  * search, so it does not push the results down on a phone.
+ *
+ * Not there at all until there is a favourite: an empty panel is a line of
+ * nothing above the prices. The Favourite button in each station's card is
+ * how the first one is made.
  */
-export function FavouritesPanel({ fuel, fuelName, now, openByDefault }: FavouritesPanelProps) {
+export function FavouritesPanel({
+  fuel,
+  fuelName,
+  now,
+  openByDefault,
+  onEmptied,
+}: FavouritesPanelProps) {
   const { favourites, removeFavourite } = useFavourites();
   const prices = useFavouritePrices(favourites);
   const summaryRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  /** After Remove, focus goes to the next row's Remove, or the panel's own summary. */
+  /**
+   * After Remove, focus goes to the next row's Remove; after the last one,
+   * the panel is gone, so to what onEmptied names.
+   */
   const focusAfterRemove = useRef<string | null>(null);
 
   useLayoutEffect(() => {
@@ -37,7 +55,9 @@ export function FavouritesPanel({ fuel, fuelName, now, openByDefault }: Favourit
     if (target === null) return;
     focusAfterRemove.current = null;
     const button = listRef.current?.querySelector<HTMLElement>(`[data-remove="${target}"]`);
-    (button ?? summaryRef.current)?.focus();
+    if (button) button.focus();
+    else if (summaryRef.current) summaryRef.current.focus();
+    else onEmptied();
   });
 
   const byCode = new Map(prices.data?.stations.map((s) => [s.stationCode, s]));
@@ -57,49 +77,49 @@ export function FavouritesPanel({ fuel, fuelName, now, openByDefault }: Favourit
     removeFavourite(code);
   };
 
+  if (favourites.length === 0) return null;
+
   return (
     <details className={styles.panel} open={openByDefault}>
       <summary className={styles.summary} ref={summaryRef}>
-        Favourites{favourites.length > 0 ? ` (${String(favourites.length)})` : ''}
+        Favourites ({favourites.length})
       </summary>
-      {favourites.length === 0 ? (
-        <p className={styles.empty}>
-          No favourites yet. Choose <span aria-hidden="true">☆</span> Favourite on a station to keep
-          it here, on this device.
-        </p>
-      ) : (
-        <ul className={styles.list} ref={listRef} aria-label={`Favourites, ${fuelName}`}>
-          {rows.map(({ favourite, station, price }) => (
-            <li key={favourite.code} className={styles.row}>
-              <div className={styles.text}>
-                <HistoryLink code={favourite.code} className={styles.name}>
-                  {station?.name ?? favourite.name}
-                </HistoryLink>
-                <p className={styles.detail}>
-                  {missing.has(favourite.code)
-                    ? 'FuelCheck no longer lists this station.'
-                    : prices.isPending
-                      ? 'Loading price…'
-                      : prices.isError
-                        ? 'Price unavailable right now.'
-                        : price
-                          ? `${formatPrice(price.priceCents)} cents a litre, updated ${formatAge(price.updatedAt, now)}`
-                          : `Does not sell ${fuelName}.`}
-                </p>
-              </div>
-              <Button
-                className={styles.remove}
-                data-remove={favourite.code}
-                onClick={() => {
-                  remove(favourite.code);
-                }}
-              >
-                Remove<VisuallyHidden>, {station?.name ?? favourite.name}</VisuallyHidden>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className={styles.list} ref={listRef} aria-label={`Favourites, ${fuelName}`}>
+        {rows.map(({ favourite, station, price }) => (
+          <li key={favourite.code} className={styles.row}>
+            <HistoryLink code={favourite.code} className={styles.name}>
+              {station?.name ?? favourite.name}
+            </HistoryLink>
+            <span aria-hidden="true" className={styles.leader} />
+            <p className={styles.detail}>
+              {missing.has(favourite.code) ? (
+                'FuelCheck no longer lists this station.'
+              ) : prices.isPending ? (
+                'Loading price…'
+              ) : prices.isError ? (
+                'Price unavailable right now.'
+              ) : price ? (
+                <>
+                  <span className={styles.amount}>{formatPrice(price.priceCents)}</span> cents a
+                  litre, updated {formatAge(price.updatedAt, now)}
+                </>
+              ) : (
+                `Does not sell ${fuelName}.`
+              )}
+            </p>
+            <Button
+              variant="quiet"
+              className={styles.remove}
+              data-remove={favourite.code}
+              onClick={() => {
+                remove(favourite.code);
+              }}
+            >
+              Remove<VisuallyHidden>, {station?.name ?? favourite.name}</VisuallyHidden>
+            </Button>
+          </li>
+        ))}
+      </ul>
     </details>
   );
 }

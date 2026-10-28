@@ -2,12 +2,13 @@ import { useId } from 'react';
 
 import { Button } from '@/components/Button/Button';
 
-import { brandCounts, filtersText, withoutOld } from './filters';
+import { brandCounts, filtersText, hasFilters, withoutOld } from './filters';
 import { OLD_PRICE_DAYS } from './priceAge';
 import styles from './ResultsTools.module.css';
 
 import type { StationPrice } from '../../../shared/api';
 import type { ResultsSort } from '../search/searchState';
+import type { ReactNode } from 'react';
 
 export interface ResultsToolsProps {
   /** Every station the search found, before filters: the counts come from these. */
@@ -20,6 +21,8 @@ export interface ResultsToolsProps {
   onBrandsChange: (brands: string[]) => void;
   onHideOldChange: (hideOld: boolean) => void;
   onClearFilters: () => void;
+  /** The List/Map switch on a phone: first in the row. */
+  viewSwitch?: ReactNode;
 }
 
 /**
@@ -28,7 +31,8 @@ export interface ResultsToolsProps {
  * Sort is a native select, like Fuel and Within. The filters are in a
  * closed <details>, because a 25 km search can find 30 brands and a wall of
  * checkboxes above the prices is the clutter this must not be. Its summary
- * says what is in force ("Filters: BP and Shell"), so a closed panel never
+ * says what is in force ("Filters: BP and Shell"; just "Filters" when none
+ * are), so a closed panel never
  * hides that the list is filtered.
  *
  * Native checkboxes in a fieldset, each with its count: the counts are of
@@ -45,6 +49,7 @@ export function ResultsTools({
   onBrandsChange,
   onHideOldChange,
   onClearFilters,
+  viewSwitch,
 }: ResultsToolsProps) {
   const sortId = useId();
   const recent = withoutOld(found, now);
@@ -59,6 +64,7 @@ export function ResultsTools({
 
   return (
     <div className={styles.tools}>
+      {viewSwitch}
       <div className={styles.sort}>
         <label htmlFor={sortId} className={styles.label}>
           Sort
@@ -71,13 +77,14 @@ export function ResultsTools({
             onSortChange(event.target.value === 'distance' ? 'distance' : 'price');
           }}
         >
-          <option value="price">Cheapest first</option>
-          <option value="distance">Nearest first</option>
+          <option value="price">Cheapest</option>
+          <option value="distance">Nearest</option>
         </select>
       </div>
       <details className={styles.filters}>
         <summary className={styles.summary}>
-          Filters: <span className={styles.current}>{filtersText(filters)}</span>
+          <span>Filters</span>
+          {hasFilters(filters) && <span className={styles.current}>: {filtersText(filters)}</span>}
         </summary>
         <div className={styles.panel}>
           <fieldset className={styles.brands}>
@@ -122,9 +129,7 @@ export function ResultsTools({
            * disables itself drops keyboard focus to the page. With nothing
            * to clear, pressing it does nothing.
            */}
-          <Button className={styles.clear} onClick={onClearFilters}>
-            Clear filters
-          </Button>
+          <Button onClick={onClearFilters}>Clear filters</Button>
         </div>
       </details>
     </div>

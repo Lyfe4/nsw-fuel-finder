@@ -11,6 +11,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import type { Theme } from '@/features/theme/theme';
 
+import { restyleBasemap } from './basemap';
 import { boundsOf, toFeatures } from './mapData';
 import { addLayers, LAYER, SOURCE, tokenColours } from './mapLayers';
 import { MAPLIBRE_WORKER_URL, mapStyleUrl } from './mapStyle';
@@ -198,7 +199,9 @@ export function StationMap({
     }
     // Fired for the first style and again after every theme change.
     map.on('style.load', () => {
-      addLayers(map, tokenColours(container));
+      const colours = tokenColours(container);
+      restyleBasemap(map, colours.basemap);
+      addLayers(map, colours);
       layersReady.current = true;
       setStyleGeneration((n) => n + 1);
     });

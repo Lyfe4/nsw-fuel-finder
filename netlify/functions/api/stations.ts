@@ -8,6 +8,7 @@ import {
   mergeHistory,
   stationHistorySchema,
 } from '../../lib/history/stationHistory';
+import { mendAddressCase } from '../../lib/places/addressCase';
 import { sydneyDay } from '../../lib/upstream/time';
 
 import type { HistoryResponse, StationSummary, StationsResponse } from '../../../shared/api';
@@ -32,7 +33,7 @@ export function toSummary(station: SnapshotStation): StationSummary {
     stationCode: station.code,
     name: station.name,
     brand: station.brand,
-    address: station.address,
+    address: mendAddressCase(station.address),
     latitude: station.lat,
     longitude: station.lng,
     prices,

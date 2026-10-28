@@ -219,7 +219,7 @@ try {
       // Sort and filters: the panel open, one brand ticked.
       await page.goto(url(`&brand=${encodeURIComponent(topBrand)}`));
       await page.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
-      await page.getByText('Filters:').click();
+      await page.getByText('Filters', { exact: true }).click();
       await settle(page);
       await page.evaluate(() => {
         document.getElementById('results-heading')?.scrollIntoView();

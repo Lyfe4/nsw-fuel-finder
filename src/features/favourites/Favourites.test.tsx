@@ -14,7 +14,8 @@ function store(favourites: { code: string; name: string }[]) {
   window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify(favourites));
 }
 
-const panel = () => screen.getByText(/^Favourites/, { selector: 'summary' }).closest('details');
+const panel = () =>
+  screen.queryByText(/^Favourites/, { selector: 'summary' })?.closest('details') ?? null;
 
 describe('favourites storage', () => {
   it('reads nothing from junk, duplicates or a throwing storage', () => {
@@ -132,8 +133,18 @@ describe('favourites', () => {
     expect(screen.getByRole('button', { name: 'Remove, Ampol Foodary Erina' })).toHaveFocus();
 
     await user.click(screen.getByRole('button', { name: 'Remove, Ampol Foodary Erina' }));
-    expect(screen.getByText('Favourites', { selector: 'summary' })).toHaveFocus();
-    expect(screen.getByText(/No favourites yet/)).toBeVisible();
+    // The last one gone, the panel goes too, and focus to the search, never <body>.
+    expect(panel()).toBeNull();
+    expect(screen.getByRole('combobox', { name: /suburb or postcode/i })).toHaveFocus();
+  });
+
+  it('is not there at all until there is a favourite', async () => {
+    const api = fakeApi();
+    renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    expect(panel()).toBeNull();
+    // Nothing to price, so nothing asked for.
+    expect(api.calls('stations')).toEqual([]);
   });
 
   it('is closed once there is a search, so the results are not pushed down', async () => {

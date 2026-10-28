@@ -12,7 +12,6 @@ import {
   type FocusTarget,
   type SelectionChange,
 } from '@/features/map/selection';
-import { ViewSwitch } from '@/features/map/ViewSwitch';
 import { useTheme } from '@/features/theme/useTheme';
 import { REDUCED_MOTION, useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
@@ -24,6 +23,7 @@ import { LIST_PAGE_SIZE } from './view';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
 import type { ResultsLayout } from '../search/searchState';
+import type { RefObject } from 'react';
 
 export interface StationsPanelProps {
   data: PricesResponse;
@@ -40,7 +40,11 @@ export interface StationsPanelProps {
   station: string | null;
   view: ResultsLayout;
   onSelect: (station: string | null, view?: ResultsLayout) => void;
-  onViewChange: (view: ResultsLayout) => void;
+  /**
+   * The List/Map switch's Map button (phones), in the toolbar above: where
+   * focus goes when the card under the map closes.
+   */
+  mapButtonRef: RefObject<HTMLButtonElement | null>;
 }
 
 /**
@@ -60,7 +64,7 @@ export function StationsPanel({
   station,
   view,
   onSelect,
-  onViewChange,
+  mapButtonRef,
 }: StationsPanelProps) {
   const wide = useMediaQuery(WIDE_SCREEN);
   const reducedMotion = useMediaQuery(REDUCED_MOTION);
@@ -100,7 +104,6 @@ export function StationsPanel({
   const listRef = useRef<HTMLOListElement>(null);
   useReorderAnimation(listRef, arrangement, reducedMotion);
   const mapPanelRef = useRef<HTMLDivElement>(null);
-  const mapButtonRef = useRef<HTMLButtonElement>(null);
   const pendingFocus = useRef<FocusTarget>({
     kind: 'stay',
   });
@@ -168,7 +171,6 @@ export function StationsPanel({
 
   return (
     <div className={styles.panel}>
-      {!wide && <ViewSwitch view={view} onChange={onViewChange} mapButtonRef={mapButtonRef} />}
       <div className={styles.columns}>
         <div className={styles.list} hidden={!showList}>
           <StationList
@@ -218,7 +220,7 @@ export function StationsPanel({
                 }}
               />
             </div>
-            <MapLegend />
+            <MapLegend prices={stations.map((s) => s.priceCents)} />
             {/*
              * On a phone's map the list is hidden, so the card is here. On a
              * wide screen it is under the station's row, beside the map.

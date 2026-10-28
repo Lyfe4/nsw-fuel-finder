@@ -55,7 +55,7 @@ const names = (label = 'Stations, cheapest first') =>
   stationNames(screen.getByRole('list', { name: label }));
 
 const openFilters = async (user: ReturnType<typeof setup>['user']) => {
-  await user.click(screen.getByText('Filters:'));
+  await user.click(screen.getByText('Filters'));
 };
 
 describe('the price summary', () => {
@@ -109,7 +109,7 @@ describe('sorting', () => {
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     const length = window.history.length;
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Nearest first');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Nearest');
     expect(names('Stations, nearest first')).toEqual([
       'BP Erina',
       'Shell Green Point',
@@ -135,10 +135,8 @@ describe('filters', () => {
   it('are closed by default, and say what is in force', async () => {
     setup();
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
-    expect(screen.getByText('Filters:').closest('details')).not.toHaveAttribute('open');
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent(
-      'Filters: all brands',
-    );
+    expect(screen.getByText('Filters').closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent(/^Filters$/);
   });
 
   it('filter by brand, with counts, kept in the URL; the heading and status say how many', async () => {
@@ -164,13 +162,13 @@ describe('filters', () => {
       }),
     ).toBeInTheDocument();
     expect(announced()).toMatch(/^2 of 5 stations match your filters\./);
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent('Filters: BP');
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent('Filters: BP');
     // Focus stays on the checkbox: nothing it did made it go away.
     expect(within(brands).getByRole('checkbox', { name: 'BP (2)' })).toHaveFocus();
 
     await user.click(within(brands).getByRole('checkbox', { name: 'Shell (2)' }));
     expect(names()).toEqual(['Shell Erina', 'BP Erina', 'BP Terrigal', 'Shell Green Point']);
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent(
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent(
       'Filters: BP and Shell',
     );
   });
@@ -187,7 +185,7 @@ describe('filters', () => {
     expect(window.location.search).toBe('?fuel=U91&query=Erina&old=hide');
     // The brand counts are of what is left: Metro's only station was the old one.
     expect(screen.queryByRole('checkbox', { name: /^Metro Fuel/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent(
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent(
       'Filters: all brands, recent prices only',
     );
   });
@@ -242,7 +240,7 @@ describe('filters', () => {
     const { user } = setup('/?query=Erina&brand=BP&old=hide');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     await openFilters(user);
-    const clear = within(screen.getByText('Filters:').closest('details') as HTMLElement).getByRole(
+    const clear = within(screen.getByText('Filters').closest('details') as HTMLElement).getByRole(
       'button',
       { name: 'Clear filters' },
     );

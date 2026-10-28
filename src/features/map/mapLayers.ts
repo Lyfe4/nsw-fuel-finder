@@ -1,5 +1,6 @@
 import { LABEL_FONT } from './mapStyle';
 
+import type { BasemapColours } from './basemap';
 import type { ExpressionSpecification, Map as MapLibreMap } from 'maplibre-gl';
 
 /*
@@ -30,11 +31,22 @@ export const LAYER = {
 const DOT_RADIUS = 6;
 const DOT_OUTLINE = 1.5;
 const DOT_SPACE_IMAGE = 'dot-space';
+const TAG = { plain: 'tag', cheapest: 'tag-cheapest', selected: 'tag-selected' } as const;
 
-/** Marker colours from the design tokens: the map draws on a canvas, out of CSS's reach. */
+/** Map colours from the design tokens: the map draws on a canvas, out of CSS's reach. */
 export function tokenColours(element: Element) {
   const style = getComputedStyle(element);
   const token = (name: string) => style.getPropertyValue(name).trim();
+  const basemap: BasemapColours = {
+    land: token('--color-map-land'),
+    water: token('--color-map-water'),
+    shore: token('--color-map-shore'),
+    green: token('--color-map-green'),
+    minor: token('--color-map-minor'),
+    ink: token('--color-text'),
+    label: token('--color-text'),
+    labelMuted: token('--color-text-muted'),
+  };
   return {
     low: token('--color-price-low'),
     mid: token('--color-price-mid'),
@@ -43,7 +55,49 @@ export function tokenColours(element: Element) {
     selected: token('--color-marker-selected'),
     origin: token('--color-map-origin'),
     text: token('--color-text'),
-    halo: token('--color-surface'),
+    paper: token('--color-surface'),
+    accent: token('--color-accent'),
+    onAccent: token('--color-on-accent'),
+    basemap,
+  };
+}
+
+/** "#1f55a8" (or "#15a") as RGBA bytes. */
+function rgba(hex: string): [number, number, number, number] {
+  const digits = hex.replace('#', '');
+  const full = digits.length === 3 ? digits.replace(/./g, '$&$&') : digits;
+  const value = Number.parseInt(full.slice(0, 6), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255, 255];
+}
+
+/**
+ * A price tag: a box with a border, as a stretchable image MapLibre fits
+ * around each price (icon-text-fit). 12 px square: a border of `edge` px all
+ * round, and only the middle stretches, so the border stays crisp at any size.
+ */
+function tagImage(fill: string, border: string, edge: number) {
+  const side = 12;
+  const data = new Uint8Array(side * side * 4);
+  const inside = rgba(fill);
+  const outside = rgba(border);
+  for (let y = 0; y < side; y++) {
+    for (let x = 0; x < side; x++) {
+      const onEdge = x < edge || y < edge || x >= side - edge || y >= side - edge;
+      data.set(onEdge ? outside : inside, (y * side + x) * 4);
+    }
+  }
+  return {
+    image: { width: side, height: side, data },
+    options: {
+      stretchX: [[edge + 1, side - edge - 1]] as [number, number][],
+      stretchY: [[edge + 1, side - edge - 1]] as [number, number][],
+      content: [edge + 1, edge + 1, side - edge - 1, side - edge - 1] as [
+        number,
+        number,
+        number,
+        number,
+      ],
+    },
   };
 }
 
@@ -64,6 +118,34 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
     colours.high,
   ];
   const nothingSelected: ExpressionSpecification = ['==', ['get', 'code'], ''];
+  const isCheapest: ExpressionSpecification = ['get', 'cheapest'];
+
+  /*
+   * The docket's price tags: paper with an ink edge; the cheapest inverted,
+   * in the accent; the selected one with a heavier edge. Images go with the
+   * style, so they are added again with it (and in the new theme's colours).
+   */
+  for (const [name, fill, border, edge] of [
+    [TAG.plain, colours.paper, colours.text, 1],
+    [TAG.cheapest, colours.accent, colours.accent, 1],
+    [TAG.selected, colours.paper, colours.text, 2],
+  ] as const) {
+    if (map.hasImage(name)) map.removeImage(name);
+    const { image, options } = tagImage(fill, border, edge);
+    map.addImage(name, image, options);
+  }
+  /*
+   * The tag follows its price: with variable anchors MapLibre does not move
+   * an icon's collision box with the text, so the tag would collide with its
+   * own dot and the price would be dropped. The text alone takes part in
+   * placement; the tag, fitted to it, can only be where the text is.
+   */
+  const tagFit = {
+    'icon-text-fit': 'both' as const,
+    'icon-text-fit-padding': [2, 5, 1, 5] as [number, number, number, number],
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+  };
 
   /*
    * The selected station: a bigger dot with a heavy edge, in place of its
@@ -101,11 +183,13 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
       'text-font': [LABEL_FONT],
       'text-size': 12,
       'text-variable-anchor': ['left', 'right', 'top', 'bottom'],
-      'text-radial-offset': 0.8,
+      'text-radial-offset': 1,
       'text-padding': 2,
       'symbol-sort-key': ['get', 'priority'],
+      'icon-image': ['case', isCheapest, TAG.cheapest, TAG.plain],
+      ...tagFit,
     },
-    paint: { 'text-color': colours.text, 'text-halo-color': colours.halo, 'text-halo-width': 1.5 },
+    paint: { 'text-color': ['case', isCheapest, colours.onAccent, colours.text] },
   });
   /*
    * The selected price, always shown: placed before the other prices
@@ -134,10 +218,12 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
         'bottom-right',
       ],
       // Clear of its own bigger marker.
-      'text-radial-offset': 1,
+      'text-radial-offset': 1.3,
       'text-allow-overlap': true,
+      'icon-image': ['case', isCheapest, TAG.cheapest, TAG.selected],
+      ...tagFit,
     },
-    paint: { 'text-color': colours.text, 'text-halo-color': colours.halo, 'text-halo-width': 2 },
+    paint: { 'text-color': ['case', isCheapest, colours.onAccent, colours.text] },
   });
   map.addLayer({
     id: LAYER.dots,

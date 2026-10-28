@@ -54,15 +54,20 @@
   --palette-band-mid-dark: #9c988e;
   --palette-band-high-dark: #f0954a;
   /*
-   * The basemaps' own colours (OpenFreeMap Positron and Dark), for the
-   * contrast test: land, water, and parks and woods, the one other large fill.
+   * The basemap, drawn in our own colours over OpenFreeMap's tiles
+   * (src/features/map/basemap.ts): a monochrome print on paper. Plain pale
+   * water with a darker shore line, parks a shade off the land.
    */
-  --palette-positron-land: #f2f3f0;
-  --palette-positron-water: #c2c8ca;
-  --palette-positron-green: #dce0dc;
-  --palette-dark-land: #0c0c0c;
-  --palette-dark-water: #1b1b1d;
-  --palette-dark-green: #202020;
+  --palette-map-land: #f3f1ea;
+  --palette-map-water: #d3dfe4;
+  --palette-map-shore: #8fa7b1;
+  --palette-map-green: #e6e4da;
+  --palette-map-minor: #b9b5ab;
+  --palette-map-land-dark: #141518;
+  --palette-map-water-dark: #1b2932;
+  --palette-map-shore-dark: #3d5562;
+  --palette-map-green-dark: #1a1c1e;
+  --palette-map-minor-dark: #3a3c41;
 
   /* --- Semantic: colour --------------------------------------------------- */
   color-scheme: light;
@@ -98,12 +103,15 @@
   --color-price-low: var(--palette-band-low);
   --color-price-mid: var(--palette-band-mid);
   --color-price-high: var(--palette-band-high);
-  --color-marker-outline: var(--palette-thermal);
+  --color-marker-outline: var(--palette-map-land);
   --color-marker-selected: var(--palette-ink);
   --color-map-origin: var(--palette-ink);
-  --color-map-land: var(--palette-positron-land);
-  --color-map-water: var(--palette-positron-water);
-  --color-map-green: var(--palette-positron-green);
+  --color-map-land: var(--palette-map-land);
+  --color-map-water: var(--palette-map-water);
+  --color-map-green: var(--palette-map-green);
+  /* Lines: the shore and rivers; minor roads and rail. Major roads are ink. */
+  --color-map-shore: var(--palette-map-shore);
+  --color-map-minor: var(--palette-map-minor);
 
   /* --- Semantic: type ------------------------------------------------------ */
   /*
@@ -119,7 +127,6 @@
   --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
   --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
   --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
-  --step-3: clamp(1.73rem, 1.62rem + 0.48vw, 2.2rem);
   --step-4: clamp(2.07rem, 1.92rem + 0.69vw, 2.75rem);
   --font-weight-regular: 400;
   --font-weight-bold: 700;
@@ -134,7 +141,6 @@
   --space-4: 1rem;
   --space-5: 1.5rem;
   --space-6: 2rem;
-  --space-7: 3rem;
   /* On controls only. The docket and the map are square. */
   --radius: 3px;
   --border-width: 1px;
@@ -147,9 +153,6 @@
   --content-width: 40rem;
   /* List and map side by side (from 60rem, WIDE_SCREEN in useMediaQuery.ts). */
   --content-width-wide: 80rem;
-  /* From 90rem (1440 px): the search form in a column of its own beside them. */
-  --content-width-widest: 112rem;
-  --search-column-width: 22rem;
   /*
    * Netlify's free plan pinned a "Powered by Netlify" badge to the
    * bottom-right corner of every page until round 9. Content that would end
@@ -188,10 +191,12 @@
   --color-price-low: var(--palette-band-low-dark);
   --color-price-mid: var(--palette-band-mid-dark);
   --color-price-high: var(--palette-band-high-dark);
-  --color-marker-outline: var(--palette-night-950);
+  --color-marker-outline: var(--palette-map-land-dark);
   --color-marker-selected: var(--palette-night-50);
   --color-map-origin: var(--palette-night-50);
-  --color-map-land: var(--palette-dark-land);
-  --color-map-water: var(--palette-dark-water);
-  --color-map-green: var(--palette-dark-green);
+  --color-map-land: var(--palette-map-land-dark);
+  --color-map-water: var(--palette-map-water-dark);
+  --color-map-green: var(--palette-map-green-dark);
+  --color-map-shore: var(--palette-map-shore-dark);
+  --color-map-minor: var(--palette-map-minor-dark);
 }

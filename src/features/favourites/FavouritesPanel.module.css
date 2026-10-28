@@ -1,55 +1,63 @@
+/* A line on the counter between the search and the docket; open, a short docket of its own. */
 .panel {
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
+  border-block: var(--border-width) dashed var(--color-border);
 }
 
 .summary {
-  display: flex;
-  align-items: center;
-  min-height: var(--target-size);
-  padding: var(--space-2) var(--space-4);
+  display: list-item;
+  padding-block: var(--space-2);
+  font-size: var(--step--1);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
 
-.empty {
-  padding: 0 var(--space-4) var(--space-4);
-  color: var(--color-text-muted);
-}
-
 .list {
-  display: grid;
-  padding: 0;
+  padding: 0 0 var(--space-2);
   list-style: none;
 }
 
+/* Name, leader, price on the first line; when and Remove on the second. */
 .row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-top: var(--border-width) solid var(--color-border);
-}
-
-.text {
   display: grid;
-  gap: var(--space-1);
-  min-width: 0;
+  grid-template-columns: auto minmax(var(--space-4), 1fr) auto;
+  grid-template-areas:
+    'name leader detail'
+    'remove remove remove';
+  align-items: last baseline;
+  column-gap: var(--space-2);
+  padding-block: var(--space-2);
+  border-top: var(--border-width) dashed var(--color-border);
 }
 
 .name {
+  grid-area: name;
   font-weight: var(--font-weight-bold);
   overflow-wrap: anywhere;
 }
 
+.leader {
+  grid-area: leader;
+  border-bottom: 2px dotted var(--color-border);
+  transform: translateY(-0.3em);
+}
+
 .detail {
+  grid-area: detail;
   color: var(--color-text-muted);
   font-size: var(--step--1);
+  text-align: right;
+}
+
+.amount {
+  font-family: var(--font-figures);
+  font-size: var(--step-0);
+  font-weight: var(--font-weight-heavy);
+  color: var(--color-text);
 }
 
 .remove {
-  flex-shrink: 0;
+  grid-area: remove;
+  justify-self: start;
+  color: var(--color-text-muted);
+  font-size: var(--step--1);
 }

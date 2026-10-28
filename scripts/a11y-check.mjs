@@ -144,7 +144,7 @@ try {
     await axe(page, `${theme}, long list with "Show more"`);
 
     // Sort and filters: the panel open, a brand ticked, nearest first.
-    await page.getByText('Filters:').click();
+    await page.getByText('Filters', { exact: true }).click();
     await page.getByRole('group', { name: 'Brands' }).getByRole('checkbox').first().check();
     await page.getByRole('combobox', { name: 'Sort' }).selectOption('distance');
     await page.getByRole('list', { name: 'Stations, nearest first' }).waitFor();

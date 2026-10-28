@@ -41,9 +41,13 @@ const INITIAL_JS_BUDGET = 350 * 1024;
 // four @font-face rules (two faces and their metric-matched fallbacks, which
 // keep the font swap from moving anything), the folded search line and the
 // docket's torn edge are new; the card styles they replace mostly went, but
-// not all of the old components are restyled yet. 24 kB is room for the
-// rest of the redesign to land, and should come back down as the old rules
-// go. Reconsider it when the redesign is done.
+// not all of the old components are restyled yet.
+// MEASURED AGAIN at milestone 2 (one-row toolbar, favourites, map legend,
+// old card rules and unused tokens gone): 23.1 kB raw / 5.3 kB gzipped. Less
+// left to remove than hoped: the old rules were mostly replaced, not added
+// to, and the new parts (fonts, folded search, card, scale bar) are real.
+// 24 kB is about 4% headroom, as the other budgets have. The history view's
+// styles are in its own lazy chunk, so its redesign does not touch this.
 const INITIAL_CSS_BUDGET = 24 * 1024;
 // The map chunk: MapLibre itself, measured at 1,016.0 kB raw / 273.1 kB
 // gzipped (MapLibre 6.14). It cannot be split further.

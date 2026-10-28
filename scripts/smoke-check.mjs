@@ -246,10 +246,13 @@ try {
     (await page.getByRole('button', { name: 'Show the map' }).count()) === 0,
   );
 
-  // List -> map. Scroll first, so the map is stuck fully in view beside the
-  // list and a station it shows is at its centre; then use an item on screen.
+  // List -> map. Scroll first, so the map is fully in view beside the list
+  // and a station it shows is at its centre; then use an item on screen.
+  // To the map's own top, not a fixed distance: the rows are one line now,
+  // and a fixed scroll took a short list (and its sticky map) past its end.
   await page.evaluate(() => {
-    window.scrollTo(0, 700);
+    const map = document.querySelector('canvas.maplibregl-canvas');
+    if (map) window.scrollTo(0, map.getBoundingClientRect().top + window.scrollY - 16);
   });
   const items = list.getByRole('listitem');
   let index = 0;
@@ -411,7 +414,7 @@ try {
     kms.length > 1 && kms.every((km, i) => i === 0 || km >= kms[i - 1]),
   );
   await sort.selectOption('price');
-  await page.getByText('Filters:').click();
+  await page.getByText('Filters', { exact: true }).click();
   const firstBrand = page.getByRole('group', { name: 'Brands' }).getByRole('checkbox').first();
   const brandLabel = (await firstBrand.locator('xpath=..').textContent()) ?? '';
   const brandCount = Number(/\((\d+)\)$/.exec(brandLabel)?.[1]);

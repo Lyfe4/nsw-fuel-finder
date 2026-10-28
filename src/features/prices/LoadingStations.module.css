@@ -1,6 +1,4 @@
 .list {
-  display: grid;
-  gap: var(--space-3);
   padding: 0;
   list-style: none;
 }
@@ -11,44 +9,35 @@
  */
 @media (min-width: 60rem) {
   .list {
-    align-content: start;
     min-height: var(--map-panel-height);
   }
 }
 
-/* The same outline as a station card (StationList.module.css). */
-.card {
+/* The shape of a station row (StationList.module.css), between the same rules. */
+.row {
   display: grid;
-  grid-template-columns: 5.5rem 1fr;
-  grid-template-rows: repeat(3, auto);
-  column-gap: var(--space-4);
-  row-gap: var(--space-2);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
+  grid-template-columns: 1fr 4rem;
+  gap: var(--space-2) var(--space-6);
+  padding-block: var(--space-3);
+  border-bottom: var(--border-width) dashed var(--color-border);
 }
 
+.name,
 .price,
-.line,
-.lineShort {
+.meta {
+  height: 0.9rem;
   border-radius: var(--radius);
   background: var(--color-highlight);
   animation: pulse 1.4s ease-in-out infinite;
 }
 
-.price {
-  grid-row: 1 / -1;
-  height: 2rem;
+.name {
+  width: 70%;
 }
 
-.line {
-  height: 1rem;
-}
-
-.lineShort {
-  width: 60%;
-  height: 0.75rem;
+.meta {
+  width: 40%;
+  height: 0.7rem;
 }
 
 @keyframes pulse {
@@ -59,9 +48,9 @@
 
 /* Still, not slowed: global.css shortens animations, which would make this flicker. */
 @media (prefers-reduced-motion: reduce) {
+  .name,
   .price,
-  .line,
-  .lineShort {
+  .meta {
     animation: none;
   }
 }

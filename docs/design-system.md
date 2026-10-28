@@ -122,7 +122,6 @@ CLS test runs in Chromium.
 | `--step-0`  | 16–18 px | Body, station names                  |
 | `--step-1`  | 19–23 px | Row prices, history heading          |
 | `--step-2`  | 23–28 px | Map card price                       |
-| `--step-3`  | 28–35 px |                                      |
 | `--step-4`  | 33–44 px | Today's price in the history view    |
 
 Weights: 400 regular, 700 bold (names, labels), 800 for prices. Line
@@ -130,8 +129,8 @@ height 1.4 for text, 1.15 for headings.
 
 ## Space, rules, shape
 
-- Spacing: a 4 px scale, `--space-1` … `--space-7` = 4, 8, 12, 16, 24, 32,
-  48 px.
+- Spacing: a 4 px scale, `--space-1` … `--space-6` = 4, 8, 12, 16, 24 and 32
+  px.
 - Rules: `1px dashed --color-border` between rows; `1.5px dashed
 --color-text` between docket sections; `1.5px solid --color-text` under
   the masthead. The dotted leader is `2px dotted --color-border`.

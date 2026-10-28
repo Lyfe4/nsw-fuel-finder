@@ -1,6 +1,10 @@
+import { useRef } from 'react';
+
 import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
+import { ViewSwitch } from '@/features/map/ViewSwitch';
 import { formatAge, formatAsOf } from '@/lib/format';
+import { useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
 import { LoadingStations } from './LoadingStations';
 import { ErrorNotice, LocationProblemNotice, StaleNotice } from './Notices';
@@ -112,6 +116,19 @@ export function Results({
   tools,
   onClearFilters,
 }: ResultsProps) {
+  const wide = useMediaQuery(WIDE_SCREEN);
+  const mapButtonRef = useRef<HTMLButtonElement>(null);
+  /*
+   * List or Map, on a phone: first in the toolbar's one row, with Sort and
+   * Filters. The nearest-stations view has no toolbar (nothing to sort or
+   * filter), so there the switch stands alone.
+   */
+  const hasList = view.kind === 'results' || view.kind === 'nearest';
+  const viewSwitch =
+    !wide && hasList ? (
+      <ViewSwitch view={layout} onChange={onLayoutChange} mapButtonRef={mapButtonRef} />
+    ) : null;
+
   return (
     // No aria-busy: some screen readers hold back live regions inside a busy
     // element, which would swallow "Loading prices..." itself.
@@ -188,8 +205,9 @@ export function Results({
       )}
 
       {(view.kind === 'results' || view.kind === 'no-match') && (
-        <ResultsTools {...tools} now={now} />
+        <ResultsTools {...tools} now={now} viewSwitch={viewSwitch} />
       )}
+      {view.kind === 'nearest' && viewSwitch}
 
       {view.kind === 'no-match' && (
         <div className={styles.empty}>
@@ -216,7 +234,7 @@ export function Results({
           station={station}
           view={layout}
           onSelect={onSelectStation}
-          onViewChange={onLayoutChange}
+          mapButtonRef={mapButtonRef}
         />
       )}
 

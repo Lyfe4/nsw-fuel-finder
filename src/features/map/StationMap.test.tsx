@@ -20,6 +20,20 @@ const { FakeMap, maps } = vi.hoisted(() => {
     sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>();
     layers: { id: string; layout?: Record<string, unknown> }[] = [];
     images = new Set<string>();
+    /** OpenFreeMap's own layers, a few of each kind, as the restyle sees them. */
+    basemap = [
+      { id: 'background', type: 'background' },
+      { id: 'water', type: 'fill', 'source-layer': 'water' },
+      { id: 'park', type: 'fill', 'source-layer': 'park' },
+      { id: 'highway_motorway_casing', type: 'line', 'source-layer': 'transportation' },
+      { id: 'highway_motorway_inner', type: 'line', 'source-layer': 'transportation' },
+      { id: 'highway_minor', type: 'line', 'source-layer': 'transportation' },
+      { id: 'building', type: 'fill', 'source-layer': 'building' },
+      { id: 'poi_r1', type: 'symbol', 'source-layer': 'poi' },
+      { id: 'place_city', type: 'symbol', 'source-layer': 'place' },
+    ];
+    paint = new Map<string, unknown>();
+    hidden = new Set<string>();
     filters = new Map<string, unknown>();
     canvas: HTMLCanvasElement = document.createElement('canvas');
     zoom = 11;
@@ -63,6 +77,18 @@ const { FakeMap, maps } = vi.hoisted(() => {
     }
     addImage(id: string) {
       this.images.add(id);
+    }
+    removeImage(id: string) {
+      this.images.delete(id);
+    }
+    getStyle() {
+      return { layers: this.basemap };
+    }
+    setPaintProperty(id: string, property: string, value: unknown) {
+      this.paint.set(`${id} ${property}`, value);
+    }
+    setLayoutProperty(id: string, property: string, value: unknown) {
+      if (property === 'visibility' && value === 'none') this.hidden.add(id);
     }
     getSource(id: string) {
       return this.sources.get(id);
@@ -177,6 +203,31 @@ describe('StationMap', () => {
       ['a', 'low'],
       ['b', 'mid'],
     ]);
+  });
+
+  it('redraws the basemap in the tokens’ colours, without what a fuel map does not need', () => {
+    const { map } = setup();
+    fire(map, 'style.load');
+    // jsdom computes no custom properties, so every colour reads as '': what
+    // is checked is that each layer was given the right kind of colour.
+    expect([...map.paint.keys()]).toEqual(
+      expect.arrayContaining([
+        'background background-color',
+        'water fill-color',
+        'water fill-outline-color',
+        'park fill-color',
+        'highway_motorway_casing line-color',
+        'highway_motorway_inner line-color',
+        'highway_minor line-color',
+        'place_city text-color',
+        'place_city text-halo-color',
+      ]),
+    );
+    expect([...map.hidden].sort()).toEqual(['building', 'poi_r1']);
+    // Our price tags: plain, cheapest and selected.
+    expect([...map.images]).toEqual(
+      expect.arrayContaining(['tag', 'tag-cheapest', 'tag-selected']),
+    );
   });
 
   it('a click near a dot picks that station, and does not pan to it', () => {

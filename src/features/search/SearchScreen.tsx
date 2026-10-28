@@ -224,7 +224,13 @@ export function SearchScreen() {
         />
       )}
       <div className={styles.underHistory} hidden={search.history !== null}>
-        <FavouritesPanel fuel={fuel} fuelName={fuelName} now={now} openByDefault={place === null} />
+        <FavouritesPanel
+          fuel={fuel}
+          fuelName={fuelName}
+          now={now}
+          openByDefault={place === null}
+          onEmptied={place === null ? focusSearch : focusResults}
+        />
         <Results
           view={view}
           fuelName={fuelName}

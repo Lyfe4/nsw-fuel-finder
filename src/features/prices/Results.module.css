@@ -23,6 +23,15 @@
     linear-gradient(225deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x;
 }
 
+/*
+ * In the dark theme the paper is barely lighter than the counter, so the
+ * zigzag read as a smudge rather than a tear: no torn edge there, the strip's
+ * own edge is enough.
+ */
+:global([data-theme='dark']) .results::before {
+  display: none;
+}
+
 /* The heading and the summary, on one line when they fit. */
 .top {
   display: flex;
@@ -44,6 +53,24 @@
 
 .asOf {
   font-size: var(--step--2);
+}
+
+/*
+ * Wide screens: the heading and the saving belong to the list (the toolbar
+ * too, in ResultsTools.module.css),
+ * so they keep to its column (StationsPanel's: 1 to 1.25 with the map, and
+ * at most 34rem from 100rem) instead of running on above the map.
+ */
+@media (min-width: 60rem) {
+  .top {
+    max-width: calc((100% - var(--space-4)) / 2.25);
+  }
+}
+
+@media (min-width: 100rem) {
+  .top {
+    max-width: 34rem;
+  }
 }
 
 /* Results are coming: keep their room, as LoadingStations does (tokens.css). */

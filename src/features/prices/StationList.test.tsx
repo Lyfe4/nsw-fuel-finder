@@ -142,7 +142,8 @@ describe('what each station says', () => {
     });
     renderApp('/?query=Erina');
     await list();
-    expect(screen.queryByText('Cheapest')).not.toBeInTheDocument();
+    // In the list: the sort's own option is also called Cheapest.
+    expect(within(await list()).queryByText('Cheapest')).not.toBeInTheDocument();
   });
 
   it('calls out a price that has not changed for a fortnight', async () => {
