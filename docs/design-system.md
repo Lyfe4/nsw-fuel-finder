@@ -32,7 +32,7 @@ so another state is a data change, not a rebrand.
 4. **Every number is tabular and lining.** Prices are set in the mono face
    and line up on the decimal.
 5. **Decoration, exactly this much:** one torn edge (the top of the docket
-   strip), dotted leaders (station row, map card, every-fuel list, history),
+   strip, light theme only: on the dark counter it read as a smudge), dotted leaders (station row, map card, every-fuel list, history),
    dashed rules between docket sections. Nothing else: no torn bottom,
    perforations, paper texture, halftone, shadows, barcodes or receipt
    furniture ("TAX INVOICE", docket numbers, "THANK YOU").
@@ -188,7 +188,12 @@ notice appears at the top only when prices are old.
 ### Tools
 
 One row, between dashed rules: the List/Map switch (phones only), Sort
-(native select, named "Sort"), Filters (disclosure).
+(a native select with a visible label, options "Cheapest" and "Nearest"),
+and Filters (a disclosure; its summary adds what is in force, "Filters:
+BP", only when a filter is on). Open, the filters take a row of their own.
+On a 390 px phone the row fits on one line and the first price sits at
+about 231 px (292 px with a favourites line). On wide screens the
+heading, the saving and the toolbar keep to the list's column.
 
 ### Station row
 
@@ -214,7 +219,10 @@ Metro Petroleum Gosford ··········· 233.9
 
 ### Station card
 
-Under its row in the list, at every width: brand · address, "down 1.0
+Under its row in the list, at every width: brand · address (an
+all-capitals address set in title case in the browser; a capitals suburb
+in an otherwise careful address given the ABS gazetteer's spelling in the
+API), "down 1.0
 today" when it moved, a "Price history" link, then Directions (primary
 button, opens the phone's maps app), Favourite (toggle, `aria-pressed`),
 Close.
@@ -224,11 +232,24 @@ name and the price on a leader line at the top. It has no "List" button.
 
 ### Map
 
-Specified at the map step (milestone 2): a monochrome print (paper land,
-plain pale water with a shore line, ink roads, the motorway as a double
-line), boxed price tags with the cheapest inverted in the accent. The
-legend is the price scale bar: the three bands with cheapest, average and
-dearest marked, on the map at the bottom left.
+OpenFreeMap's tiles, drawn in our colours (`src/features/map/basemap.ts`
+restyles their style at every `style.load`, so there is no style file of
+our own to keep in step): paper land (`--color-map-land`), parks a shade
+off it, plain pale water with a shore line, roads as outlines (major roads
+in ink, minor ones faint, the road itself paper), and no buildings, points
+of interest or house numbers. Labels stay in OpenFreeMap's Noto Sans: our
+own glyphs would cost about 250 kB of PBFs and our bandwidth for little
+gain in this direction (docs/design-directions/README.md).
+
+Prices are boxed tags: paper with an ink edge, the cheapest inverted in
+the accent, the selected one with a heavier edge. The tag is fitted to its
+price and takes no part in placement itself, so a price is placed (or
+dropped to make way for a dot) exactly as before. Dots stay on top.
+
+The legend, under the map, is the docket's scale bar: three equal bands
+(thirds by rank, not by price), the lowest and highest price at its ends,
+"Cheapest third / Middle / Dearest third" under them, and the search
+centre's ring.
 
 ### History
 
