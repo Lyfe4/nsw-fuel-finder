@@ -2566,11 +2566,45 @@ Initial CSS 23.0 kB raw of 24 kB (raised from 22, written up in
 `check-bundle-budget.js`). A new fonts budget: 50.5 kB preloaded of 56,
 50.5 of 64 in all.
 
-## 2026-10-25: Baseline (updated 28 October, round 12)
+### Two fixes before the merge
 
-The project as of `eddd797` (round 12, pull request #7; first written for
-round 10's `d6dc135`, updated for round 11's `0112706`). Future work starts
-from here; this entry is the summary, and the rounds above have the reasons.
+- **A heading focus is moved to is underlined, not boxed.** The results and
+  history headings (and the map's loading note) take focus with
+  `tabindex="-1"`; the full-width ring round a heading looked like
+  something to press. They now get a 2 px underline in the focus colour,
+  `:focus-visible` only, so after a key and not after a click.
+  `check:a11y` checks both, in both themes (40 checks, from 36).
+- **The mark in the dark.** The favicon SVG draws a hairline edge in
+  `night-400` under `prefers-color-scheme: dark`, so the ink square reads
+  on a dark tab or page. The site's CSP does not stop it: an SVG shown as
+  an image keeps its own `<style>` (checked under the production headers).
+  The PNG icons stay the light version.
+
+### Verified after the merge
+
+Pull request #9, squash-merged as `5d87272` at 06:42 UTC on 28 October
+(17:42 in Sydney); production served it about a minute later.
+
+- **On its deploy preview, in CI:** both required checks passed.
+- **Production:** `pnpm check:browser` 60 of 60 (CLS 0.000 at desktop and
+  phone size); `pnpm check:a11y` 40 of 40; `/api/status` healthy, 196
+  API.NSW calls counted this month.
+- **PageSpeed Insights**, `/?fuel=U91&query=2250`: mobile 99, 100, 100,
+  100 (FCP 1.4 s, LCP 1.7 s, TBT 0 ms, CLS 0, Speed Index 3.2 s); desktop
+  100, 100, 100, 100 (FCP 0.3 s, LCP 0.4 s, CLS 0).
+- **The test suite under load:** in one of five local runs while a game was
+  using most of the machine, two first-in-file tests (`MapSync` on a phone,
+  `StationList`'s long list) passed the five-second limit. Both are whole-app
+  tests of about 1.0 to 1.4 s alone, the first render in their files; they
+  passed in the other runs and in CI. Left as they are: a slow machine, not
+  a race.
+
+## 2026-10-25: Baseline (updated 28 October, round 13)
+
+The project as of `5d87272` (round 13, the redesign, pull request #9; first
+written for round 10's `d6dc135`, updated for rounds 11 and 12). Future work
+starts from here; this entry is the summary, and the rounds above have the
+reasons.
 
 **What it does.** Live fuel prices for NSW and the ACT, cheapest first, for
 a suburb, a postcode or the visitor's rounded location, at 2, 5, 10 or 25 km.
@@ -2585,6 +2619,13 @@ in the phone's maps app, the nearest stations up to 100 km when nothing is in
 range. Favourites on the device. Four months of daily history per station
 (FuelCheck's published files joined to our own snapshots), as a chart with a
 keyboard slider and a table. Light and dark themes. All state in the URL.
+
+**How it looks.** The Docket design (round 13): a station is one line, name,
+dotted leader, mono price, opening to its card; on a phone the search folds
+to one line after a search and the first price is at about 230 px. Atkinson
+Hyperlegible Next and Mono, self-hosted; one accent, carbon blue, for
+meaning only; the map restyled in the same tokens, the cheapest price never
+dropped. `docs/design-system.md` is the source of truth for the look.
 
 **How it runs.** A scheduled function fetches every NSW price every 30
 minutes (about 1,500 API.NSW calls a month against 2,500) into Netlify
@@ -2616,18 +2657,18 @@ from Blobs only. Visitors never reach API.NSW.
 **Monitoring.**
 
 - `/api/status`: snapshot age, the last run, read errors and API.NSW calls
-  this month (183 counted by 28 October since 24 October 09:30 UTC, plus
+  this month (196 counted by 28 October since 24 October 09:30 UTC, plus
   about 70 before that). A 503 when anything is wrong or calls pass 2,000.
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 588 tests, the build
-  and bundle budgets; and `pnpm check:browser` (57 checks, including CSP,
-  CLS and touch gestures on the map) and `pnpm check:a11y` (36) against its
-  deploy preview, about two minutes. Both required. The same checks by hand
-  against production.
+- CI on every pull request: typecheck, lint, format, 646 tests, the build
+  and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (60
+  checks, including CSP, CLS at desktop and phone size and touch gestures on
+  the map) and `pnpm check:a11y` (40) against its deploy preview, about two
+  minutes. Both required. The same checks by hand against production.
 - PageSpeed Insights, a results page: desktop 100, mobile 99, CLS 0, and 100
-  for accessibility, best practices and SEO (25 October, after round 11).
+  for accessibility, best practices and SEO (28 October, after round 13).
   The desktop machine has no GPU, so it measures the "Show the map" page:
   the page a GPU-less visitor gets, not the map drawn faster. Visitors with
   a GPU see what they saw before (round 11).
@@ -2670,8 +2711,12 @@ from Blobs only. Visitors never reach API.NSW.
   after checking the preview. Netlify's bot protection could one day
   challenge GitHub's runners; the check would fail, not pass.
 - **Fewer prices in a dense map view** (round 12): a price that would cover
-  any station's dot is dropped. The cheapest keep their place, and zooming
-  in shows the rest.
+  any station's dot is dropped, and zooming in shows the rest. The cheapest
+  is the exception (round 13): it is never dropped, so in a very dense spot
+  it can sit partly over neighbouring dots.
+- **A slow machine can time out a whole-app test.** The first test in a
+  file renders the whole app cold (about 1 to 1.4 s alone); under heavy
+  local load that has passed five seconds. CI has not seen it.
 - **A tap on empty map clears the selection 300 ms later**, so a double-tap
   can zoom without clearing it. A double-tap slower than that both zooms and
   clears. A tap within 12 px of a dot picks that station instead, so in a
