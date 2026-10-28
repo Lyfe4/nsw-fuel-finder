@@ -20,6 +20,7 @@ export const SOURCE = { stations: 'stations', origin: 'origin' } as const;
 export const LAYER = {
   selectedDot: 'selected-dot',
   labels: 'station-labels',
+  cheapestLabel: 'cheapest-label',
   selectedLabel: 'selected-label',
   dots: 'station-dots',
   originRing: 'origin-ring',
@@ -172,7 +173,8 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
    * one wins: the cheaper. So a dense 25 km search in Sydney shows every dot
    * and the cheapest prices, and zooming in reveals the rest. No clustering:
    * a cluster would hide exactly the prices people came for. The cheapest
-   * say "Cheapest" in words, so the colour is never the only way to tell.
+   * station's own price is not in this layer but the next, which always
+   * shows it (StationMap filters it out of this one).
    */
   map.addLayer({
     id: LAYER.labels,
@@ -191,6 +193,34 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
     },
     paint: { 'text-color': ['case', isCheapest, colours.onAccent, colours.text] },
   });
+  const eightPlaces: (
+    'left' | 'right' | 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  )[] = ['left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
+  /*
+   * The cheapest price ("Cheapest 209.9"), always shown, at any zoom: it is
+   * the answer to the search. Placed before the ordinary prices (higher
+   * layers are placed first), so they make way for it, and, like the
+   * selected price, it takes the first of eight places beside its dot that
+   * covers no other dot, overlapping one only if there is no such place.
+   * The dots are drawn over it even then. Ties are all shown.
+   */
+  map.addLayer({
+    id: LAYER.cheapestLabel,
+    type: 'symbol',
+    source: SOURCE.stations,
+    filter: nothingSelected,
+    layout: {
+      'text-field': ['get', 'label'],
+      'text-font': [LABEL_FONT],
+      'text-size': 12,
+      'text-variable-anchor': eightPlaces,
+      'text-radial-offset': 1,
+      'text-allow-overlap': true,
+      'icon-image': TAG.cheapest,
+      ...tagFit,
+    },
+    paint: { 'text-color': colours.onAccent },
+  });
   /*
    * The selected price, always shown: placed before the other prices
    * (higher layers are placed first), so they make way for it. It takes the
@@ -207,16 +237,7 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
       'text-field': ['get', 'label'],
       'text-font': [LABEL_FONT],
       'text-size': 15,
-      'text-variable-anchor': [
-        'left',
-        'right',
-        'top',
-        'bottom',
-        'top-left',
-        'top-right',
-        'bottom-left',
-        'bottom-right',
-      ],
+      'text-variable-anchor': eightPlaces,
       // Clear of its own bigger marker.
       'text-radial-offset': 1.3,
       'text-allow-overlap': true,

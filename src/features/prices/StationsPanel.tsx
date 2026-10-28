@@ -23,7 +23,7 @@ import { LIST_PAGE_SIZE } from './view';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
 import type { ResultsLayout } from '../search/searchState';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 export interface StationsPanelProps {
   data: PricesResponse;
@@ -45,6 +45,8 @@ export interface StationsPanelProps {
    * focus goes when the card under the map closes.
    */
   mapButtonRef: RefObject<HTMLButtonElement | null>;
+  /** On a wide screen: the results' heading and toolbar, at the top of the list's column. */
+  listHeader: ReactNode;
 }
 
 /**
@@ -65,6 +67,7 @@ export function StationsPanel({
   view,
   onSelect,
   mapButtonRef,
+  listHeader,
 }: StationsPanelProps) {
   const wide = useMediaQuery(WIDE_SCREEN);
   const reducedMotion = useMediaQuery(REDUCED_MOTION);
@@ -173,6 +176,7 @@ export function StationsPanel({
     <div className={styles.panel}>
       <div className={styles.columns}>
         <div className={styles.list} hidden={!showList}>
+          {listHeader}
           <StationList
             stations={stations.slice(0, listed)}
             total={count}

@@ -305,7 +305,8 @@ export function StationMap({
     // Its ordinary label would repeat the price beside the bold one, and its
     // ordinary dot would draw a second ring inside its marker.
     const others: ExpressionSpecification = ['!=', ['get', 'code'], selected ?? ''];
-    map.setFilter(LAYER.labels, others);
+    map.setFilter(LAYER.labels, ['all', others, ['!', ['get', 'cheapest']]]);
+    map.setFilter(LAYER.cheapestLabel, ['all', others, ['get', 'cheapest']]);
     map.setFilter(LAYER.dots, others);
 
     const key = `${selected ?? ''}:${String(showRequest)}`;

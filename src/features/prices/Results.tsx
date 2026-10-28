@@ -129,16 +129,49 @@ export function Results({
       <ViewSwitch view={layout} onChange={onLayoutChange} mapButtonRef={mapButtonRef} />
     ) : null;
 
+  const top = (
+    <div className={styles.top}>
+      <h2 id="results-heading" className={styles.heading} tabIndex={-1} ref={headingRef}>
+        {'data' in view ? <HeadingText {...heading(view, radius)} /> : 'Prices'}
+      </h2>
+      {view.kind === 'results' && <PriceSummaryLine stations={view.stations} />}
+    </div>
+  );
+  const stale = 'data' in view && view.data.stale && (
+    <StaleNotice age={formatAge(view.data.fetchedAt, now)} />
+  );
+  const nearest = view.kind === 'nearest' && (
+    <p className={styles.nearest}>
+      None sell {fuelName} within {radius} km {where(view.data)}, so these are the nearest{' '}
+      {view.stations.length} that do, nearest first.
+    </p>
+  );
+  const toolbar =
+    view.kind === 'results' || view.kind === 'no-match' ? (
+      <ResultsTools {...tools} now={now} viewSwitch={viewSwitch} />
+    ) : (
+      view.kind === 'nearest' && viewSwitch
+    );
+  /*
+   * Beside the map (wide screens, with a list), the heading, the saving and
+   * the toolbar head the list's own column, so the map's column starts at
+   * the top of the docket rather than under them, beside an empty space.
+   */
+  const inListColumn = wide && hasList;
+  const header = (
+    <>
+      {top}
+      {stale}
+      {nearest}
+      {toolbar}
+    </>
+  );
+
   return (
     // No aria-busy: some screen readers hold back live regions inside a busy
     // element, which would swallow "Loading prices..." itself.
     <section className={styles.results} aria-labelledby="results-heading">
-      <div className={styles.top}>
-        <h2 id="results-heading" className={styles.heading} tabIndex={-1} ref={headingRef}>
-          {'data' in view ? <HeadingText {...heading(view, radius)} /> : 'Prices'}
-        </h2>
-        {view.kind === 'results' && <PriceSummaryLine stations={view.stations} />}
-      </div>
+      {!inListColumn && top}
 
       {/*
        * Always in the page, so screen readers are already listening when its
@@ -184,9 +217,7 @@ export function Results({
         />
       )}
 
-      {'data' in view && view.data.stale && (
-        <StaleNotice age={formatAge(view.data.fetchedAt, now)} />
-      )}
+      {!inListColumn && stale}
 
       {view.kind === 'empty' && (
         <div className={styles.empty}>
@@ -197,17 +228,8 @@ export function Results({
         </div>
       )}
 
-      {view.kind === 'nearest' && (
-        <p className={styles.nearest}>
-          None sell {fuelName} within {radius} km {where(view.data)}, so these are the nearest{' '}
-          {view.stations.length} that do, nearest first.
-        </p>
-      )}
-
-      {(view.kind === 'results' || view.kind === 'no-match') && (
-        <ResultsTools {...tools} now={now} viewSwitch={viewSwitch} />
-      )}
-      {view.kind === 'nearest' && viewSwitch}
+      {!inListColumn && nearest}
+      {!inListColumn && toolbar}
 
       {view.kind === 'no-match' && (
         <div className={styles.empty}>
@@ -235,6 +257,7 @@ export function Results({
           view={layout}
           onSelect={onSelectStation}
           mapButtonRef={mapButtonRef}
+          listHeader={inListColumn ? header : null}
         />
       )}
 

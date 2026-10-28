@@ -190,6 +190,7 @@ describe('StationMap', () => {
     expect(map.layers.map((layer) => layer.id)).toEqual([
       'selected-dot',
       'station-labels',
+      'cheapest-label',
       'selected-label',
       'station-dots',
       'origin-ring',
@@ -257,7 +258,7 @@ describe('StationMap', () => {
     fire(map, 'style.load');
     const ids = map.layers.map((layer) => layer.id);
     const dots = ids.indexOf('station-dots');
-    for (const below of ['selected-dot', 'station-labels', 'selected-label']) {
+    for (const below of ['selected-dot', 'station-labels', 'cheapest-label', 'selected-label']) {
       expect(ids.indexOf(below)).toBeLessThan(dots);
     }
     // Every dot is in the way of every price: the top layer, placed first,
@@ -273,6 +274,35 @@ describe('StationMap', () => {
     // The selected station's marker replaces its own dot, under the others.
     rerender({ selected: 'a' });
     expect(map.filters.get('station-dots')).toEqual(['!=', ['get', 'code'], 'a']);
+  });
+
+  it('always shows the cheapest price, at any zoom, before the others and never dropped', () => {
+    const { map, rerender } = setup();
+    fire(map, 'style.load');
+    const ids = map.layers.map((layer) => layer.id);
+    // Higher layers are placed first: the cheapest before the ordinary prices,
+    // after only the selected one.
+    expect(ids.indexOf('cheapest-label')).toBeGreaterThan(ids.indexOf('station-labels'));
+    expect(ids.indexOf('cheapest-label')).toBeLessThan(ids.indexOf('selected-label'));
+    const cheapest = map.layers.find((layer) => layer.id === 'cheapest-label');
+    // Never dropped: it may overlap as a last resort, after trying eight places.
+    expect(cheapest?.layout).toMatchObject({
+      'text-allow-overlap': true,
+      'icon-image': 'tag-cheapest',
+    });
+    expect(cheapest?.layout?.['text-variable-anchor']).toHaveLength(8);
+    // The ordinary prices leave it out; it shows only the cheapest (not if selected).
+    rerender({ selected: 'b' });
+    expect(map.filters.get('cheapest-label')).toEqual([
+      'all',
+      ['!=', ['get', 'code'], 'b'],
+      ['get', 'cheapest'],
+    ]);
+    expect(map.filters.get('station-labels')).toEqual([
+      'all',
+      ['!=', ['get', 'code'], 'b'],
+      ['!', ['get', 'cheapest']],
+    ]);
   });
 
   describe('a tap on the map away from every dot', () => {
@@ -371,7 +401,11 @@ describe('StationMap', () => {
     fire(map, 'style.load');
     rerender({ selected: 'a', showRequest: 1 });
     expect(map.filters.get('selected-label')).toEqual(['==', ['get', 'code'], 'a']);
-    expect(map.filters.get('station-labels')).toEqual(['!=', ['get', 'code'], 'a']);
+    expect(map.filters.get('station-labels')).toEqual([
+      'all',
+      ['!=', ['get', 'code'], 'a'],
+      ['!', ['get', 'cheapest']],
+    ]);
     // The card has just changed the map's height: resize before working out the pan.
     expect(map.resize.mock.invocationCallOrder[0]).toBeLessThan(
       map.easeTo.mock.invocationCallOrder[0] ?? 0,

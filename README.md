@@ -1,4 +1,4 @@
-# NSW Fuel Finder
+# Fuel Finder
 
 Live fuel prices for New South Wales and the ACT, cheapest first for the fuel
 you use, on a list and a map, with four months of daily price history.
@@ -6,7 +6,7 @@ you use, on a list and a map, with four months of daily price history.
 **[nsw-fuel-finder.netlify.app](https://nsw-fuel-finder.netlify.app)**
 
 <p>
-  <img src="docs/screenshots/desktop-light-results.png" alt="The results for postcode 2250: nineteen stations cheapest first beside a map of their prices." width="66%" />
+  <img src="docs/screenshots/desktop-light-results.png" alt="The results for postcode 2250: nineteen stations cheapest first, one open with its directions, beside a map of their prices." width="66%" />
   <img src="docs/screenshots/phone-dark-map.png" alt="The same search on a phone in dark mode, on the map." width="22%" />
 </p>
 
@@ -69,15 +69,26 @@ any gap between what the job wrote and what the API serves, and this month's
 API.NSW calls against the budget. A stall of exactly that kind happened once, and is written up in
 the log.
 
-**Answers, not just a list.** A sentence over the results says the cheapest,
-the average and what the difference is worth on a 50 L fill. Each station
-says how far its price has moved today ("↓ 2.0 today", worked out from our
-own history, shown only where it moved) and has directions in the phone's
-own maps app. The list can be sorted nearest first and filtered by brand or
-by price age, all in the URL, all on the device: the API never sees them, so
-they cost no request. A search that finds nothing within the distance lists
-the nearest stations up to 100 km instead of stopping. From 1440 px the
-search form sits in a column of its own and stays in view.
+**Answers, not just a list.** Over the results, what the cheapest is worth
+on a 50 L fill ("save $3.02 on 50 L"; screen readers hear the whole sentence,
+average included). Each station is one line, its name, price, distance and
+age; pressed, it opens to say how far the price has moved today ("↓ 2.0
+today", from our own history, shown only where it moved), with directions in
+the phone's own maps app. The list can be sorted nearest first and filtered by
+brand or by price age, all in the URL, all on the device: the API never sees
+them, so they cost no request. A search that finds nothing within the
+distance lists the nearest stations up to 100 km instead of stopping.
+
+**A design with a point of view.** A servo docket: a strip of paper torn off
+at the top, monospaced prices with dotted leaders to them, one accent (carbon
+blue) used only for the cheapest and for a price that moved. The type is
+Atkinson Hyperlegible Next and Mono, made for low-vision readers, self-hosted
+with metric-matched fallbacks so nothing moves as they load. The map is
+OpenFreeMap's tiles drawn in the same paper and ink, with prices as boxed
+tags. Only what each screen needs is on it: on a phone the first price is at
+about 230 px, and everything else is one press away. The rules, tokens and
+measurements are in [docs/design-system.md](docs/design-system.md), and the
+directions it was chosen from in [docs/design-directions/](docs/design-directions/).
 
 **Accessibility as a requirement, not a pass at the end.** Native controls
 wherever they fit: the fuel, distance and theme pickers are `<select>`s, which

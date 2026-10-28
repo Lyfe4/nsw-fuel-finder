@@ -2486,6 +2486,86 @@ Pull request #7, squash-merged as `eddd797`; production published it at
   prices; after, every dot is drawn, the selected price sits above its
   marker, and the neighbour shows over the marker's edge.
 
+## 2026-10-28: Round 13 (the redesign: Docket)
+
+The whole visual layer and a review of what each screen shows, in pull
+request #9. The proposals, mockups and the owner's choices are in
+`docs/design-directions/`; the result is specified in
+`docs/design-system.md`, which is now the source of truth for the look.
+
+### A servo docket, minimal
+
+**Decision:** of three directions (Price Board, Road Atlas, Docket), the
+owner chose Docket, then a minimal version of it: paper on a counter, ink,
+one accent (carbon blue) used only for meaning, Atkinson Hyperlegible Next
+and Mono, dotted leaders, one torn edge. Only what a screen needs is on it.
+
+**Why:** the price is the hero; the old screens buried it (the first price
+on a phone was below the first screen). Atkinson was made for low-vision
+readers, which a segment face (Price Board's) failed: its decimal point
+vanished when blurred (`docs/design-directions/png/legibility.png`).
+
+### What moved, and where
+
+- **A station is one line**, an `<h3>` holding one button (the accordion
+  pattern): name, leader, price; distance and age. Its card (brand,
+  address, today's move, price history, Directions, Favourite, Close) opens
+  under it at every width, and under the map on a phone's map. "Show on
+  map" and "Show in list" are gone: the row selects the station, and the
+  List/Map switch shows it.
+- **The search folds** into one line on a phone after a search; the fuel
+  stays a select there (one tap), Change opens the rest. A failed search
+  keeps it open with focus in the place box.
+- **One-row toolbar**, one-line summary, favourites hidden until there is
+  one, theme in the footer, the name "Fuel Finder" with "NSW · ACT".
+- **On a GPU-less wide screen**, opening a row does not start the software
+  map (its first draw freezes the page); "Show the map" is the one way.
+
+### The map
+
+OpenFreeMap's style restyled in our tokens at every `style.load`
+(`basemap.ts`), not a hosted style of our own: nothing to keep in step with
+their tiles. Prices are boxed tags; the cheapest has a layer of its own,
+placed before all but the selected price, so it is never dropped. Labels
+stay in OpenFreeMap's Noto: our own glyph PBFs (about 250 kB, our bandwidth)
+were not worth it for this direction.
+
+### Addresses
+
+A suburb in capitals in an otherwise careful address ("WYOMING") takes the
+ABS gazetteer's spelling, in the API (`mendAddressCase`); all-capital
+addresses are set in title case in the browser (`formatAddress`). Neither
+touches what it does not recognise.
+
+### Layout shift on phones (found by PageSpeed)
+
+The preview's first PageSpeed mobile run had CLS 0.266: the one-line rows'
+loading placeholders no longer filled a phone screen, so the footer was in
+view while prices loaded, and moved. The loading state now holds a screen's
+height. `check:browser` measures layout shift at a phone size too, with the
+prices held back so the loading state paints; it reproduced 0.267 before the
+fix.
+
+### Two tests that failed under load
+
+- **History (a real race):** the view's body is lazily imported, and the
+  first test to need it timed a cold import (module and CSS transform)
+  against `findBy`'s one second. Under the full suite's parallel load that
+  was sometimes too little. The test file now imports the view once up
+  front, so only the app's own work is timed. The list test, which waits
+  for the lazily imported map in the same way, does the same.
+- **Fifty favourites (not a race):** a whole-app test, about 0.8 s alone and
+  1.3 to 2.2 s in normal full runs, that passed the five-second limit only
+  in a run while Lighthouse was also using the machine (the suite took 25 s
+  against 15 to 22). Its axe check now covers the card it is about, not the
+  whole app with fifty rows. No timeout was raised and nothing is retried.
+
+### Budgets
+
+Initial CSS 23.0 kB raw of 24 kB (raised from 22, written up in
+`check-bundle-budget.js`). A new fonts budget: 50.5 kB preloaded of 56,
+50.5 of 64 in all.
+
 ## 2026-10-25: Baseline (updated 28 October, round 12)
 
 The project as of `eddd797` (round 12, pull request #7; first written for

@@ -56,12 +56,13 @@
   /*
    * The basemap, drawn in our own colours over OpenFreeMap's tiles
    * (src/features/map/basemap.ts): a monochrome print on paper. Plain pale
-   * water with a darker shore line, parks a shade off the land.
+   * water with a darker shore line, parks and woods only just off the land
+ * (any darker and they read as grey patches).
    */
   --palette-map-land: #f3f1ea;
   --palette-map-water: #d3dfe4;
   --palette-map-shore: #8fa7b1;
-  --palette-map-green: #e6e4da;
+  --palette-map-green: #eeece4;
   --palette-map-minor: #b9b5ab;
   --palette-map-land-dark: #141518;
   --palette-map-water-dark: #1b2932;

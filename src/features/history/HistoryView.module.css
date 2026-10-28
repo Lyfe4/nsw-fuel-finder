@@ -1,10 +1,24 @@
+/* One column on a phone; on a wide screen the chart's, and every fuel's beside it. */
 .view {
   display: grid;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
+  gap: var(--space-3);
+}
+
+@media (min-width: 60rem) {
+  .view {
+    grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+    align-items: start;
+    gap: var(--space-6);
+  }
+
+  .side {
+    border-top: 0;
+  }
+}
+
+.main {
+  display: grid;
+  gap: var(--space-3);
 }
 
 .station {
@@ -13,42 +27,60 @@
   gap: var(--space-1);
 }
 
-.address {
-  color: var(--color-text-muted);
-  font-size: var(--step--1);
-  overflow-wrap: anywhere;
+.now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
 }
 
+/* Today's price: the biggest number in the app. */
 .amount {
-  font-size: var(--step-1);
-  font-weight: var(--font-weight-bold);
+  font-family: var(--font-figures);
+  font-size: var(--step-4);
+  font-weight: var(--font-weight-heavy);
+  line-height: 1.05;
+}
+
+.unit {
+  color: var(--color-text-muted);
+  font-size: var(--step--1);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--step--1);
 }
 
 .summary {
-  font-weight: var(--font-weight-bold);
+  padding-top: var(--space-2);
+  border-top: var(--rule-width) dashed var(--color-text);
+  font-size: var(--step--1);
 }
 
 .short {
   color: var(--color-text-muted);
 }
 
-.tableWrap {
-  border-top: var(--border-width) solid var(--color-border);
-  padding-top: var(--space-2);
+.more,
+.side {
+  border-top: var(--border-width) dashed var(--color-border);
 }
 
-.tableSummary {
-  display: flex;
-  align-items: center;
-  min-height: var(--target-size);
-  color: var(--color-accent);
+.moreSummary {
+  display: list-item;
+  padding-block: var(--space-2);
+  font-size: var(--step--1);
+  font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
 }
 
 .caption {
@@ -61,7 +93,7 @@
 .table th,
 .table td {
   padding: var(--space-1) var(--space-2);
-  border-bottom: var(--border-width) solid var(--color-border);
+  border-bottom: var(--border-width) dashed var(--color-border);
   text-align: right;
 }
 
@@ -71,16 +103,20 @@
   font-weight: var(--font-weight-regular);
 }
 
-.credit {
-  color: var(--color-text-muted);
+.table thead th {
   font-size: var(--step--1);
+  color: var(--color-text-muted);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+.figure,
+.table td {
+  font-family: var(--font-figures);
+  font-weight: var(--font-weight-bold);
+}
+
+.credit {
+  color: var(--color-text-muted);
+  font-size: var(--step--2);
 }
 
 .charted {

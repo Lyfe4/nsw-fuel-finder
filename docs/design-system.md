@@ -246,10 +246,16 @@ the accent, the selected one with a heavier edge. The tag is fitted to its
 price and takes no part in placement itself, so a price is placed (or
 dropped to make way for a dot) exactly as before. Dots stay on top.
 
-The legend, under the map, is the docket's scale bar: three equal bands
-(thirds by rank, not by price), the lowest and highest price at its ends,
-"Cheapest third / Middle / Dearest third" under them, and the search
-centre's ring.
+**The cheapest price is never dropped.** It has a layer of its own,
+placed right after the selected price and before every other, so the
+others make way for it; it tries eight places beside its dot and, if every
+one would cover another dot, overlaps as a last resort (the dots are still
+drawn over it). Ties all show.
+
+The legend, under the map, is the docket's scale bar on one line from
+320 px: "Cheapest 233.9 [blue | grey | orange] 254.9 Dearest (ring)
+Centre". The bands are thirds by rank, not by price. Screen readers get the
+whole key as a sentence.
 
 ### History
 

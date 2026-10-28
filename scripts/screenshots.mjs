@@ -166,6 +166,10 @@ try {
       // The cheapest station's row open: its card in the list, its dot on the map.
       await page.goto(url(`&station=${cheapest.stationCode}`));
       await settle(page, { map: true });
+      // The open row was scrolled into view; the top of the page is the scene.
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+      });
       await page.waitForTimeout(500);
       await shoot(page, `desktop-${theme}-results`);
       await page.goto(url(`&history=${cheapest.stationCode}`));
@@ -242,32 +246,39 @@ try {
   const image = (name) =>
     `data:image/png;base64,${readFileSync(join(OUT, `${name}.png`)).toString('base64')}`;
   const tokens = readFileSync(join(ROOT, 'src/styles/tokens.css'), 'utf8');
+  const fixturePrices = prices.stations.map((station) => station.priceCents);
+  const average = fixturePrices.reduce((sum, price) => sum + price, 0) / fixturePrices.length;
+  const summarySaving = ((average - Math.min(...fixturePrices)) * 50) / 100;
   const colour = (name) => new RegExp(`--palette-${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(tokens)[1];
+  /*
+   * Flat, on the counter's colour, like the app: screens in an ink edge,
+   * square, straight, no shadows or gradients (docs/design-system.md). The
+   * type is the app's own, from the build being shot.
+   */
   const css = `
+    @font-face { font-family: 'Next'; src: url('${BASE}/fonts/atkinson-next-latin.v1.woff2') format('woff2'); font-weight: 200 800; }
+    @font-face { font-family: 'Mono'; src: url('${BASE}/fonts/atkinson-mono-latin.v1.woff2') format('woff2'); font-weight: 200 800; }
     * { box-sizing: border-box; margin: 0; }
-    body { width: var(--w); height: var(--h); overflow: hidden;
-      font-family: system-ui, 'Segoe UI', Roboto, Arial, sans-serif; color: ${colour('thermal')};
-      background: radial-gradient(circle at 20% 10%, ${colour('carbon-700')}, ${colour('night-950')} 70%); }
-    .desktop { position: absolute; border-radius: 14px; overflow: hidden;
-      box-shadow: 0 30px 80px rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.15); }
-    .desktop .bar { height: 30px; background: ${colour('night-800')}; display: flex; gap: 8px; align-items: center; padding: 0 14px; }
-    .desktop .bar i { width: 11px; height: 11px; border-radius: 50%; background: ${colour('night-600')}; }
-    .desktop img, .phone img { display: block; width: 100%; }
-    .phone { position: absolute; border-radius: 38px; overflow: hidden; border: 10px solid ${colour('ink')};
-      box-shadow: 0 30px 70px rgba(0,0,0,.6); background: ${colour('ink')}; }
-    h1 { font-size: var(--title); line-height: 1.05; font-weight: 750; letter-spacing: -0.02em; }
-    p { font-size: var(--sub); line-height: 1.35; opacity: .9; margin-top: 18px; }
-    .mark { width: 64px; height: 64px; margin-bottom: 26px; }
+    body { position: relative; width: var(--w); height: var(--h); overflow: hidden;
+      font-family: 'Next', Arial, sans-serif; color: ${colour('ink')}; background: ${colour('counter')}; }
+    .screen { position: absolute; overflow: hidden; border: 1.5px solid ${colour('ink')}; background: ${colour('thermal')}; }
+    .screen img { display: block; width: 100%; }
+    .wordmark { display: flex; align-items: center; gap: 14px; padding-bottom: 14px;
+      border-bottom: 1.5px solid ${colour('ink')}; font-family: 'Mono', monospace; font-weight: 800;
+      font-size: var(--mark); letter-spacing: 0.04em; text-transform: uppercase; }
+    .wordmark svg { width: calc(var(--mark) * 1.6); height: calc(var(--mark) * 1.6); }
+    h1 { margin-top: 28px; font-size: var(--title); line-height: 1.08; font-weight: 750; }
+    p { margin-top: 18px; font-size: var(--sub); line-height: 1.35; color: ${colour('ink-600')}; }
+    .figure { font-family: 'Mono', monospace; font-weight: 800; color: ${colour('carbon-700')}; }
   `;
-  const mark = readFileSync(join(ROOT, 'public/favicon.svg'), 'utf8').replace(
-    '<svg ',
-    '<svg class="mark" ',
-  );
+  const mark = readFileSync(join(ROOT, 'public/favicon.svg'), 'utf8');
   const compose = async (name, width, height, scale, body) => {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale });
     await page.setContent(
-      `<html><head><style>:root{--w:${width}px;--h:${height}px;--title:${width > 1300 ? 76 : 62}px;--sub:${width > 1300 ? 30 : 26}px}${css}</style></head><body>${body}</body></html>`,
+      `<html><head><style>:root{--w:${width}px;--h:${height}px;--title:${width > 1300 ? 64 : 54}px;--sub:${width > 1300 ? 26 : 23}px;--mark:${width > 1300 ? 26 : 24}px}${css}</style></head><body>${body}</body></html>`,
     );
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(() => [...document.images].every((image) => image.complete));
     await page.screenshot({ path: name });
     await page.close();
     shots.push(name);
@@ -279,12 +290,13 @@ try {
     1200,
     630,
     1,
-    `<div style="position:absolute;left:70px;top:150px;width:560px">
-       ${mark}<h1>Fuel Finder</h1>
-       <p>Live fuel prices near you, cheapest first, on a list and a map, with four months of price history.</p>
+    `<div style="position:absolute;left:64px;top:64px;width:500px">
+       <div class="wordmark">${mark} Fuel Finder</div>
+       <h1>Live fuel prices, cheapest first.</h1>
+       <p>NSW and the ACT. On a list and a map, with four months of price history. Today on the Central Coast: <span class="figure">save $${(Math.round(summarySaving * 100) / 100).toFixed(2)}</span> on 50 L.</p>
      </div>
-     <div class="phone" style="left:700px;top:60px;width:300px;transform:rotate(-4deg)"><img src="${image('phone-light-map')}"></div>
-     <div class="phone" style="left:900px;top:110px;width:270px;transform:rotate(5deg)"><img src="${image('phone-dark-results')}"></div>`,
+     <div class="screen" style="left:640px;top:56px;width:250px;height:620px"><img src="${image('phone-light-results')}"></div>
+     <div class="screen" style="left:910px;top:96px;width:250px;height:620px"><img src="${image('phone-dark-map')}"></div>`,
   );
 
   await compose(
@@ -292,8 +304,9 @@ try {
     1600,
     900,
     2,
-    `<div class="desktop" style="left:70px;top:110px;width:1080px"><div class="bar"><i></i><i></i><i></i></div><img src="${image('desktop-dark-results')}"></div>
-     <div class="phone" style="left:1170px;top:150px;width:340px"><img src="${image('phone-light-map')}"></div>`,
+    `<div style="position:absolute;left:64px;top:48px;width:1060px"><div class="wordmark">${mark} Fuel Finder</div></div>
+     <div class="screen" style="left:64px;top:132px;width:1060px"><img src="${image('desktop-light-results')}"></div>
+     <div class="screen" style="left:1164px;top:132px;width:372px;height:820px"><img src="${image('phone-dark-results')}"></div>`,
   );
 } finally {
   await browser.close();

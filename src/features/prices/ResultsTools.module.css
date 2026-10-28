@@ -12,19 +12,6 @@
   font-size: var(--step--1);
 }
 
-/* Wide: in the list's column, like the heading above it (Results.module.css). */
-@media (min-width: 60rem) {
-  .tools {
-    max-width: calc((100% - var(--space-4)) / 2.25);
-  }
-}
-
-@media (min-width: 100rem) {
-  .tools {
-    max-width: 34rem;
-  }
-}
-
 .sort {
   display: flex;
   align-items: center;

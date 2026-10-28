@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { StationMapProps } from '@/features/map/StationMap';
 import { renderApp, stationRow } from '@/features/search/testing';
@@ -38,6 +38,16 @@ const MANY = Array.from({ length: 45 }, (_, i) =>
 const list = () => screen.findByRole('list', { name: 'Stations, cheapest first' });
 const listed = () =>
   within(screen.getByRole('list', { name: 'Stations, cheapest first' })).getAllByRole('listitem');
+
+/*
+ * The map is lazily imported (LazyStationMap). Imported once up front, so a
+ * test that waits for a dot does not also wait for a cold import, which
+ * under the full suite's parallel load could pass findBy's one second (as
+ * it did for the history view: see History.test.tsx).
+ */
+beforeAll(async () => {
+  await import('@/features/map/StationMap');
+});
 
 describe('a long list', () => {
   it('lists 20 at first, and says how many of how many', async () => {

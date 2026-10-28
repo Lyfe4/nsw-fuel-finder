@@ -87,7 +87,10 @@ describe('favourites', () => {
       'You already have 50 favourites, the most this device keeps. Remove one to add this station.',
     );
     expect(readFavourites()).toHaveLength(50);
-    await expectNoAxeViolations(container);
+    // The station's card, where the message is. Not the whole app: with 50
+    // favourites listed it was the slowest axe run in the suite, and under
+    // parallel load it passed the five-second limit.
+    await expectNoAxeViolations(stationRow('Ampol Foodary Erina').closest('li') ?? container);
   });
 
   it('lists favourites with today’s prices for the chosen fuel, cheapest first, from /api/stations', async () => {

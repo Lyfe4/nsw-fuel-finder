@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { renderApp, stationRow } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
@@ -12,6 +12,7 @@ import {
   station,
   summary,
 } from '@/lib/testing/fakeApi';
+import { setScreen } from '@/lib/testing/matchMedia';
 
 const ERINA = station({ stationCode: '1', name: 'Ampol Foodary Erina' });
 
@@ -32,6 +33,18 @@ async function openCard(user: ReturnType<typeof setup>['user']) {
 }
 
 describe('a station’s price history', () => {
+  /*
+   * The view's body is lazily imported (LazyHistoryView), so the first test
+   * to need it also paid for a cold import: transforming the module and its
+   * CSS. Under the full suite's parallel load that sometimes took longer than
+   * findBy's one second, and the test failed with the view still loading.
+   * Importing it once up front takes module loading out of what is timed;
+   * what each test waits for is then only what the app does.
+   */
+  beforeAll(async () => {
+    await import('./HistoryView');
+  });
+
   it('opens from the station’s card: a real link, a new history entry, focus on its heading', async () => {
     const { api, user } = setup();
     await openCard(user);
@@ -201,13 +214,23 @@ describe('the station’s own page', () => {
     const table = await screen.findByRole('table', { name: 'Every fuel here now, cents a litre' });
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual([
-      'Unleaded 91 (chart below)',
+      'Unleaded 91 (on the chart)',
       'Premium 98',
       'Diesel',
     ]);
     const diesel = rows[2];
     if (!diesel) throw new Error('no Diesel row');
     expect(within(diesel).getByRole('cell', { name: '249.9' })).toBeInTheDocument();
+  });
+
+  it('keeps every fuel behind a disclosure on a phone, and open beside the chart on a wide screen', async () => {
+    setup('/?query=Erina&history=1');
+    const phoneTable = await screen.findByRole('table', {
+      name: 'Every fuel here now, cents a litre',
+    });
+    expect(phoneTable.closest('details')).not.toHaveAttribute('open');
+    setScreen({ wide: true });
+    expect(phoneTable.closest('details')).toHaveAttribute('open');
   });
 
   it('has directions to it', async () => {
