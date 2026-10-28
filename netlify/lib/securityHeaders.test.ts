@@ -90,7 +90,7 @@ describe('colours written outside the token file', () => {
 
   it('the first-paint theme colour matches the page background in each theme', () => {
     expect(html).toContain(
-      `theme === 'dark' ? '${palette('grey-950') ?? ''}' : '${palette('grey-50') ?? ''}'`,
+      `theme === 'dark' ? '${palette('night-950') ?? ''}' : '${palette('counter') ?? ''}'`,
     );
   });
 
@@ -103,15 +103,7 @@ describe('colours written outside the token file', () => {
 
   it('the static pages (404, privacy) use the tokens’ colours', () => {
     const css = readFileSync('public/static-page.css', 'utf8');
-    for (const name of [
-      'grey-50',
-      'grey-900',
-      'grey-600',
-      'teal-700',
-      'grey-950',
-      'grey-400',
-      'teal-300',
-    ]) {
+    for (const name of ['counter', 'ink', 'ink-600', 'night-950', 'night-50', 'night-400']) {
       expect(css, name).toContain(palette(name) ?? 'missing');
     }
   });
