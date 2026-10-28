@@ -96,6 +96,18 @@ a:hover {
   outline-offset: var(--focus-offset);
 }
 
+/*
+ * A heading or note the app moves focus to (tabindex -1: not a control, not
+ * in the Tab order) is marked, not boxed: a ring the width of the screen
+ * round a heading reads as something to press. The focus colour, 2px, under
+ * its text. :focus-visible only, so it shows after a key, not a click.
+ */
+[tabindex='-1']:focus-visible {
+  outline: none;
+  text-decoration: underline var(--focus-width) var(--color-focus);
+  text-underline-offset: 0.25em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

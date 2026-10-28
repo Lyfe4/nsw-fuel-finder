@@ -136,9 +136,13 @@ height 1.4 for text, 1.15 for headings.
   the masthead. The dotted leader is `2px dotted --color-border`.
 - Radius: `--radius` 3 px, on controls only. The docket strip and the map
   have square corners.
-- Focus: `2px solid --color-focus`, 2 px offset, on everything. On the
+- Focus: `2px solid --color-focus`, 2 px offset, on every control. On the
   station row, the ring is drawn inside the row (offset -2 px), so it isn't
-  clipped by the list.
+  clipped by the list. A heading or note the app moves focus to
+  (`tabindex="-1"`: the results and history headings, the map's loading
+  note) is underlined instead, 2 px in `--color-focus`, so it doesn't look
+  like something to press. Both are `:focus-visible` only: they show after
+  a key, not after a click or a tap.
 - Touch targets: at least 44 × 44 px (`--target-size`), except inline text
   buttons, which are at least 24 px high (WCAG 2.5.8) with space around them.
 
@@ -289,6 +293,14 @@ No tinted box. `role="alert"` as now. Old prices are a sentence in ink, bold.
 
 Small muted type: the data credits (all of them; licences require them),
 the theme select (a labelled native select), and Privacy.
+
+### The mark
+
+A torn docket on an ink square, with two ink lines and one carbon-blue line
+(`scripts/generate-icons.mjs`, colours from the tokens). In a dark browser
+or on a dark page the SVG adds a 1-unit hairline edge in `night-400`, so the
+square still reads against the dark instead of leaving a loose scrap of
+paper. The PNGs (old browsers, home screens) are always the light version.
 
 ## Motion
 

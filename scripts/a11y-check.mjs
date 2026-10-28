@@ -185,6 +185,43 @@ try {
       .first()
       .click();
     await page.getByRole('heading', { level: 2, name: /^Price history: / }).waitFor();
+    // Focus moves to the heading either way; its mark shows after a key only.
+    const headingFocus = () =>
+      page.evaluate(() => {
+        const heading = document.getElementById('history-heading');
+        const style = heading && getComputedStyle(heading);
+        return {
+          focused: document.activeElement === heading,
+          visible: heading?.matches(':focus-visible') ?? false,
+          outline: style?.outlineStyle,
+          underline: style?.textDecorationLine,
+        };
+      });
+    await page.waitForFunction(
+      () => document.activeElement === document.getElementById('history-heading'),
+    );
+    const clicked = await headingFocus();
+    check(
+      `${theme}: history heading focused, unmarked after a click`,
+      clicked.focused && !clicked.visible,
+      JSON.stringify(clicked),
+    );
+    await page.getByRole('button', { name: 'Back to results' }).click();
+    const historyLink = page
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .locator('[data-history-link]')
+      .first();
+    await historyLink.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(
+      () => document.activeElement === document.getElementById('history-heading'),
+    );
+    const keyed = await headingFocus();
+    check(
+      `${theme}: history heading underlined, not boxed, after a key`,
+      keyed.focused && keyed.visible && keyed.outline === 'none' && keyed.underline === 'underline',
+      JSON.stringify(keyed),
+    );
     await page
       .getByText(/^Lowest |^No .* price history/)
       .first()

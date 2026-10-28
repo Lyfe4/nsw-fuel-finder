@@ -29,12 +29,16 @@ function palette(name) {
 const INK = palette('ink');
 const PAPER = palette('thermal');
 const ACCENT = palette('carbon-700');
+const EDGE = palette('night-400');
 
 /**
  * `inset` is the share of the square left as margin: maskable icons are
  * cropped to a circle by Android, so they need more. Square corners but for
  * a 3-unit radius, as the app's controls have; none for maskable icons,
- * whose shape the platform decides.
+ * whose shape the platform decides. On a dark tab or page the ink square
+ * would vanish into the dark, leaving a loose scrap of paper: there it gets
+ * a hairline edge in the dark theme's muted ink. The class is prefixed, as
+ * the screenshots script sets this SVG inline in a page of its own.
  */
 function mark(inset = 0) {
   const scale = 1 - inset * 2;
@@ -42,7 +46,9 @@ function mark(inset = 0) {
   // The paper: 8 to 24 across, torn in four teeth along the top at y 6 to 8.
   const torn = 'M8 8 L10 6 L12 8 L14 6 L16 8 L18 6 L20 8 L22 6 L24 8 L24 27 L8 27 Z';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>@media (prefers-color-scheme: dark) { .ff-edge { stroke: ${EDGE}; } }</style>
   <rect width="32" height="32" rx="${inset ? 0 : 3}" fill="${INK}"/>
+  <rect class="ff-edge" x="0.5" y="0.5" width="31" height="31" rx="${inset ? 0 : 2.5}" fill="none" stroke-width="1"/>
   <g transform="translate(${offset} ${offset}) scale(${scale})">
     <path d="${torn}" fill="${PAPER}"/>
     <rect x="11" y="12" width="10" height="2" fill="${INK}"/>

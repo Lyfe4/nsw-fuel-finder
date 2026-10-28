@@ -147,7 +147,8 @@
   --border-width: 1px;
   /* The dashed and solid rules between the docket's sections. */
   --rule-width: 1.5px;
-  --focus-ring: 2px solid var(--color-focus);
+  --focus-width: 2px;
+  --focus-ring: var(--focus-width) solid var(--color-focus);
   --focus-offset: 2px;
   /* Big enough to hit with a thumb (WCAG 2.5.8 asks 24px; 44px is comfortable). */
   --target-size: 2.75rem;
