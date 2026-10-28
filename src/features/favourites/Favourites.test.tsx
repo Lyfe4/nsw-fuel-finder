@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { renderApp } from '@/features/search/testing';
+import { renderApp, stationRow } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { fakeApi, json, prices, station, stationsResponse, summary } from '@/lib/testing/fakeApi';
 
@@ -14,7 +14,8 @@ function store(favourites: { code: string; name: string }[]) {
   window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify(favourites));
 }
 
-const panel = () => screen.getByText(/^Favourites/, { selector: 'summary' }).closest('details');
+const panel = () =>
+  screen.queryByText(/^Favourites/, { selector: 'summary' })?.closest('details') ?? null;
 
 describe('favourites storage', () => {
   it('reads nothing from junk, duplicates or a throwing storage', () => {
@@ -42,7 +43,7 @@ describe('favourites storage', () => {
 });
 
 describe('favourites', () => {
-  it('a station is starred from the list: a toggle with one name and its state', async () => {
+  it('a station is starred from its card: a toggle with one name and its state', async () => {
     fakeApi({
       location: () => json(prices({ stations: [ERINA, GOSFORD] })),
       stations: () => json(stationsResponse([summary(ERINA)])),
@@ -50,6 +51,7 @@ describe('favourites', () => {
     const { user } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
 
+    await user.click(stationRow('Ampol Foodary Erina'));
     const star = screen.getByRole('button', { name: 'Favourite, Ampol Foodary Erina' });
     expect(star).toHaveAttribute('aria-pressed', 'false');
     await user.click(star);
@@ -77,6 +79,7 @@ describe('favourites', () => {
     const { user, container } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
 
+    await user.click(stationRow('Ampol Foodary Erina'));
     const star = screen.getByRole('button', { name: 'Favourite, Ampol Foodary Erina' });
     await user.click(star);
     expect(star).toHaveAttribute('aria-pressed', 'false');
@@ -84,7 +87,10 @@ describe('favourites', () => {
       'You already have 50 favourites, the most this device keeps. Remove one to add this station.',
     );
     expect(readFavourites()).toHaveLength(50);
-    await expectNoAxeViolations(container);
+    // The station's card, where the message is. Not the whole app: with 50
+    // favourites listed it was the slowest axe run in the suite, and under
+    // parallel load it passed the five-second limit.
+    await expectNoAxeViolations(stationRow('Ampol Foodary Erina').closest('li') ?? container);
   });
 
   it('lists favourites with today’s prices for the chosen fuel, cheapest first, from /api/stations', async () => {
@@ -130,8 +136,18 @@ describe('favourites', () => {
     expect(screen.getByRole('button', { name: 'Remove, Ampol Foodary Erina' })).toHaveFocus();
 
     await user.click(screen.getByRole('button', { name: 'Remove, Ampol Foodary Erina' }));
-    expect(screen.getByText('Favourites', { selector: 'summary' })).toHaveFocus();
-    expect(screen.getByText(/No favourites yet/)).toBeVisible();
+    // The last one gone, the panel goes too, and focus to the search, never <body>.
+    expect(panel()).toBeNull();
+    expect(screen.getByRole('combobox', { name: /suburb or postcode/i })).toHaveFocus();
+  });
+
+  it('is not there at all until there is a favourite', async () => {
+    const api = fakeApi();
+    renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    expect(panel()).toBeNull();
+    // Nothing to price, so nothing asked for.
+    expect(api.calls('stations')).toEqual([]);
   });
 
   it('is closed once there is a search, so the results are not pushed down', async () => {

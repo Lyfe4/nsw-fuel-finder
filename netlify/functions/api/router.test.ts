@@ -207,7 +207,7 @@ describe('GET /api/location', () => {
     expect(response.status).toBe(200);
     const prices = body as PricesResponse;
     expect(prices.origin).toMatchObject({ label: 'Erina NSW 2250', latitude: -33.4373 });
-    expect(prices.stations.some((s) => s.address.includes('ERINA'))).toBe(true);
+    expect(prices.stations.some((s) => /erina/i.test(s.address))).toBe(true);
   });
 
   it('finds a suburb with no station of its own, and searches around it', async () => {
@@ -247,7 +247,7 @@ describe('GET /api/location', () => {
     const { get } = setup();
     const { body } = await get('/api/location?query=balranald&fuel=U91');
     expect((body as PricesResponse).stations.map((s) => s.address)).toContain(
-      '94 Sturt Hwy BALRANALD NSW 2715',
+      '94 Sturt Hwy Balranald NSW 2715', // its suburb mended from the gazetteer
     );
   });
 

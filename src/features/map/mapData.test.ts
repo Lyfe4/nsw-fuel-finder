@@ -40,7 +40,7 @@ describe('toFeatures', () => {
     expect(collection.features[0]).toEqual({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [151.3, -33.4] },
-      properties: { code: '7', label: '229.9', band: 'low', priority: 229.9 },
+      properties: { code: '7', label: '229.9', band: 'low', cheapest: false, priority: 229.9 },
     });
   });
 

@@ -16,6 +16,8 @@ export interface StationProperties {
   /** "229.5", drawn beside the dot; "Cheapest 209.9" for the cheapest. */
   label: string;
   band: PriceBand;
+  /** One of the cheapest (ties included): its tag is drawn in the accent. */
+  cheapest: boolean;
   /** Lower draws its label first, so where labels collide the cheaper one is kept. */
   priority: number;
 }
@@ -67,6 +69,7 @@ export function toFeatures(stations: readonly StationPrice[]): StationFeatureCol
             ? `Cheapest ${formatPrice(station.priceCents)}`
             : formatPrice(station.priceCents),
         band: band(station.priceCents),
+        cheapest: station.priceCents === cheapest,
         priority: station.priceCents,
       },
     })),

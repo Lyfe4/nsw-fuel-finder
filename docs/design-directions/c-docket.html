@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction C: Docket</title>
+    <style>
+      @font-face {
+        font-family: 'Atkinson Hyperlegible Next';
+        src: url(fonts/atkinson-next-wght.woff2) format('woff2');
+        font-weight: 200 800;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Atkinson Hyperlegible Mono';
+        src: url(fonts/atkinson-mono-wght.woff2) format('woff2');
+        font-weight: 200 800;
+        font-display: swap;
+      }
+
+      :root {
+        /* Primitives */
+        --palette-counter: #e8e5dc;
+        --palette-thermal: #fbfaf6;
+        --palette-ink: #1c1c1a;
+        --palette-ink-600: #58564f;
+        --palette-ink-400: #8e8b83;
+        --palette-ink-500: #7a776f;
+        --palette-night-950: #0e0f11;
+        --palette-night-900: #17181b;
+        --palette-night-50: #edebe4;
+        --palette-night-400: #a8a59c;
+        --palette-night-600: #5c5a55;
+        --palette-night-500: #7d7a73;
+        --palette-carbon-700: #1f55a8;
+        --palette-carbon-300: #86b4f0;
+        --palette-red-700: #a3261a;
+        --palette-red-300: #ff9480;
+        --palette-band-low: #1f55a8;
+        --palette-band-mid: #77736a;
+        --palette-band-high: #a4520c;
+        --palette-band-low-dark: #86b4f0;
+        --palette-band-mid-dark: #9c988e;
+        --palette-band-high-dark: #f0954a;
+        --palette-map-land: #f3f1ea;
+        --palette-map-water: #d4d1c8;
+        --palette-map-green: #e6e4da;
+        --palette-map-land-dark: #141518;
+        --palette-map-water-dark: #22242a;
+        --palette-map-green-dark: #1a1c1e;
+
+        /* Semantic */
+        --color-bg: var(--palette-counter);
+        --color-surface: var(--palette-thermal);
+        --color-text: var(--palette-ink);
+        --color-text-muted: var(--palette-ink-600);
+        --color-rule: var(--palette-ink-400);
+        --color-border-strong: var(--palette-ink-500);
+        --color-accent: var(--palette-carbon-700);
+        --color-on-accent: var(--palette-thermal);
+        --color-focus: var(--palette-carbon-700);
+        --color-danger: var(--palette-red-700);
+        --color-price-low: var(--palette-band-low);
+        --color-price-mid: var(--palette-band-mid);
+        --color-price-high: var(--palette-band-high);
+        --color-map-land: var(--palette-map-land);
+        --color-map-water: var(--palette-map-water);
+        --color-map-green: var(--palette-map-green);
+
+        --font-text: 'Atkinson Hyperlegible Next', Verdana, sans-serif;
+        --font-figures: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+        --step--2: clamp(0.69rem, 0.68rem + 0.06vw, 0.74rem);
+        --step--1: clamp(0.83rem, 0.81rem + 0.1vw, 0.91rem);
+        --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
+        --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
+        --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 24px;
+        --space-6: 32px;
+      }
+      :root[data-theme='dark'] {
+        --color-bg: var(--palette-night-950);
+        --color-surface: var(--palette-night-900);
+        --color-text: var(--palette-night-50);
+        --color-text-muted: var(--palette-night-400);
+        --color-rule: var(--palette-night-600);
+        --color-border-strong: var(--palette-night-500);
+        --color-accent: var(--palette-carbon-300);
+        --color-on-accent: var(--palette-night-900);
+        --color-focus: var(--palette-carbon-300);
+        --color-danger: var(--palette-red-300);
+        --color-price-low: var(--palette-band-low-dark);
+        --color-price-mid: var(--palette-band-mid-dark);
+        --color-price-high: var(--palette-band-high-dark);
+        --color-map-land: var(--palette-map-land-dark);
+        --color-map-water: var(--palette-map-water-dark);
+        --color-map-green: var(--palette-map-green-dark);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        background: #777;
+        font-family: var(--font-text);
+        display: flex;
+        gap: 24px;
+        padding: 24px;
+        align-items: flex-start;
+      }
+      .screen {
+        width: 390px;
+        height: 844px;
+        overflow: hidden;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-size: var(--step-0);
+        line-height: 1.4;
+        position: relative;
+        font-variant-numeric: tabular-nums;
+      }
+      .vh {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .mono {
+        font-family: var(--font-figures);
+      }
+
+      .mast {
+        display: flex;
+        align-items: baseline;
+        gap: var(--space-2);
+        padding: 14px var(--space-4) 6px;
+        font-family: var(--font-figures);
+      }
+      .wordmark {
+        font-weight: 800;
+        font-size: 1.15rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .mast .lead {
+        flex: 1;
+        border-bottom: 2px dotted var(--color-rule);
+        transform: translateY(-4px);
+      }
+      .mast .region {
+        font-size: var(--step--2);
+        color: var(--color-text-muted);
+        letter-spacing: 0.06em;
+      }
+
+      form {
+        padding: var(--space-2) var(--space-4) var(--space-3);
+        display: grid;
+        gap: var(--space-2);
+      }
+      .row {
+        display: flex;
+        gap: var(--space-2);
+        align-items: end;
+      }
+      .field {
+        display: grid;
+        gap: 2px;
+        flex: 1;
+      }
+      .field.narrow {
+        flex: 0 0 96px;
+      }
+      label {
+        font-family: var(--font-figures);
+        font-size: var(--step--2);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      label span {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
+        color: var(--color-text-muted);
+      }
+      select,
+      input {
+        font: inherit;
+        font-size: var(--step-0);
+        color: var(--color-text);
+        background: var(--color-surface);
+        border: 1.5px solid var(--color-text);
+        border-radius: 3px;
+        height: 44px;
+        padding: 0 var(--space-3);
+        width: 100%;
+        appearance: none;
+      }
+      select {
+        background-image:
+          linear-gradient(45deg, transparent 50%, currentColor 50%),
+          linear-gradient(135deg, currentColor 50%, transparent 50%);
+        background-position:
+          calc(100% - 17px) 19px,
+          calc(100% - 12px) 19px;
+        background-size: 5px 5px;
+        background-repeat: no-repeat;
+        padding-right: 28px;
+      }
+      .go {
+        height: 44px;
+        padding: 0 var(--space-4);
+        font-family: var(--font-figures);
+        font-size: var(--step--1);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        background: var(--color-text);
+        color: var(--color-surface);
+        border: 0;
+        border-radius: 3px;
+      }
+      .loc {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .textbtn {
+        font: inherit;
+        font-weight: 700;
+        color: var(--color-text);
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .fav {
+        display: flex;
+        justify-content: space-between;
+        margin: 0 var(--space-4);
+        padding: 8px 0;
+        border-top: 1.5px solid var(--color-text);
+        font-family: var(--font-figures);
+        font-size: var(--step--1);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .fav span {
+        font-weight: 400;
+        color: var(--color-text-muted);
+      }
+
+      /* The docket: one strip of thermal paper with a torn top edge. */
+      .docket {
+        margin: var(--space-2) 10px 0;
+        background: var(--color-surface);
+        position: relative;
+        padding: 18px var(--space-3) 0;
+        min-height: 900px;
+      }
+      .docket::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -6px;
+        height: 7px;
+        background:
+          linear-gradient(135deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x,
+          linear-gradient(225deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x;
+      }
+      h2 {
+        font-size: var(--step-0);
+        font-weight: 750;
+        line-height: 1.25;
+      }
+      .asof {
+        font-family: var(--font-figures);
+        font-size: var(--step--2);
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-top: 2px;
+      }
+      .line {
+        display: flex;
+        align-items: last baseline;
+        gap: 6px;
+      }
+      .line .lead {
+        flex: 1;
+        min-width: 16px;
+        border-bottom: 2px dotted var(--color-rule);
+        transform: translateY(-5px);
+      }
+      .totals {
+        margin-top: var(--space-3);
+        padding-top: var(--space-2);
+        border-top: 1.5px dashed var(--color-text);
+        font-family: var(--font-figures);
+        font-size: var(--step--1);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .totals .line + .line {
+        margin-top: 2px;
+      }
+      .totals .cheap b {
+        color: var(--color-accent);
+      }
+      .totals .grand {
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 4px double var(--color-text);
+        font-size: var(--step-1);
+        font-weight: 800;
+      }
+      .totals .grand small {
+        font-size: var(--step--2);
+        font-weight: 700;
+        display: block;
+        letter-spacing: 0.04em;
+      }
+
+      .tools {
+        display: flex;
+        gap: var(--space-2);
+        align-items: center;
+        margin-top: var(--space-3);
+        padding: var(--space-2) 0;
+        border-top: 1.5px dashed var(--color-text);
+        border-bottom: 1.5px dashed var(--color-text);
+      }
+      .switch {
+        display: flex;
+        border: 1.5px solid var(--color-text);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .switch button {
+        font-family: var(--font-figures);
+        font-size: var(--step--2);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        height: 32px;
+        padding: 0 10px;
+        border: 0;
+        background: transparent;
+        color: var(--color-text);
+      }
+      .switch button[aria-pressed='true'] {
+        background: var(--color-text);
+        color: var(--color-surface);
+      }
+      .tools select {
+        height: 34px;
+        font-size: var(--step--1);
+        width: auto;
+        border-width: 1px;
+      }
+      .filters {
+        margin-left: auto;
+        font-size: var(--step--1);
+      }
+
+      ol {
+        list-style: none;
+        padding: 0;
+      }
+      li.station {
+        padding: 10px 0;
+        border-bottom: 1px dashed var(--color-rule);
+      }
+      .name {
+        font-size: var(--step-0);
+        font-weight: 700;
+        line-height: 1.25;
+      }
+      .name a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .amount {
+        font-family: var(--font-figures);
+        font-size: 1.45rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .station.cheapest .amount {
+        color: var(--color-accent);
+      }
+      .sub {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-2);
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .sub .flag,
+      .sub .change {
+        font-family: var(--font-figures);
+        font-size: var(--step--2);
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        white-space: nowrap;
+      }
+      .sub .old {
+        color: var(--color-text);
+        font-weight: 800;
+      }
+      .addr {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .acts {
+        display: flex;
+        gap: var(--space-4);
+        font-size: var(--step--1);
+        margin-top: 4px;
+        white-space: nowrap;
+      }
+      .acts > :not(.btn) {
+        color: var(--color-text);
+        font: inherit;
+        font-weight: 600;
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      /* Map: a thermal print. Ink roads, halftone water. */
+      .mapwrap {
+        position: relative;
+        margin: var(--space-2) 10px 0;
+      }
+      svg {
+        display: block;
+      }
+      .land {
+        fill: var(--color-map-land);
+      }
+      .water {
+        fill: url(#halftone);
+      }
+      .halftone-dot {
+        fill: var(--color-text-muted);
+      }
+      .park {
+        fill: var(--color-map-green);
+      }
+      .road-minor {
+        stroke: var(--color-text-muted);
+        stroke-width: 0.8;
+        fill: none;
+      }
+      .road-major-casing {
+        stroke: var(--color-text);
+        stroke-width: 2.4;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-major {
+        stroke: var(--color-text);
+        stroke-width: 0.1;
+        fill: none;
+      }
+      .road-motorway-casing {
+        stroke: var(--color-text);
+        stroke-width: 6;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-motorway {
+        stroke: var(--color-map-land);
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .shield rect {
+        fill: var(--color-map-land);
+        stroke: var(--color-text);
+        stroke-width: 1.5;
+      }
+      .shield text {
+        fill: var(--color-text);
+        font: 800 9.5px var(--font-figures);
+      }
+      .place-label {
+        font: 700 9px var(--font-figures);
+        letter-spacing: 0.1em;
+        fill: var(--color-text);
+        paint-order: stroke;
+        stroke: var(--color-map-land);
+        stroke-width: 3px;
+      }
+      .place-label.town {
+        font-size: 11px;
+        font-weight: 800;
+      }
+      .water-label {
+        font: italic 600 10px var(--font-text);
+        fill: var(--color-text);
+        paint-order: stroke;
+        stroke: var(--color-map-land);
+        stroke-width: 3px;
+      }
+      .origin-ring {
+        fill: none;
+        stroke: var(--color-text);
+        stroke-width: 2;
+        stroke-dasharray: 3 2;
+      }
+      .origin-dot {
+        fill: var(--color-text);
+      }
+      .dot {
+        stroke: var(--color-map-land);
+        stroke-width: 2;
+      }
+      .dot.low {
+        fill: var(--color-price-low);
+      }
+      .dot.mid {
+        fill: var(--color-price-mid);
+      }
+      .dot.high {
+        fill: var(--color-price-high);
+      }
+      .dot.selected {
+        stroke: var(--color-text);
+        stroke-width: 2.5;
+      }
+      .tag rect {
+        fill: var(--color-surface);
+        stroke: var(--color-text);
+        stroke-width: 1;
+      }
+      .tag text {
+        font: 800 10.5px var(--font-figures);
+        fill: var(--color-text);
+      }
+      .tag.cheapest rect {
+        stroke: var(--color-accent);
+        stroke-width: 1.5;
+      }
+      .tag.cheapest text {
+        fill: var(--color-accent);
+      }
+      .tag .word {
+        font-size: 9px;
+        letter-spacing: 0.04em;
+      }
+      .zoom {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        display: grid;
+        background: var(--color-surface);
+        border: 1.5px solid var(--color-text);
+        border-radius: 3px;
+        font-family: var(--font-figures);
+      }
+      .zoom span {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .zoom span + span {
+        border-top: 1.5px solid var(--color-text);
+      }
+      .attrib {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        background: var(--color-surface);
+        font-size: 10px;
+        padding: 2px 6px;
+        color: var(--color-text-muted);
+      }
+      .legend {
+        display: flex;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-4);
+        font-family: var(--font-figures);
+        font-size: var(--step--2);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--color-text-muted);
+      }
+      .legend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: -1px;
+      }
+      .legend .l {
+        background: var(--color-price-low);
+      }
+      .legend .m {
+        background: var(--color-price-mid);
+      }
+      .legend .h {
+        background: var(--color-price-high);
+      }
+      .stub {
+        margin: 0 10px;
+        background: var(--color-surface);
+        padding: var(--space-3) var(--space-3);
+        border-top: 2px dashed var(--color-text-muted);
+      }
+      .stub .amount {
+        font-size: 2.1rem;
+      }
+      .stub .acts {
+        margin-top: var(--space-3);
+        gap: 6px;
+      }
+      .stub .btn {
+        padding: 0 8px;
+        letter-spacing: 0.02em;
+      }
+      .btn {
+        font-family: var(--font-figures);
+        font-size: var(--step--2);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        height: 40px;
+        padding: 0 10px;
+        border: 1.5px solid var(--color-text);
+        background: transparent;
+        color: var(--color-text);
+        border-radius: 3px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+      .btn.primary {
+        background: var(--color-text);
+        color: var(--color-surface);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="screen" id="list" aria-label="List">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder</span><span class="lead" aria-hidden="true"></span
+        ><span class="region">NSW · ACT</span>
+      </header>
+      <form>
+        <div class="row">
+          <div class="field">
+            <label for="fuel">Fuel</label
+            ><select id="fuel">
+              <option>Unleaded 91</option>
+            </select>
+          </div>
+          <div class="field narrow">
+            <label for="within">Within</label
+            ><select id="within">
+              <option>5 km</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="place">Suburb or postcode <span>e.g. Erina or 2250</span></label
+            ><input id="place" value="2250" />
+          </div>
+          <button class="go" type="button">Search</button>
+        </div>
+        <p class="loc">
+          <button class="textbtn" type="button">Use my location</button> rounded to 1 km, never
+          stored
+        </p>
+      </form>
+      <div class="fav">Favourites <span>3 ▸</span></div>
+      <div class="docket">
+        <h2>19 stations within 5 km of postcode 2250</h2>
+        <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+        <div class="totals">
+          <span class="vh"
+            >Cheapest 233.9, average 239.9 cents a litre. Filling 50 litres at the cheapest saves
+            $3.02 on the average.</span
+          >
+          <div aria-hidden="true">
+            <div class="line cheap">
+              <span>Cheapest</span><span class="lead"></span><b>233.9</b>
+            </div>
+            <div class="line"><span>Average</span><span class="lead"></span><b>239.9</b></div>
+            <div class="line grand">
+              <span>You save<small>filling 50 L at the cheapest</small></span
+              ><span class="lead"></span><span>$3.02</span>
+            </div>
+          </div>
+        </div>
+        <div class="tools">
+          <div class="switch">
+            <button aria-pressed="true">List</button><button aria-pressed="false">Map</button>
+          </div>
+          <select aria-label="Sort">
+            <option>Cheapest first</option>
+          </select>
+          <button class="textbtn filters" type="button">Filters</button>
+        </div>
+        <ol id="rows" aria-label="Stations, cheapest first"></ol>
+      </div>
+    </section>
+
+    <section class="screen" id="map" aria-label="Map">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder</span><span class="lead" aria-hidden="true"></span
+        ><span class="region">NSW · ACT</span>
+      </header>
+      <div class="docket" style="min-height: 0; padding-bottom: var(--space-2)">
+        <h2>19 stations within 5 km of postcode 2250</h2>
+        <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+        <div class="tools">
+          <div class="switch">
+            <button aria-pressed="false">List</button><button aria-pressed="true">Map</button>
+          </div>
+          <select aria-label="Sort">
+            <option>Cheapest first</option>
+          </select>
+          <button class="textbtn filters" type="button">Filters</button>
+        </div>
+      </div>
+      <div class="mapwrap">
+        <svg id="mapsvg" width="370" height="400" aria-hidden="true">
+          <defs>
+            <pattern id="halftone" width="5" height="5" patternUnits="userSpaceOnUse">
+              <rect width="5" height="5" class="land" />
+              <circle class="halftone-dot" cx="2.5" cy="2.5" r="1.1" />
+            </pattern>
+          </defs>
+        </svg>
+        <div class="zoom" aria-hidden="true"><span>+</span><span>−</span></div>
+        <span class="attrib">OpenFreeMap © OpenMapTiles © OpenStreetMap</span>
+      </div>
+      <p class="legend">
+        <span><i class="l"></i>Cheapest third</span><span><i class="m"></i>Middle</span
+        ><span><i class="h"></i>Dearest third</span>
+      </p>
+      <div class="stub station cheapest">
+        <h3 class="name"><a href="#">Metro Petroleum Gosford</a></h3>
+        <div class="line">
+          <span class="sub" style="display: block">Metro Fuel · 3.4 km · updated 21 hours ago</span
+          ><span class="lead"></span><span class="amount">233.9</span
+          ><span class="vh"> cents a litre</span>
+        </div>
+        <div class="sub">
+          <span class="addr">57 Central Coast Hwy, West Gosford NSW 2250</span
+          ><span class="flag">** Cheapest **</span>
+        </div>
+        <div class="acts">
+          <a class="btn primary" href="#">Directions ↗</a><button class="btn">☆ Favourite</button
+          ><button class="btn">List</button
+          ><button class="btn" style="margin-left: auto">Close</button>
+        </div>
+      </div>
+    </section>
+
+    <script src="mock-data.js"></script>
+    <script src="mock.js"></script>
+    <script>
+      const rows = document.getElementById('rows');
+      const cheapest = MOCK.stations[0].price;
+      MOCK.stations.slice(0, 6).forEach((s, i) => {
+        const age = i === 1 ? 16 * 24 : s.ageH; // the second row aged to show an old price
+        const old = age >= 14 * 24;
+        const li = document.createElement('li');
+        li.className = 'station' + (s.price === cheapest ? ' cheapest' : '');
+        const flag =
+          s.price === cheapest
+            ? '<span class="flag">** Cheapest **</span>'
+            : s.change
+              ? `<span class="change"><span aria-hidden="true">↓ ${Math.abs(s.change).toFixed(1)} today</span></span>`
+              : '';
+        li.innerHTML = `
+      <div class="line"><h3 class="name"><a href="#">${s.name}</a></h3><span class="lead" aria-hidden="true"></span><span class="amount">${s.price.toFixed(1)}</span><span class="vh"> cents a litre</span></div>
+      <p class="sub"><span>${s.brand} · ${s.km.toFixed(1)} km · ${old ? `<strong class="old">OLD PRICE, ${ageText(age)}</strong>` : ageText(age)}</span>${flag}</p>
+      <p class="addr">${shortAddress(s.address)}</p>
+      <div class="acts"><button>Show on map</button><a href="#">Directions ↗</a><button>☆ Favourite</button></div>`;
+        rows.appendChild(li);
+      });
+      document.fonts.ready.then(() => {
+        drawMap(document.getElementById('mapsvg'), {
+          tag: 'docket',
+          selected: 'Metro Petroleum Gosford',
+          cheapestWord: 'CHEAPEST',
+          splitCheapest: true,
+          kmAcross: 7.6,
+        });
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>

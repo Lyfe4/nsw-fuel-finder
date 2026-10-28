@@ -16,12 +16,15 @@ import type { StationPrice } from '../../../shared/api';
  */
 export function DirectionsLink({
   station,
+  primary = false,
 }: {
   station: Pick<StationPrice, 'name' | 'latitude' | 'longitude'>;
+  /** Drawn as the primary button (the station card), not a text link. */
+  primary?: boolean;
 }) {
   return (
     <a
-      className={styles.link}
+      className={primary ? styles.primary : styles.link}
       href={directionsUrl(station)}
       target="_blank"
       rel="noopener noreferrer"

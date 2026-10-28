@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
-import { renderApp } from '@/features/search/testing';
+import { renderApp, stationRow } from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import {
   apiError,
@@ -12,6 +12,7 @@ import {
   station,
   summary,
 } from '@/lib/testing/fakeApi';
+import { setScreen } from '@/lib/testing/matchMedia';
 
 const ERINA = station({ stationCode: '1', name: 'Ampol Foodary Erina' });
 
@@ -23,21 +24,37 @@ function setup(
   return { api, ...renderApp(url) };
 }
 
-const nameLink = () => screen.getByRole('link', { name: 'Ampol Foodary Erina' });
+const nameLink = () => screen.getByRole('link', { name: 'Price history, Ampol Foodary Erina' });
+
+/** The way in: the station's row opens its card, which has the link. */
+async function openCard(user: ReturnType<typeof setup>['user']) {
+  await screen.findByRole('list', { name: 'Stations, cheapest first' });
+  await user.click(stationRow('Ampol Foodary Erina'));
+}
 
 describe('a station’s price history', () => {
-  it('opens from the station’s name: a real link, a new history entry, focus on its heading', async () => {
+  /*
+   * The view's body is lazily imported (LazyHistoryView), so the first test
+   * to need it also paid for a cold import: transforming the module and its
+   * CSS. Under the full suite's parallel load that sometimes took longer than
+   * findBy's one second, and the test failed with the view still loading.
+   * Importing it once up front takes module loading out of what is timed;
+   * what each test waits for is then only what the app does.
+   */
+  beforeAll(async () => {
+    await import('./HistoryView');
+  });
+
+  it('opens from the station’s card: a real link, a new history entry, focus on its heading', async () => {
     const { api, user } = setup();
-    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    await openCard(user);
     const link = nameLink();
-    expect(link).toHaveAttribute('href', '/?fuel=U91&query=Erina&history=1');
+    expect(link).toHaveAttribute('href', '/?fuel=U91&query=Erina&station=1&history=1');
     expect(link).toHaveAccessibleDescription('Opens its price history');
-    // The heading keeps the station's plain name.
-    expect(screen.getByRole('heading', { level: 3, name: 'Ampol Foodary Erina' })).toBeVisible();
 
     const length = window.history.length;
     await user.click(link);
-    expect(window.location.search).toBe('?fuel=U91&query=Erina&history=1');
+    expect(window.location.search).toBe('?fuel=U91&query=Erina&station=1&history=1');
     expect(window.history.length).toBe(length + 1);
     const heading = await screen.findByRole('heading', {
       level: 2,
@@ -98,14 +115,14 @@ describe('a station’s price history', () => {
 
   it('Back closes it and returns focus to the link that opened it', async () => {
     const { user } = setup();
-    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    await openCard(user);
     await user.click(nameLink());
     await screen.findByRole('heading', { name: 'Price history: Ampol Foodary Erina' });
 
     await user.click(screen.getByRole('button', { name: 'Back to results' }));
     // Back, to the entry as it was before the history opened.
     await waitFor(() => {
-      expect(window.location.search).toBe('?query=Erina');
+      expect(window.location.search).toBe('?fuel=U91&query=Erina&station=1');
     });
     expect(nameLink()).toHaveFocus();
   });
@@ -116,10 +133,10 @@ describe('a station’s price history', () => {
       JSON.stringify([{ code: '1', name: 'Ampol Foodary Erina' }]),
     );
     const { user } = setup();
-    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    await openCard(user);
     const inList = within(screen.getByRole('list', { name: 'Stations, cheapest first' })).getByRole(
       'link',
-      { name: 'Ampol Foodary Erina' },
+      { name: 'Price history, Ampol Foodary Erina' },
     );
     await user.click(inList);
     await screen.findByRole('heading', { name: 'Price history: Ampol Foodary Erina' });
@@ -136,8 +153,8 @@ describe('a station’s price history', () => {
     await user.click(screen.getByRole('button', { name: 'Back to results' }));
     expect(window.location.search).toBe('?fuel=U91&query=Erina');
     expect(window.history.length).toBe(length);
-    // The station is in the results underneath, so its link takes focus.
-    expect(nameLink()).toHaveFocus();
+    // The station is in the results underneath, its card closed, so its row takes focus.
+    expect(stationRow('Ampol Foodary Erina')).toHaveFocus();
   });
 
   it('copes with little or no history, and with a station that has gone', async () => {
@@ -197,13 +214,23 @@ describe('the station’s own page', () => {
     const table = await screen.findByRole('table', { name: 'Every fuel here now, cents a litre' });
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows.map((row) => within(row).getByRole('rowheader').textContent)).toEqual([
-      'Unleaded 91 (chart below)',
+      'Unleaded 91 (on the chart)',
       'Premium 98',
       'Diesel',
     ]);
     const diesel = rows[2];
     if (!diesel) throw new Error('no Diesel row');
     expect(within(diesel).getByRole('cell', { name: '249.9' })).toBeInTheDocument();
+  });
+
+  it('keeps every fuel behind a disclosure on a phone, and open beside the chart on a wide screen', async () => {
+    setup('/?query=Erina&history=1');
+    const phoneTable = await screen.findByRole('table', {
+      name: 'Every fuel here now, cents a litre',
+    });
+    expect(phoneTable.closest('details')).not.toHaveAttribute('open');
+    setScreen({ wide: true });
+    expect(phoneTable.closest('details')).toHaveAttribute('open');
   });
 
   it('has directions to it', async () => {

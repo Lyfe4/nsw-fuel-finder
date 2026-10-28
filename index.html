@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NSW Fuel Finder: live fuel prices near you, cheapest first</title>
+    <title>Fuel Finder: live NSW and ACT fuel prices, cheapest first</title>
     <meta
       name="description"
       content="Live NSW and ACT fuel prices near you, cheapest first for the fuel you use, on a list and a map, with four months of price history. Free, no account."
@@ -16,8 +16,8 @@
 
     <!-- Link previews: Open Graph, read by Facebook, LinkedIn, Slack and most others. -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="NSW Fuel Finder" />
-    <meta property="og:title" content="NSW Fuel Finder: live fuel prices near you" />
+    <meta property="og:site_name" content="Fuel Finder" />
+    <meta property="og:title" content="Fuel Finder: live fuel prices near you" />
     <meta
       property="og:description"
       content="Live NSW and ACT fuel prices, cheapest first, on a list and a map, with price history."
@@ -28,10 +28,31 @@
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="NSW Fuel Finder showing nearby stations cheapest first beside a map of their prices."
+      content="Fuel Finder showing nearby stations cheapest first beside a map of their prices."
     />
     <meta property="og:locale" content="en_AU" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
+      The two fonts (src/styles/global.css). Both are on the first paint (the
+      wordmark is set in the mono), so both are preloaded. crossorigin is needed
+      even on our own origin, or the browser fetches each font twice.
+      pnpm bundle:check holds them to the fonts budget.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/atkinson-next-latin.v1.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/atkinson-mono-latin.v1.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
@@ -42,7 +63,7 @@
       title bar). One tag, set by the script below before first paint and kept
       in step by src/features/theme/useTheme.ts.
     -->
-    <meta name="theme-color" content="#f6f7f9" />
+    <meta name="theme-color" content="#e8e5dc" />
     <!--
       No preconnect to OpenFreeMap here (there was one until round 9): it
       opened a connection on every page load, so OpenFreeMap saw every
@@ -75,7 +96,7 @@
         }
         document.documentElement.setAttribute('data-theme', theme);
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0f1216' : '#f6f7f9');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0e0f11' : '#e8e5dc');
       })();
     </script>
   </head>

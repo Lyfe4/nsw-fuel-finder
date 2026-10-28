@@ -1,5 +1,6 @@
 import { NEAREST_COUNT, NEAREST_MAX_KM, type StationPrice } from '../../../shared/api';
 import { haversineKm, roundTo, type LatLng } from '../../lib/geo';
+import { mendAddressCase } from '../../lib/places/addressCase';
 
 import type { Place } from './places';
 import type { FuelTypeCode } from '../../../shared/fuelTypes';
@@ -38,7 +39,7 @@ function toStationPrice(
     stationCode: station.code,
     name: station.name,
     brand: station.brand,
-    address: station.address,
+    address: mendAddressCase(station.address),
     latitude: station.lat,
     longitude: station.lng,
     distanceKm: roundTo(haversineKm(origin, position), 2),

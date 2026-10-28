@@ -1,6 +1,10 @@
+import { useRef } from 'react';
+
 import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
+import { ViewSwitch } from '@/features/map/ViewSwitch';
 import { formatAge, formatAsOf } from '@/lib/format';
+import { useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
 import { LoadingStations } from './LoadingStations';
 import { ErrorNotice, LocationProblemNotice, StaleNotice } from './Notices';
@@ -52,25 +56,45 @@ export function where(data: PricesResponse): string {
   return /^\d{4}$/.test(label) ? `of postcode ${label}` : `of ${label}`;
 }
 
-function heading(view: Extract<ResultsView, { data: PricesResponse }>, radius: number): string {
-  const within = (count: string) => `${count} within ${String(radius)} km ${where(view.data)}`;
+/**
+ * The heading, in two parts: what is shown ("19 stations") and the rest of
+ * the sentence ("within 5 km of postcode 2250"), which is visually hidden.
+ * The folded search line already shows the place and the distance on a
+ * phone, so on screen the count is enough; the heading's name stays whole.
+ */
+function heading(
+  view: Extract<ResultsView, { data: PricesResponse }>,
+  radius: number,
+): { shown: string; rest: string } {
+  const rest = `within ${String(radius)} km ${where(view.data)}`;
   switch (view.kind) {
     case 'results': {
       const count = view.stations.length;
       const stations = view.total === 1 ? 'station' : 'stations';
-      return within(
-        view.filtered
+      return {
+        shown: view.filtered
           ? `${String(count)} of ${String(view.total)} ${stations}`
           : `${String(count)} ${stations}`,
-      );
+        rest,
+      };
     }
     case 'no-match':
-      return within(`0 of ${String(view.total)} stations`);
+      return { shown: `0 of ${String(view.total)} stations`, rest };
     case 'nearest':
-      return `Nearest stations, ${distanceRange(view.stations)} away`;
+      return { shown: `Nearest stations, ${distanceRange(view.stations)} away`, rest: '' };
     case 'empty':
-      return 'Prices';
+      return { shown: 'Prices', rest: '' };
   }
+}
+
+/** The shown part, then the rest for screen readers (the space outside it: see DirectionsLink). */
+function HeadingText({ shown, rest }: { shown: string; rest: string }) {
+  if (!rest) return shown;
+  return (
+    <>
+      {shown} <VisuallyHidden>{rest}</VisuallyHidden>
+    </>
+  );
 }
 
 export function Results({
@@ -92,13 +116,62 @@ export function Results({
   tools,
   onClearFilters,
 }: ResultsProps) {
+  const wide = useMediaQuery(WIDE_SCREEN);
+  const mapButtonRef = useRef<HTMLButtonElement>(null);
+  /*
+   * List or Map, on a phone: first in the toolbar's one row, with Sort and
+   * Filters. The nearest-stations view has no toolbar (nothing to sort or
+   * filter), so there the switch stands alone.
+   */
+  const hasList = view.kind === 'results' || view.kind === 'nearest';
+  const viewSwitch =
+    !wide && hasList ? (
+      <ViewSwitch view={layout} onChange={onLayoutChange} mapButtonRef={mapButtonRef} />
+    ) : null;
+
+  const top = (
+    <div className={styles.top}>
+      <h2 id="results-heading" className={styles.heading} tabIndex={-1} ref={headingRef}>
+        {'data' in view ? <HeadingText {...heading(view, radius)} /> : 'Prices'}
+      </h2>
+      {view.kind === 'results' && <PriceSummaryLine stations={view.stations} />}
+    </div>
+  );
+  const stale = 'data' in view && view.data.stale && (
+    <StaleNotice age={formatAge(view.data.fetchedAt, now)} />
+  );
+  const nearest = view.kind === 'nearest' && (
+    <p className={styles.nearest}>
+      None sell {fuelName} within {radius} km {where(view.data)}, so these are the nearest{' '}
+      {view.stations.length} that do, nearest first.
+    </p>
+  );
+  const toolbar =
+    view.kind === 'results' || view.kind === 'no-match' ? (
+      <ResultsTools {...tools} now={now} viewSwitch={viewSwitch} />
+    ) : (
+      view.kind === 'nearest' && viewSwitch
+    );
+  /*
+   * Beside the map (wide screens, with a list), the heading, the saving and
+   * the toolbar head the list's own column, so the map's column starts at
+   * the top of the docket rather than under them, beside an empty space.
+   */
+  const inListColumn = wide && hasList;
+  const header = (
+    <>
+      {top}
+      {stale}
+      {nearest}
+      {toolbar}
+    </>
+  );
+
   return (
     // No aria-busy: some screen readers hold back live regions inside a busy
     // element, which would swallow "Loading prices..." itself.
     <section className={styles.results} aria-labelledby="results-heading">
-      <h2 id="results-heading" className={styles.heading} tabIndex={-1} ref={headingRef}>
-        {'data' in view ? heading(view, radius) : 'Prices'}
-      </h2>
+      {!inListColumn && top}
 
       {/*
        * Always in the page, so screen readers are already listening when its
@@ -144,14 +217,7 @@ export function Results({
         />
       )}
 
-      {'data' in view && (
-        <>
-          <p className={styles.asOf}>
-            {fuelName} · prices as of {formatAsOf(view.data.fetchedAt, now)}
-          </p>
-          {view.data.stale && <StaleNotice age={formatAge(view.data.fetchedAt, now)} />}
-        </>
-      )}
+      {!inListColumn && stale}
 
       {view.kind === 'empty' && (
         <div className={styles.empty}>
@@ -162,18 +228,8 @@ export function Results({
         </div>
       )}
 
-      {view.kind === 'nearest' && (
-        <p className={styles.nearest}>
-          None sell {fuelName} within {radius} km {where(view.data)}, so these are the nearest{' '}
-          {view.stations.length} that do, nearest first.
-        </p>
-      )}
-
-      {view.kind === 'results' && <PriceSummaryLine stations={view.stations} />}
-
-      {(view.kind === 'results' || view.kind === 'no-match') && (
-        <ResultsTools {...tools} now={now} />
-      )}
+      {!inListColumn && nearest}
+      {!inListColumn && toolbar}
 
       {view.kind === 'no-match' && (
         <div className={styles.empty}>
@@ -200,8 +256,16 @@ export function Results({
           station={station}
           view={layout}
           onSelect={onSelectStation}
-          onViewChange={onLayoutChange}
+          mapButtonRef={mapButtonRef}
+          listHeader={inListColumn ? header : null}
         />
+      )}
+
+      {/* When the prices are from: after the list, where it does not push the prices down. */}
+      {'data' in view && (
+        <p className={styles.asOf}>
+          {fuelName} prices as of {formatAsOf(view.data.fetchedAt, now)}, from FuelCheck.
+        </p>
       )}
     </section>
   );

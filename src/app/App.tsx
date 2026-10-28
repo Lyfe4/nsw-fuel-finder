@@ -1,6 +1,7 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { SearchScreen } from '@/features/search/SearchScreen';
 import { ThemeSelect } from '@/features/theme/ThemeSelect';
 import { useApplyTheme } from '@/features/theme/useTheme';
@@ -20,11 +21,11 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
     <QueryClientProvider client={client}>
       <div className={styles.page}>
         <header className={styles.header}>
-          <div className={styles.titles}>
-            <h1 className={styles.title}>NSW Fuel Finder</h1>
-            <p className={styles.tagline}>Live fuel prices near you, cheapest first.</p>
-          </div>
-          <ThemeSelect />
+          <h1 className={styles.title}>Fuel Finder</h1>
+          <p className={styles.region}>
+            NSW <span aria-hidden="true">·</span>
+            <VisuallyHidden> and</VisuallyHidden> ACT
+          </p>
         </header>
         <main className={styles.main}>
           <SearchScreen />
@@ -59,6 +60,7 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
             No account, cookies or tracking; your location stays rounded and unstored.{' '}
             <a href="/privacy.html">Privacy</a>
           </p>
+          <ThemeSelect />
         </footer>
       </div>
     </QueryClientProvider>

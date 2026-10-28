@@ -35,6 +35,28 @@ export function formatPrice(cents: number): string {
   return cents.toFixed(1);
 }
 
+/** Kept in capitals in an address: the states and territories. */
+const STATES = new Set(['NSW', 'ACT', 'QLD', 'VIC', 'SA', 'WA', 'TAS', 'NT']);
+
+/**
+ * "57 CENTRAL COAST HWY, WEST GOSFORD NSW 2250" -> "57 Central Coast Hwy,
+ * West Gosford NSW 2250". FuelCheck has some addresses in capitals and some
+ * not; capitals are hard to read and shout beside the others. Only an
+ * address with no lower-case letter at all is changed, so one a retailer
+ * wrote with care ("McGraths Hill") is left alone. Numbers ("6-8", "2250",
+ * "1A") and state codes stay as they are.
+ */
+export function formatAddress(address: string): string {
+  if (/[a-z]/.test(address)) return address;
+  return address.replace(/[A-Z][A-Z'-]*/g, (word) =>
+    STATES.has(word)
+      ? word
+      : word.toLowerCase().replace(/(^|[-'])([a-z])/g, (_, before: string, letter: string) => {
+          return `${before}${letter.toUpperCase()}`;
+        }),
+  );
+}
+
 /** 0.42 -> "420 m", 3.91 -> "3.9 km", 12.3 -> "12 km". */
 export function formatDistance(km: number): string {
   if (km < 1) return `${String(Math.round((km * 1000) / 10) * 10)} m`;

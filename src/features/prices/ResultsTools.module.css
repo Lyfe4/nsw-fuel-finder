@@ -1,15 +1,21 @@
-/* Sort and the filters' summary on one line where they fit; the panel opens below both. */
+/*
+ * One row between dashed rules: List/Map (phones), Sort, Filters. Open,
+ * the filters take a row of their own under it.
+ */
 .tools {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
-  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding-block: var(--space-1);
+  border-block: var(--rule-width) dashed var(--color-text);
+  font-size: var(--step--1);
 }
 
 .sort {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .label,
@@ -17,31 +23,32 @@
   font-weight: var(--font-weight-bold);
 }
 
+/* A compact select: the row must stay one line on a 320 px phone. */
 .select {
-  min-height: var(--target-size);
-  padding: var(--space-2) var(--space-3);
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--color-surface);
+  color: var(--color-text);
 }
 
-/* Grows to the full width when open, so the checkboxes have room. */
 .filters {
-  flex: 1 1 14rem;
+  margin-left: auto;
 }
 
 .filters[open] {
   flex-basis: 100%;
+  margin-left: 0;
 }
 
 /*
  * A list item, so the browser's open/closed marker stays: it is what says
- * this opens. Padded to a full-height target (WCAG 2.5.8).
+ * this opens. Padded to a 36 px target (WCAG 2.5.8 asks 24).
  */
 .summary {
   display: list-item;
-  min-height: var(--target-size);
-  padding-top: var(--space-2);
+  padding-block: var(--space-2);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
@@ -54,11 +61,8 @@
   display: grid;
   justify-items: start;
   gap: var(--space-3);
-  margin-top: var(--space-2);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: var(--space-2) 0 var(--space-3);
+  border-top: var(--border-width) dashed var(--color-border);
 }
 
 /* The full width of the panel, so the brands can spread into columns. */
@@ -73,14 +77,13 @@
 .hint,
 .count {
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
 }
 
 /* Columns of checkboxes, as many as fit: 30 brands in a phone-length column would be a long scroll. */
 .options {
   columns: 12rem auto;
   column-gap: var(--space-4);
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   padding: 0;
   list-style: none;
 }
@@ -103,9 +106,5 @@
   width: 1.25rem;
   height: 1.25rem;
   margin: 0;
-  accent-color: var(--color-accent);
-}
-
-.clear {
-  margin-top: var(--space-1);
+  accent-color: var(--color-ink);
 }

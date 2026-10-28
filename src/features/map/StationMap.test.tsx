@@ -20,6 +20,20 @@ const { FakeMap, maps } = vi.hoisted(() => {
     sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>();
     layers: { id: string; layout?: Record<string, unknown> }[] = [];
     images = new Set<string>();
+    /** OpenFreeMap's own layers, a few of each kind, as the restyle sees them. */
+    basemap = [
+      { id: 'background', type: 'background' },
+      { id: 'water', type: 'fill', 'source-layer': 'water' },
+      { id: 'park', type: 'fill', 'source-layer': 'park' },
+      { id: 'highway_motorway_casing', type: 'line', 'source-layer': 'transportation' },
+      { id: 'highway_motorway_inner', type: 'line', 'source-layer': 'transportation' },
+      { id: 'highway_minor', type: 'line', 'source-layer': 'transportation' },
+      { id: 'building', type: 'fill', 'source-layer': 'building' },
+      { id: 'poi_r1', type: 'symbol', 'source-layer': 'poi' },
+      { id: 'place_city', type: 'symbol', 'source-layer': 'place' },
+    ];
+    paint = new Map<string, unknown>();
+    hidden = new Set<string>();
     filters = new Map<string, unknown>();
     canvas: HTMLCanvasElement = document.createElement('canvas');
     zoom = 11;
@@ -63,6 +77,18 @@ const { FakeMap, maps } = vi.hoisted(() => {
     }
     addImage(id: string) {
       this.images.add(id);
+    }
+    removeImage(id: string) {
+      this.images.delete(id);
+    }
+    getStyle() {
+      return { layers: this.basemap };
+    }
+    setPaintProperty(id: string, property: string, value: unknown) {
+      this.paint.set(`${id} ${property}`, value);
+    }
+    setLayoutProperty(id: string, property: string, value: unknown) {
+      if (property === 'visibility' && value === 'none') this.hidden.add(id);
     }
     getSource(id: string) {
       return this.sources.get(id);
@@ -164,6 +190,7 @@ describe('StationMap', () => {
     expect(map.layers.map((layer) => layer.id)).toEqual([
       'selected-dot',
       'station-labels',
+      'cheapest-label',
       'selected-label',
       'station-dots',
       'origin-ring',
@@ -177,6 +204,31 @@ describe('StationMap', () => {
       ['a', 'low'],
       ['b', 'mid'],
     ]);
+  });
+
+  it('redraws the basemap in the tokens’ colours, without what a fuel map does not need', () => {
+    const { map } = setup();
+    fire(map, 'style.load');
+    // jsdom computes no custom properties, so every colour reads as '': what
+    // is checked is that each layer was given the right kind of colour.
+    expect([...map.paint.keys()]).toEqual(
+      expect.arrayContaining([
+        'background background-color',
+        'water fill-color',
+        'water fill-outline-color',
+        'park fill-color',
+        'highway_motorway_casing line-color',
+        'highway_motorway_inner line-color',
+        'highway_minor line-color',
+        'place_city text-color',
+        'place_city text-halo-color',
+      ]),
+    );
+    expect([...map.hidden].sort()).toEqual(['building', 'poi_r1']);
+    // Our price tags: plain, cheapest and selected.
+    expect([...map.images]).toEqual(
+      expect.arrayContaining(['tag', 'tag-cheapest', 'tag-selected']),
+    );
   });
 
   it('a click near a dot picks that station, and does not pan to it', () => {
@@ -206,7 +258,7 @@ describe('StationMap', () => {
     fire(map, 'style.load');
     const ids = map.layers.map((layer) => layer.id);
     const dots = ids.indexOf('station-dots');
-    for (const below of ['selected-dot', 'station-labels', 'selected-label']) {
+    for (const below of ['selected-dot', 'station-labels', 'cheapest-label', 'selected-label']) {
       expect(ids.indexOf(below)).toBeLessThan(dots);
     }
     // Every dot is in the way of every price: the top layer, placed first,
@@ -222,6 +274,35 @@ describe('StationMap', () => {
     // The selected station's marker replaces its own dot, under the others.
     rerender({ selected: 'a' });
     expect(map.filters.get('station-dots')).toEqual(['!=', ['get', 'code'], 'a']);
+  });
+
+  it('always shows the cheapest price, at any zoom, before the others and never dropped', () => {
+    const { map, rerender } = setup();
+    fire(map, 'style.load');
+    const ids = map.layers.map((layer) => layer.id);
+    // Higher layers are placed first: the cheapest before the ordinary prices,
+    // after only the selected one.
+    expect(ids.indexOf('cheapest-label')).toBeGreaterThan(ids.indexOf('station-labels'));
+    expect(ids.indexOf('cheapest-label')).toBeLessThan(ids.indexOf('selected-label'));
+    const cheapest = map.layers.find((layer) => layer.id === 'cheapest-label');
+    // Never dropped: it may overlap as a last resort, after trying eight places.
+    expect(cheapest?.layout).toMatchObject({
+      'text-allow-overlap': true,
+      'icon-image': 'tag-cheapest',
+    });
+    expect(cheapest?.layout?.['text-variable-anchor']).toHaveLength(8);
+    // The ordinary prices leave it out; it shows only the cheapest (not if selected).
+    rerender({ selected: 'b' });
+    expect(map.filters.get('cheapest-label')).toEqual([
+      'all',
+      ['!=', ['get', 'code'], 'b'],
+      ['get', 'cheapest'],
+    ]);
+    expect(map.filters.get('station-labels')).toEqual([
+      'all',
+      ['!=', ['get', 'code'], 'b'],
+      ['!', ['get', 'cheapest']],
+    ]);
   });
 
   describe('a tap on the map away from every dot', () => {
@@ -320,7 +401,11 @@ describe('StationMap', () => {
     fire(map, 'style.load');
     rerender({ selected: 'a', showRequest: 1 });
     expect(map.filters.get('selected-label')).toEqual(['==', ['get', 'code'], 'a']);
-    expect(map.filters.get('station-labels')).toEqual(['!=', ['get', 'code'], 'a']);
+    expect(map.filters.get('station-labels')).toEqual([
+      'all',
+      ['!=', ['get', 'code'], 'a'],
+      ['!', ['get', 'cheapest']],
+    ]);
     // The card has just changed the map's height: resize before working out the pan.
     expect(map.resize.mock.invocationCallOrder[0]).toBeLessThan(
       map.easeTo.mock.invocationCallOrder[0] ?? 0,

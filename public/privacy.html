@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Privacy: NSW Fuel Finder</title>
+    <title>Privacy: Fuel Finder</title>
     <meta
       name="description"
-      content="What NSW Fuel Finder does with your location and searches: no account, no cookies, no tracking."
+      content="What Fuel Finder does with your location and searches: no account, no cookies, no tracking."
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!--
@@ -19,13 +19,17 @@
   </head>
   <body>
     <main>
-      <p class="mark" aria-hidden="true">
-        <img src="/favicon.svg" alt="" width="48" height="48" />
+      <p class="mark">
+        <a href="/"><img src="/favicon.svg" alt="" width="40" height="40" /> Fuel Finder</a>
       </p>
       <h1>Privacy</h1>
       <p>No account, no cookies, no analytics and no tracking.</p>
 
       <h2>Your location</h2>
+      <!-- The note "Use my location" carried in the search form until the redesign. -->
+      <p>
+        “Use my location” is only used to find stations near you, and your position is never stored.
+      </p>
       <ul>
         <!-- useGeolocation.ts, searchState.ts roundPosition, COORDINATE_DECIMALS -->
         <li>

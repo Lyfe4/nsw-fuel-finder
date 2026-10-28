@@ -34,7 +34,7 @@ describe('searching by location', () => {
       { lat: '-33.87', lng: '151.21', fuel: 'U91', radius: '5' },
     ]);
     expect(window.location.search).toBe('?fuel=U91&lat=-33.87&lng=151.21');
-    expect(within(results()).getByText(/1\.0 km away/)).toBeInTheDocument();
+    expect(within(results()).getByRole('button', { name: /1\.0 km away/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
       '1 station within 5 km of you',
     );

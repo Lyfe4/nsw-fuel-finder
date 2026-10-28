@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docket: desktop</title>
+    <link rel="stylesheet" href="docket.css" />
+  </head>
+  <body style="flex-direction: column">
+    <section class="screen desktop" id="results" aria-label="Results">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder</span><span class="region">NSW · ACT</span>
+      </header>
+      <form class="search">
+        <div class="field">
+          <label class="label" for="fuel">Fuel</label
+          ><select id="fuel">
+            <option>Unleaded 91</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="within">Within</label
+          ><select id="within">
+            <option>5 km</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="place"
+            >Suburb or postcode <span class="hint">e.g. Erina or 2250</span></label
+          ><input id="place" value="2250" />
+        </div>
+        <button class="go" type="button">Search</button>
+        <p class="loc">
+          <button class="textbtn" type="button">Use my location</button><br />rounded to 1 km, never
+          stored
+        </p>
+      </form>
+      <div class="split">
+        <div>
+          <div class="fav"><span class="label">Favourites</span><span class="count">3</span></div>
+          <div class="docket">
+            <h2>19 stations within 5 km of postcode 2250</h2>
+            <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+            <div class="totals">
+              <span class="vh"
+                >Cheapest 233.9, average 239.9 cents a litre. Filling 50 litres at the cheapest
+                saves $3.02 on the average.</span
+              >
+              <div aria-hidden="true">
+                <div class="line cheap">
+                  <span class="term">Cheapest</span><span class="lead"></span><b>233.9</b>
+                </div>
+                <div class="line">
+                  <span class="term">Average</span><span class="lead"></span><b>239.9</b>
+                </div>
+                <div class="line grand">
+                  <span class="term">You save<small>filling 50 litres at the cheapest</small></span
+                  ><span class="lead"></span><span>$3.02</span>
+                </div>
+              </div>
+              <div class="scale" aria-hidden="true">
+                <div class="bar"><i></i><i></i><i></i></div>
+                <span class="tick start" style="left: 0">233.9</span
+                ><span class="tick" style="left: 28.6%">239.9 avg</span
+                ><span class="tick end" style="left: 100%">254.9</span>
+              </div>
+            </div>
+            <div class="tools">
+              <select aria-label="Sort">
+                <option>Cheapest first</option>
+              </select>
+              <button class="textbtn filters" type="button">Filters</button>
+            </div>
+            <ol id="rows" aria-label="Stations, cheapest first"></ol>
+          </div>
+        </div>
+        <div class="side">
+          <div class="mapwrap">
+            <svg id="mapsvg" width="709" height="430" aria-hidden="true"></svg>
+            <div class="zoom" aria-hidden="true"><span>+</span><span>−</span></div>
+            <span class="attrib">OpenFreeMap © OpenMapTiles © OpenStreetMap</span>
+          </div>
+          <p class="legend">
+            <span><i class="l"></i>Cheapest third</span><span><i class="m"></i>Middle</span
+            ><span><i class="h"></i>Dearest third</span>
+          </p>
+          <div class="stub cheapest">
+            <div class="line">
+              <h3 class="name"><a href="#">Metro Petroleum Gosford</a></h3>
+              <span class="lead" aria-hidden="true"></span><span class="amount">233.9</span
+              ><span class="vh"> cents a litre, cheapest</span>
+            </div>
+            <div class="sub">
+              <span
+                >Metro Fuel · 3.4 km · updated 21 hours ago · 57 Central Coast Hwy, West Gosford NSW
+                2250</span
+              ><span class="flag" aria-hidden="true">Cheapest</span>
+            </div>
+            <div class="acts">
+              <a class="btn primary" href="#">Directions<span aria-hidden="true">&nbsp;↗</span></a
+              ><button class="btn"><span aria-hidden="true">☆&nbsp;</span>Favourite</button
+              ><button class="btn" style="margin-left: auto">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen desktop" id="history" aria-label="History">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder</span><span class="region">NSW · ACT</span>
+      </header>
+      <form class="search">
+        <div class="field">
+          <label class="label" for="fuel2">Fuel</label
+          ><select id="fuel2">
+            <option>Unleaded 91</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="within2">Within</label
+          ><select id="within2">
+            <option>5 km</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="place2"
+            >Suburb or postcode <span class="hint">e.g. Erina or 2250</span></label
+          ><input id="place2" value="2250" />
+        </div>
+        <button class="go" type="button">Search</button>
+        <p class="loc">
+          <button class="textbtn" type="button">Use my location</button><br />rounded to 1 km, never
+          stored
+        </p>
+      </form>
+      <div class="history-wrap">
+        <div class="docket history">
+          <a class="back" href="#"><span aria-hidden="true">← </span>Back to results</a>
+          <p class="eyebrow label">Price history · Unleaded 91</p>
+          <h2><span class="vh">Price history: </span>Metro Petroleum Gosford</h2>
+          <p class="addr">Metro Fuel · 57 Central Coast Hwy, West Gosford NSW 2250</p>
+          <p class="now">
+            <span class="amount">233.9</span
+            ><span class="unit">cents a litre now, updated 21 hours ago</span>
+          </p>
+          <div class="acts" style="margin-top: var(--space-2)">
+            <a href="#">Directions<span aria-hidden="true"> ↗</span></a
+            ><button><span aria-hidden="true">☆ </span>Favourite</button>
+          </div>
+          <p class="story" id="story"></p>
+          <svg class="chart" id="chart" width="572" height="250" aria-hidden="true"></svg>
+          <p class="readout" id="readout"></p>
+          <p class="slider-hint">Drag or use the arrow keys to read a day.</p>
+        </div>
+        <div>
+          <div class="fuels" style="margin-top: 6px; border-top-width: 0; padding-top: 0">
+            <p class="label">Every fuel here now</p>
+            <div id="fuels"></div>
+          </div>
+          <p class="disclosure">▸ Daily prices as a table</p>
+          <p class="credit">
+            History to 30 September from NSW FuelCheck price history (NSW Fair Trading), used under
+            CC BY-SA; daily low, high and last worked out by us and shared under the same licence.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <script src="../mock-data.js"></script>
+    <script src="../mock-history.js"></script>
+    <script src="../mock.js"></script>
+    <script src="docket.js"></script>
+    <script src="history-page.js"></script>
+    <script>
+      stationRows(document.getElementById('rows'), 5, { selected: 'Metro Petroleum Gosford' });
+      document.fonts.ready.then(() => {
+        drawMap(document.getElementById('mapsvg'), {
+          tag: 'docket',
+          selected: 'Metro Petroleum Gosford',
+          cheapestWord: 'CHEAPEST',
+          splitCheapest: true,
+          kmAcross: 11,
+        });
+        fillHistory(document.getElementById('history'));
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>

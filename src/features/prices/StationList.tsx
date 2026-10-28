@@ -2,13 +2,10 @@ import { useEffect, useEffectEvent, useRef } from 'react';
 
 import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
-import { FavouriteButton } from '@/features/favourites/FavouriteButton';
-import { HistoryLink } from '@/features/history/HistoryLink';
-import { formatDistance, formatPrice } from '@/lib/format';
+import { SelectedStation } from '@/features/map/SelectedStation';
+import { formatAge, formatDistance, formatPrice } from '@/lib/format';
 
-import { DirectionsLink } from './DirectionsLink';
 import { priceAge } from './priceAge';
-import { PriceChange } from './PriceChange';
 import styles from './StationList.module.css';
 
 import type { StationPrice } from '../../../shared/api';
@@ -20,11 +17,14 @@ export interface StationListProps {
   /** How many there are in all. */
   total: number;
   now: Date;
-  /** The selected station's code. */
+  /** The selected station's code: its row is open, its card under it. */
   selected: string | null;
   /** The lowest price in all the results, or null when every price is the same. */
   cheapest: number | null;
-  onShowOnMap: (code: string) => void;
+  /** A row pressed: open its card, or close it if it was open. */
+  onPick: (code: string) => void;
+  /** The open card's Close (or Escape in it). */
+  onClose: (code: string) => void;
   onShowMore: () => void;
   /** How many "Show more" adds. */
   pageSize: number;
@@ -35,16 +35,22 @@ export interface StationListProps {
 }
 
 /**
- * Cheapest first. Each station is a list item headed by its name, so a
- * screen reader user can jump station to station by heading; the price is
- * the biggest thing on screen but comes after the name in reading order,
- * which is how a sentence would put it.
+ * Cheapest first, one line a station: name, a dotted leader, the price;
+ * distance and age under it. Everything else is in the station's card, one
+ * press away (docs/design-system.md, Station row).
  *
- * Each item's "Show on map" button is the keyboard way to the map: one Tab
- * stop per station, in price order. The map's own dots stay out of the Tab
- * order (see docs/decisions.md, "Keyboard path to the map"). A 25 km search
- * in Sydney finds over 500 stations, so they come in batches: 500 Tab stops
- * would bury the page footer, and nobody compares the 300th-cheapest price.
+ * Each row is an <h3> holding one button, the WAI-ARIA accordion: one Tab
+ * stop per station, and heading navigation still goes station by station.
+ * The button's name is the row as one sentence ("Metro Gosford 233.9 cents a
+ * litre, cheapest, 3.4 km away, updated 21 hours ago"); the leader and the
+ * separators are hidden from it. Pressing it opens the card under it and
+ * selects the station on the map, which makes the rows the keyboard way to
+ * the map: the map's own dots stay out of the Tab order (see
+ * docs/decisions.md, "Keyboard path to the map").
+ *
+ * A 25 km search in Sydney finds over 500 stations, so they come in batches:
+ * 500 Tab stops would bury the page footer, and nobody compares the
+ * 300th-cheapest price.
  */
 export function StationList({
   stations,
@@ -52,7 +58,8 @@ export function StationList({
   now,
   selected,
   cheapest,
-  onShowOnMap,
+  onPick,
+  onClose,
   onShowMore,
   pageSize,
   reducedMotion,
@@ -64,8 +71,8 @@ export function StationList({
   /*
    * Bring the selected station into view when it changes, for a station
    * picked on the map. Scrolling only: focus stays where it was. 'nearest'
-   * does nothing when it is already in view, as it is after "Show on map".
-   * Skipped while the list is hidden (a phone showing the map).
+   * does nothing when it is already in view, as it is after a press on its
+   * row. Skipped while the list is hidden (a phone showing the map).
    */
   // An effect event: reads the motion setting without making it a reason to scroll.
   const reveal = useEffectEvent(() => {
@@ -85,7 +92,10 @@ export function StationList({
       <ol className={styles.list} aria-label={label} ref={listRef}>
         {stations.map((station) => {
           const isSelected = station.stationCode === selected;
-          const age = priceAge(station.priceUpdatedAt, now);
+          const isCheapest = station.priceCents === cheapest;
+          const old = priceAge(station.priceUpdatedAt, now).old;
+          const age = formatAge(station.priceUpdatedAt, now);
+          const cardId = `card-${station.stationCode}`;
           return (
             <li
               key={station.stationCode}
@@ -93,45 +103,58 @@ export function StationList({
               data-station={station.stationCode}
               ref={isSelected ? selectedItem : undefined}
             >
-              {/* Focusable from script only: "Show more" moves focus to the first new station. */}
-              <h3 className={styles.name} tabIndex={-1}>
-                <HistoryLink code={station.stationCode}>{station.name}</HistoryLink>
-              </h3>
-              <p className={styles.price}>
-                <span className={styles.amount}>{formatPrice(station.priceCents)}</span>{' '}
-                <span aria-hidden="true" className={styles.unit}>
-                  ¢/L
-                </span>
-                <VisuallyHidden>cents a litre</VisuallyHidden>
-                {station.priceCents === cheapest && (
-                  <>
-                    {' '}
-                    <span className={styles.badge}>Cheapest</span>
-                  </>
-                )}
-                <PriceChange cents={station.changeCents} className={styles.change} />
-              </p>
-              <p className={styles.meta}>
-                {station.brand} · {formatDistance(station.distanceKm)} away
-              </p>
-              <p className={styles.address}>{station.address}</p>
-              <p className={age.old ? styles.old : styles.updated}>
-                {age.old ? <strong>Price {age.text}</strong> : `Price ${age.text}`}
-              </p>
-              <div className={styles.actions}>
-                <Button
-                  variant="quiet"
-                  className={styles.showOnMap}
+              <h3 className={styles.heading}>
+                <button
+                  type="button"
+                  className={styles.row}
+                  aria-expanded={isSelected}
+                  aria-controls={isSelected ? cardId : undefined}
                   onClick={() => {
-                    onShowOnMap(station.stationCode);
+                    onPick(station.stationCode);
                   }}
                 >
-                  Show on map<VisuallyHidden>, {station.name}</VisuallyHidden>
-                </Button>
-                <DirectionsLink station={station} />
-                <FavouriteButton code={station.stationCode} name={station.name} />
-                {isSelected && <span className={styles.shown}>Shown on map</span>}
-              </div>
+                  <span className={styles.top}>
+                    <span className={styles.name}>{station.name}</span>{' '}
+                    <span aria-hidden="true" className={styles.leader} />
+                    <span className={isCheapest ? styles.cheapest : styles.amount}>
+                      {formatPrice(station.priceCents)}
+                    </span>
+                  </span>{' '}
+                  <VisuallyHidden>cents a litre{isCheapest ? ', cheapest' : ''},</VisuallyHidden>{' '}
+                  <span className={styles.meta}>
+                    <span>
+                      {formatDistance(station.distanceKm)} <VisuallyHidden>away,</VisuallyHidden>{' '}
+                      <span aria-hidden="true">·</span>{' '}
+                      {old ? (
+                        <strong className={styles.old}>
+                          Old price, <VisuallyHidden>updated</VisuallyHidden> {age}
+                        </strong>
+                      ) : (
+                        <>
+                          <VisuallyHidden>updated</VisuallyHidden> {age}
+                        </>
+                      )}
+                    </span>
+                    {isCheapest && (
+                      <span aria-hidden="true" className={styles.flag}>
+                        Cheapest
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </h3>
+              {isSelected && (
+                <SelectedStation
+                  station={station}
+                  now={now}
+                  place="list"
+                  cheapest={cheapest}
+                  id={cardId}
+                  onClose={() => {
+                    onClose(station.stationCode);
+                  }}
+                />
+              )}
             </li>
           );
         })}

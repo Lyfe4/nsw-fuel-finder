@@ -24,7 +24,6 @@ export interface PlaceComboboxProps {
  * valid: the API resolves free text, so the suggestions help, never gate.
  */
 export function PlaceCombobox({ value, onValueChange, onSelect, inputRef }: PlaceComboboxProps) {
-  const hintId = useId();
   const inputId = useId();
   const suggestions = usePlaceSuggestions(value);
 
@@ -59,9 +58,6 @@ export function PlaceCombobox({ value, onValueChange, onSelect, inputRef }: Plac
       <label className={styles.label} {...getLabelProps()} htmlFor={inputId}>
         Suburb or postcode
       </label>
-      <p id={hintId} className={styles.hint}>
-        For example Erina, Bondi Beach or 2250
-      </p>
       <div className={styles.inputWrap}>
         <input
           className={styles.input}
@@ -80,7 +76,6 @@ export function PlaceCombobox({ value, onValueChange, onSelect, inputRef }: Plac
                 closeMenu();
               }
             },
-            'aria-describedby': hintId,
             autoComplete: 'off',
             autoCapitalize: 'words',
             spellCheck: false,

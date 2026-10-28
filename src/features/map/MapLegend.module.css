@@ -1,25 +1,22 @@
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  padding: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  list-style: none;
-}
-
-.legend li {
+/*
+ * The scale bar, one line from 320 px up: the words and prices at its ends
+ * keep their width, the bar takes what is left (at least a thumb's width).
+ */
+.key {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--step--2);
+  white-space: nowrap;
 }
 
-.swatch {
-  width: 0.75rem;
-  height: 0.75rem;
-  border: 2px solid var(--color-marker-outline);
-  border-radius: 50%;
-  outline: var(--border-width) solid var(--color-border);
+.bar {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(3, 1fr);
+  min-width: 2rem;
+  height: 0.375rem;
 }
 
 .low {
@@ -34,11 +31,24 @@
   background: var(--color-price-high);
 }
 
-/* A ring around a dot, as on the map. */
+.figure {
+  font-family: var(--font-figures);
+  font-weight: var(--font-weight-heavy);
+  color: var(--color-text);
+}
+
 .origin {
-  width: 1.125rem;
-  height: 1.125rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
+/* A ring around a dot, as on the map. */
+.ring {
+  width: 0.875rem;
+  height: 0.875rem;
   border: 2px solid var(--color-map-origin);
-  background: radial-gradient(circle, var(--color-map-origin) 0 28%, transparent 30%);
-  outline: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--color-map-origin) 0 25%, transparent 28%);
 }

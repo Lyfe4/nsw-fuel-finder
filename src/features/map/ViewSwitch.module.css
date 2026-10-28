@@ -1,14 +1,23 @@
+/* Two halves of one ink-edged control; pressed is filled ink, not colour alone. */
 .switch {
-  display: grid;
+  display: inline-grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+  width: fit-content;
+  border: var(--rule-width) solid var(--color-text);
+  border-radius: var(--radius);
 }
 
-/* Pressed is shown by fill and weight, not colour alone. */
+.switch .option {
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .switch .option[aria-pressed='true'] {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
 }
 
 .switch .option[aria-pressed='false'] {

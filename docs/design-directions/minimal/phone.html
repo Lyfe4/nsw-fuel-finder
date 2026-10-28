@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docket, minimal: phone</title>
+    <link rel="stylesheet" href="minimal.css" />
+  </head>
+  <body>
+    <template id="top">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder</span><span class="region">NSW · ACT</span>
+      </header>
+    </template>
+    <template id="collapsed">
+      <div class="searched">
+        <p>Unleaded 91 <span>· 2250 · 5 km</span></p>
+        <button class="change" aria-expanded="false" aria-controls="search">
+          Change<span class="vh"> search</span>
+        </button>
+      </div>
+      <details class="favs">
+        <summary>Favourites <span>3</span></summary>
+      </details>
+    </template>
+    <template id="summary">
+      <div class="summary">
+        <h2>19 stations<span class="vh"> within 5 km of postcode 2250</span></h2>
+        <p class="save" aria-hidden="true">save <b>$3.02</b> on 50 L</p>
+        <p class="vh">
+          Cheapest 233.9, average 239.9 cents a litre. Filling 50 litres at the cheapest saves $3.02
+          on the average.
+        </p>
+      </div>
+    </template>
+    <template id="tools">
+      <div class="tools">
+        <div class="switch">
+          <button aria-pressed="true">List</button><button aria-pressed="false">Map</button>
+        </div>
+        <select aria-label="Sort">
+          <option>Cheapest first</option>
+        </select>
+        <button class="filters">Filters</button>
+      </div>
+    </template>
+
+    <section class="screen phone" id="list" aria-label="List">
+      <div data-use="top"></div>
+      <div data-use="collapsed"></div>
+      <div class="docket">
+        <div data-use="summary"></div>
+        <div data-use="tools"></div>
+        <ol class="rows" aria-label="Stations, cheapest first"></ol>
+      </div>
+    </section>
+
+    <section class="screen phone" id="selected" aria-label="List, a station selected">
+      <div data-use="top"></div>
+      <div data-use="collapsed"></div>
+      <div class="docket">
+        <div data-use="summary"></div>
+        <div data-use="tools"></div>
+        <ol class="rows" data-open="2" aria-label="Stations, cheapest first"></ol>
+      </div>
+    </section>
+
+    <section class="screen phone" id="search" aria-label="Search reopened">
+      <div data-use="top"></div>
+      <div class="searched">
+        <p>Unleaded 91 <span>· 2250 · 5 km</span></p>
+        <button class="change focus" aria-expanded="true" aria-controls="search-form">
+          Change<span class="vh"> search</span>
+        </button>
+      </div>
+      <form class="search" id="search-form">
+        <div class="row">
+          <div class="field">
+            <label for="fuel">Fuel</label
+            ><select id="fuel">
+              <option>Unleaded 91</option>
+            </select>
+          </div>
+          <div class="field narrow">
+            <label for="within">Within</label
+            ><select id="within">
+              <option>5 km</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="place">Suburb or postcode</label><input id="place" value="2250" />
+          </div>
+          <button class="go" type="button">Search</button>
+        </div>
+        <button class="locate" type="button">Use my location</button>
+      </form>
+      <details class="favs">
+        <summary>Favourites <span>3</span></summary>
+      </details>
+      <div class="docket">
+        <div data-use="summary"></div>
+        <div data-use="tools"></div>
+        <ol class="rows" aria-label="Stations, cheapest first"></ol>
+      </div>
+    </section>
+
+    <section class="screen phone" id="map" aria-label="Map">
+      <div data-use="top"></div>
+      <div data-use="collapsed"></div>
+      <div class="docket">
+        <div data-use="summary"></div>
+        <div class="tools">
+          <div class="switch">
+            <button aria-pressed="false">List</button><button aria-pressed="true">Map</button>
+          </div>
+          <select aria-label="Sort">
+            <option>Cheapest first</option>
+          </select>
+          <button class="filters">Filters</button>
+        </div>
+      </div>
+      <div class="mapwrap" style="margin: 0 10px">
+        <svg id="mapsvg" width="370" height="420" aria-hidden="true"></svg>
+        <div class="zoom" aria-hidden="true"><span>+</span><span>−</span></div>
+        <div class="legend">
+          <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+          <p class="ends">
+            <span><b>233.9</b> cheapest</span><span>avg <b>239.9</b></span
+            ><span><b>254.9</b> dearest</span>
+          </p>
+        </div>
+        <span class="attrib">OpenFreeMap © OpenMapTiles © OpenStreetMap</span>
+      </div>
+      <div class="mapcard cheapest">
+        <div class="top">
+          <h3 class="name">Metro Petroleum Gosford</h3>
+          <span class="lead" aria-hidden="true"></span
+          ><span class="amount" style="color: var(--color-accent)">233.9</span
+          ><span class="vh"> cents a litre, cheapest</span>
+        </div>
+        <p class="card" style="padding: 0">
+          <span class="where">Metro Fuel · 3.4 km · 21 hours ago · </span
+          ><a class="history" href="#">Price history</a>
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="#">Directions<span aria-hidden="true">&nbsp;↗</span></a
+          ><button class="btn" aria-pressed="true">
+            <span aria-hidden="true">★&nbsp;</span>Favourite
+          </button>
+          <button class="btn end">Close</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen phone" id="history" aria-label="History">
+      <div data-use="top"></div>
+      <div class="docket hist">
+        <a class="back" href="#"><span aria-hidden="true">← </span>Back to results</a>
+        <h2><span class="vh">Price history: </span>Metro Petroleum Gosford</h2>
+        <p class="now">
+          <span class="amount">233.9</span
+          ><span class="unit">cents a litre of Unleaded 91 now, updated 21 hours ago</span>
+        </p>
+        <p class="quiet">
+          <a href="#">Directions<span aria-hidden="true"> ↗</span></a
+          ><button aria-pressed="true"><span aria-hidden="true">★ </span>Favourite</button>
+        </p>
+        <p class="story"></p>
+        <svg class="chart" width="344" height="200" aria-hidden="true"></svg>
+        <p class="readout"></p>
+        <details class="more"><summary>Every fuel here now</summary></details>
+        <details class="more"><summary>Daily prices as a table</summary></details>
+        <p class="credit">
+          History to 30 September from NSW FuelCheck price history (NSW Fair Trading), CC BY-SA;
+          daily figures by us, same licence.
+        </p>
+      </div>
+    </section>
+
+    <script src="../mock-data.js"></script>
+    <script src="../mock-history.js"></script>
+    <script src="../mock.js"></script>
+    <script src="../docket/docket.js"></script>
+    <script src="minimal.js"></script>
+    <script src="fill.js"></script>
+    <script>
+      fillScreens(10);
+      document.fonts.ready.then(() => {
+        drawMap(document.getElementById('mapsvg'), {
+          tag: 'docket',
+          selected: 'Metro Petroleum Gosford',
+          cheapestWord: 'CHEAPEST',
+          splitCheapest: true,
+          kmAcross: 7.6,
+        });
+        fillHistory();
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>

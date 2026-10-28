@@ -1,7 +1,14 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { announced, renderApp, results } from '@/features/search/testing';
+import {
+  announced,
+  openSearch,
+  renderApp,
+  results,
+  stationNames,
+  stationRow,
+} from '@/features/search/testing';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
 import { fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
 
@@ -45,16 +52,14 @@ function setup(url = '/?query=Erina') {
 }
 
 const names = (label = 'Stations, cheapest first') =>
-  within(screen.getByRole('list', { name: label }))
-    .getAllByRole('heading', { level: 3 })
-    .map((heading) => heading.textContent);
+  stationNames(screen.getByRole('list', { name: label }));
 
 const openFilters = async (user: ReturnType<typeof setup>['user']) => {
-  await user.click(screen.getByText('Filters:'));
+  await user.click(screen.getByText('Filters'));
 };
 
 describe('the price summary', () => {
-  it('is one sentence: cheapest, average, and what that is worth on a 50 litre fill', async () => {
+  it('is one sentence for screen readers, and a few words on screen', async () => {
     setup();
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     // (199.9 + 203.9 + 205.9 + 207.9 + 211.9) / 5 = 205.9; 6.0 cents on 50 L is $3.00.
@@ -63,11 +68,10 @@ describe('the price summary', () => {
     // Screen readers get it as one run of plain text, not split at each bold number.
     const spoken = within(results()).getByText(sentence, { selector: 'span' });
     expect(spoken.childElementCount).toBe(0);
-    // The visible copy, with its bold numbers, is the same words, hidden from them.
+    // On screen, just the saving, beside the heading; hidden from them, who have the sentence.
     const shown = spoken.previousElementSibling;
     expect(shown).toHaveAttribute('aria-hidden', 'true');
-    expect(shown?.textContent).toBe(sentence);
-    expect(shown?.querySelectorAll('strong')).toHaveLength(3);
+    expect(shown?.textContent).toBe('save $3.00 on 50 L');
   });
 
   it('leaves out a saving too small to matter', async () => {
@@ -105,7 +109,7 @@ describe('sorting', () => {
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     const length = window.history.length;
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Nearest first');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Nearest');
     expect(names('Stations, nearest first')).toEqual([
       'BP Erina',
       'Shell Green Point',
@@ -131,10 +135,8 @@ describe('filters', () => {
   it('are closed by default, and say what is in force', async () => {
     setup();
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
-    expect(screen.getByText('Filters:').closest('details')).not.toHaveAttribute('open');
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent(
-      'Filters: all brands',
-    );
+    expect(screen.getByText('Filters').closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent(/^Filters$/);
   });
 
   it('filter by brand, with counts, kept in the URL; the heading and status say how many', async () => {
@@ -160,13 +162,13 @@ describe('filters', () => {
       }),
     ).toBeInTheDocument();
     expect(announced()).toMatch(/^2 of 5 stations match your filters\./);
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent('Filters: BP');
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent('Filters: BP');
     // Focus stays on the checkbox: nothing it did made it go away.
     expect(within(brands).getByRole('checkbox', { name: 'BP (2)' })).toHaveFocus();
 
     await user.click(within(brands).getByRole('checkbox', { name: 'Shell (2)' }));
     expect(names()).toEqual(['Shell Erina', 'BP Erina', 'BP Terrigal', 'Shell Green Point']);
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent(
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent(
       'Filters: BP and Shell',
     );
   });
@@ -183,7 +185,7 @@ describe('filters', () => {
     expect(window.location.search).toBe('?fuel=U91&query=Erina&old=hide');
     // The brand counts are of what is left: Metro's only station was the old one.
     expect(screen.queryByRole('checkbox', { name: /^Metro Fuel/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Filters:').closest('summary')).toHaveTextContent(
+    expect(screen.getByText('Filters').closest('summary')).toHaveTextContent(
       'Filters: all brands, recent prices only',
     );
   });
@@ -227,6 +229,7 @@ describe('filters', () => {
   it('are kept for the next search, like the fuel', async () => {
     const { user } = setup('/?query=Erina&brand=BP&sort=distance');
     await screen.findByRole('list', { name: 'Stations, nearest first' });
+    await openSearch(user);
     const box = screen.getByRole('combobox', { name: /suburb or postcode/i });
     await user.clear(box);
     await user.type(box, 'Terrigal{Enter}');
@@ -237,7 +240,7 @@ describe('filters', () => {
     const { user } = setup('/?query=Erina&brand=BP&old=hide');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     await openFilters(user);
-    const clear = within(screen.getByText('Filters:').closest('details') as HTMLElement).getByRole(
+    const clear = within(screen.getByText('Filters').closest('details') as HTMLElement).getByRole(
       'button',
       { name: 'Clear filters' },
     );
@@ -251,7 +254,7 @@ describe('filters', () => {
 });
 
 describe('each station', () => {
-  it('says how its price moved today, in words as well as an arrow', async () => {
+  it('says how its price moved today, in its card, in words as well as an arrow', async () => {
     fakeApi({
       location: () =>
         json(
@@ -265,26 +268,31 @@ describe('each station', () => {
           }),
         ),
     });
-    const { container } = renderApp('/?query=Erina');
+    const { user, container } = renderApp('/?query=Erina');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
-    const item = (name: string) =>
-      screen.getByRole('heading', { level: 3, name }).closest('li') as HTMLElement;
+    // The row is kept to name, price, distance and age; the move is in the card.
+    const item = (name: string) => stationRow(name).closest('li') as HTMLElement;
+    // Opening one closes the last, so open each in turn and read its card.
+    const open = async (name: string) => {
+      await user.click(stationRow(name));
+      return within(item(name));
+    };
+    expect(within(item('Cheaper')).queryByText(/today/)).not.toBeInTheDocument();
 
-    expect(within(item('Cheaper')).getByText('↓ 2.0 today')).toHaveAttribute('aria-hidden', 'true');
-    expect(
-      within(item('Cheaper')).getByText('down 2.0 cents a litre since yesterday'),
-    ).toBeInTheDocument();
-    expect(
-      within(item('Dearer')).getByText('up 4.5 cents a litre since yesterday'),
-    ).toBeInTheDocument();
-    expect(within(item('Same')).queryByText(/today|since yesterday/)).not.toBeInTheDocument();
-    expect(within(item('New')).queryByText(/today|since yesterday/)).not.toBeInTheDocument();
+    const cheaper = await open('Cheaper');
+    expect(cheaper.getByText('↓ 2.0 today')).toHaveAttribute('aria-hidden', 'true');
+    expect(cheaper.getByText('down 2.0 cents a litre since yesterday')).toBeInTheDocument();
     await expectNoAxeViolations(container);
+    expect((await open('Dearer')).getByText('up 4.5 cents a litre since yesterday')).toBeVisible();
+    expect((await open('Same')).queryByText(/today|since yesterday/)).not.toBeInTheDocument();
+    expect((await open('New')).queryByText(/today|since yesterday/)).not.toBeInTheDocument();
   });
 
-  it('has directions in the maps app, in a new tab, named for the station', async () => {
-    setup();
+  it('has directions in its card, in the maps app, in a new tab, named for the station', async () => {
+    const { user } = setup();
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    expect(screen.queryByRole('link', { name: /^Directions/ })).not.toBeInTheDocument();
+    await user.click(stationRow('Shell Erina'));
     const link = screen.getByRole('link', {
       name: 'Directions to Shell Erina, opens in a new tab',
     });

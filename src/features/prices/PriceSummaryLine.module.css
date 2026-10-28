@@ -1,9 +1,11 @@
 .summary {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-accent-subtle);
+  font-size: var(--step--1);
+  white-space: nowrap;
 }
 
-.summary strong {
-  font-variant-numeric: tabular-nums;
+/* The docket's money: in the figures face, like the prices. */
+.figure {
+  font-family: var(--font-figures);
+  font-size: var(--step-0);
+  font-weight: var(--font-weight-heavy);
 }

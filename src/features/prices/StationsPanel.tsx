@@ -6,16 +6,12 @@ import { SelectedStation } from '@/features/map/SelectedStation';
 import {
   clearOnMap,
   closeSelection,
-  escapeSelection,
   findSelected,
+  pickInList,
   pickOnMap,
-  showInList,
-  showOnMap,
   type FocusTarget,
-  type ScreenWidth,
   type SelectionChange,
 } from '@/features/map/selection';
-import { ViewSwitch } from '@/features/map/ViewSwitch';
 import { useTheme } from '@/features/theme/useTheme';
 import { REDUCED_MOTION, useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
@@ -27,6 +23,7 @@ import { LIST_PAGE_SIZE } from './view';
 
 import type { PricesResponse, StationPrice } from '../../../shared/api';
 import type { ResultsLayout } from '../search/searchState';
+import type { ReactNode, RefObject } from 'react';
 
 export interface StationsPanelProps {
   data: PricesResponse;
@@ -43,7 +40,13 @@ export interface StationsPanelProps {
   station: string | null;
   view: ResultsLayout;
   onSelect: (station: string | null, view?: ResultsLayout) => void;
-  onViewChange: (view: ResultsLayout) => void;
+  /**
+   * The List/Map switch's Map button (phones), in the toolbar above: where
+   * focus goes when the card under the map closes.
+   */
+  mapButtonRef: RefObject<HTMLButtonElement | null>;
+  /** On a wide screen: the results' heading and toolbar, at the top of the list's column. */
+  listHeader: ReactNode;
 }
 
 /**
@@ -63,12 +66,12 @@ export function StationsPanel({
   station,
   view,
   onSelect,
-  onViewChange,
+  mapButtonRef,
+  listHeader,
 }: StationsPanelProps) {
   const wide = useMediaQuery(WIDE_SCREEN);
   const reducedMotion = useMediaQuery(REDUCED_MOTION);
   const { theme } = useTheme();
-  const width: ScreenWidth = wide ? 'wide' : 'narrow';
   const selected = findSelected(stations, station);
 
   const showList = wide || view === 'list';
@@ -79,7 +82,8 @@ export function StationsPanel({
   const [mapStarted, setMapStarted] = useState(showMap);
   if (showMap && !mapStarted) setMapStarted(true);
 
-  // Bumped by every "Show on map", so the same station can be shown again.
+  // Bumped by every row that opens, so the map shows that station again
+  // even if it was panned away while the row was open before.
   const [showRequest, setShowRequest] = useState(0);
 
   /*
@@ -102,11 +106,8 @@ export function StationsPanel({
 
   const listRef = useRef<HTMLOListElement>(null);
   useReorderAnimation(listRef, arrangement, reducedMotion);
-  const cardHeadingRef = useRef<HTMLHeadingElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
   const mapPanelRef = useRef<HTMLDivElement>(null);
-  const mapButtonRef = useRef<HTMLButtonElement>(null);
-  const pendingFocus = useRef<FocusTarget | { kind: 'list-heading'; station: string }>({
+  const pendingFocus = useRef<FocusTarget>({
     kind: 'stay',
   });
 
@@ -121,13 +122,6 @@ export function StationsPanel({
     const target = pendingFocus.current;
     if (target.kind === 'stay') return;
     pendingFocus.current = { kind: 'stay' };
-    if (target.kind === 'card') {
-      // Focusing the card would scroll just the card into view, leaving the
-      // map above it off screen. Scroll the whole panel up to its bottom edge
-      // instead: the map and the card together, on any phone tall enough.
-      cardHeadingRef.current?.focus({ preventScroll: true });
-      mapPanelRef.current?.scrollIntoView({ block: 'end' });
-    }
     if (target.kind === 'view-switch') mapButtonRef.current?.focus();
     if (target.kind === 'map') {
       // The card was removed with focus inside it, which leaves focus on
@@ -137,10 +131,10 @@ export function StationsPanel({
         mapPanelRef.current?.querySelector('canvas')?.focus({ preventScroll: true });
       }
     }
-    if (target.kind === 'list-button' || target.kind === 'list-heading') {
+    if (target.kind === 'list-button') {
       const items = listRef.current?.querySelectorAll<HTMLElement>('[data-station]') ?? [];
       const item = [...items].find((element) => element.dataset.station === target.station);
-      item?.querySelector(target.kind === 'list-button' ? 'button' : 'h3')?.focus();
+      item?.querySelector('button')?.focus();
     }
   });
 
@@ -150,16 +144,17 @@ export function StationsPanel({
   };
 
   /*
-   * Escape anywhere in the map's panel (the map, its zoom buttons, the card)
-   * clears the selection. A native listener on the panel, which only
-   * catches what bubbles up from the controls inside it: the panel itself
-   * is not interactive, and a React handler on it would say it was.
+   * Escape anywhere in the map's panel (the map, its zoom buttons) clears
+   * the selection. In the card under the map it is the card's Close, which
+   * the card handles itself first (and marks handled). A native listener on
+   * the panel, which only catches what bubbles up from the controls inside
+   * it: the panel itself is not interactive, and a React handler on it would
+   * say it was.
    */
   const onEscape = useEffectEvent((event: KeyboardEvent) => {
     if (event.key !== 'Escape' || event.defaultPrevented || !selected) return;
     event.preventDefault();
-    const inCard = event.target instanceof Node && Boolean(cardRef.current?.contains(event.target));
-    apply(escapeSelection(selected.stationCode, width, inCard));
+    apply(clearOnMap());
   });
   useEffect(() => {
     const panel = mapPanelRef.current;
@@ -174,32 +169,37 @@ export function StationsPanel({
   }, [mapStarted]);
 
   const count = stations.length;
+  const cheapest = cheapestPrice(stations.map((s) => s.priceCents));
   const mapLabel = `Map of ${String(count)} ${count === 1 ? 'station' : 'stations'} selling ${fuelName}. The list has the same stations.`;
 
   return (
     <div className={styles.panel}>
-      {!wide && <ViewSwitch view={view} onChange={onViewChange} mapButtonRef={mapButtonRef} />}
       <div className={styles.columns}>
         <div className={styles.list} hidden={!showList}>
+          {listHeader}
           <StationList
             stations={stations.slice(0, listed)}
             total={count}
             now={now}
             selected={selected?.stationCode ?? null}
-            cheapest={cheapestPrice(stations.map((s) => s.priceCents))}
+            cheapest={cheapest}
             pageSize={LIST_PAGE_SIZE}
             reducedMotion={reducedMotion}
             label={listLabel}
             listRef={listRef}
-            onShowOnMap={(code) => {
-              setShowRequest((n) => n + 1);
-              apply(showOnMap(code, width));
+            onPick={(code) => {
+              const change = pickInList(code, selected?.stationCode ?? null);
+              if (change.station !== null) setShowRequest((n) => n + 1);
+              apply(change);
+            }}
+            onClose={(code) => {
+              apply(closeSelection(code, 'list'));
             }}
             onShowMore={() => {
               // The button stays put while the new stations appear above it.
               // Focus goes to the first of them, where reading carries on.
               const next = stations[listed];
-              if (next) pendingFocus.current = { kind: 'list-heading', station: next.stationCode };
+              if (next) pendingFocus.current = { kind: 'list-button', station: next.stationCode };
               setBatches({ searchKey, count: listed + LIST_PAGE_SIZE });
             }}
           />
@@ -224,22 +224,19 @@ export function StationsPanel({
                 }}
               />
             </div>
-            <MapLegend />
-            {selected && (
+            <MapLegend prices={stations.map((s) => s.priceCents)} />
+            {/*
+             * On a phone's map the list is hidden, so the card is here. On a
+             * wide screen it is under the station's row, beside the map.
+             */}
+            {selected && !wide && (
               <SelectedStation
                 station={selected}
                 now={now}
-                headingRef={cardHeadingRef}
-                cardRef={cardRef}
-                {...(wide
-                  ? {}
-                  : {
-                      onShowInList: () => {
-                        apply(showInList(selected.stationCode));
-                      },
-                    })}
+                place="map"
+                cheapest={cheapest}
                 onClose={() => {
-                  apply(closeSelection(selected.stationCode, width));
+                  apply(closeSelection(selected.stationCode, 'map'));
                 }}
               />
             )}

@@ -98,7 +98,7 @@ try {
       theme: document.documentElement.dataset.theme,
       background: getComputedStyle(document.body).backgroundColor,
     }));
-    const dark = painted.background === 'rgb(15, 18, 22)';
+    const dark = painted.background === 'rgb(14, 15, 17)'; // --palette-night-950
     check(
       `first paint, device ${scheme}, stored ${stored ?? 'nothing'}: ${expected}`,
       painted.theme === expected && dark === (expected === 'dark'),
@@ -124,9 +124,12 @@ try {
     await page.waitForFunction(() => !document.body.textContent?.includes('Loading map…'), null, {
       timeout: 30_000,
     });
+    // A station's row opens its card in the list.
     await page
-      .getByRole('button', { name: /^Show on map/ })
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .getByRole('heading')
       .first()
+      .getByRole('button')
       .click();
     await page.waitForURL(/station=/);
     await axe(page, `${theme}, wide results with map and card`);
@@ -141,7 +144,7 @@ try {
     await axe(page, `${theme}, long list with "Show more"`);
 
     // Sort and filters: the panel open, a brand ticked, nearest first.
-    await page.getByText('Filters:').click();
+    await page.getByText('Filters', { exact: true }).click();
     await page.getByRole('group', { name: 'Brands' }).getByRole('checkbox').first().check();
     await page.getByRole('combobox', { name: 'Sort' }).selectOption('distance');
     await page.getByRole('list', { name: 'Stations, nearest first' }).waitFor();
@@ -164,6 +167,13 @@ try {
     await page.getByRole('button', { name: 'Show 20 more' }).waitFor();
 
     // A station's price history, its table open, and favourites with one saved.
+    // The star and the history link are in the station's card: open its row.
+    await page
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .getByRole('heading')
+      .first()
+      .getByRole('button')
+      .click();
     await page
       .getByRole('button', { name: /^Favourite/ })
       .first()
@@ -175,6 +185,43 @@ try {
       .first()
       .click();
     await page.getByRole('heading', { level: 2, name: /^Price history: / }).waitFor();
+    // Focus moves to the heading either way; its mark shows after a key only.
+    const headingFocus = () =>
+      page.evaluate(() => {
+        const heading = document.getElementById('history-heading');
+        const style = heading && getComputedStyle(heading);
+        return {
+          focused: document.activeElement === heading,
+          visible: heading?.matches(':focus-visible') ?? false,
+          outline: style?.outlineStyle,
+          underline: style?.textDecorationLine,
+        };
+      });
+    await page.waitForFunction(
+      () => document.activeElement === document.getElementById('history-heading'),
+    );
+    const clicked = await headingFocus();
+    check(
+      `${theme}: history heading focused, unmarked after a click`,
+      clicked.focused && !clicked.visible,
+      JSON.stringify(clicked),
+    );
+    await page.getByRole('button', { name: 'Back to results' }).click();
+    const historyLink = page
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .locator('[data-history-link]')
+      .first();
+    await historyLink.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(
+      () => document.activeElement === document.getElementById('history-heading'),
+    );
+    const keyed = await headingFocus();
+    check(
+      `${theme}: history heading underlined, not boxed, after a key`,
+      keyed.focused && keyed.visible && keyed.outline === 'none' && keyed.underline === 'underline',
+      JSON.stringify(keyed),
+    );
     await page
       .getByText(/^Lowest |^No .* price history/)
       .first()

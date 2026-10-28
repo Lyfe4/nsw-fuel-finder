@@ -1,0 +1,830 @@
+/*
+ * Docket, minimal (round 3): only what each screen needs.
+ * applied. Shared by phone.html and desktop.html. Tokens are laid out as
+ * src/styles/tokens.css will be: primitives, then semantic tokens, then a
+ * dark block that re-points only the semantic colours.
+ */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url(../fonts/atkinson-next-wght.woff2) format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Mono';
+  src: url(../fonts/atkinson-mono-wght.woff2) format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  /* --- Primitives --- */
+  --palette-counter: #e8e5dc;
+  --palette-thermal: #fbfaf6;
+  --palette-ink: #1c1c1a;
+  --palette-ink-600: #58564f;
+  --palette-ink-500: #7a776f;
+  --palette-ink-400: #8e8b83;
+  --palette-ink-200: #d6d3ca;
+  --palette-night-950: #0e0f11;
+  --palette-night-900: #17181b;
+  --palette-night-700: #2c2e33;
+  --palette-night-600: #5c5a55;
+  --palette-night-500: #7d7a73;
+  --palette-night-400: #a8a59c;
+  --palette-night-50: #edebe4;
+  --palette-carbon-700: #1f55a8;
+  --palette-carbon-300: #86b4f0;
+  --palette-band-low: #1f55a8;
+  --palette-band-mid: #77736a;
+  --palette-band-high: #a4520c;
+  --palette-band-low-dark: #86b4f0;
+  --palette-band-mid-dark: #9c988e;
+  --palette-band-high-dark: #f0954a;
+  --palette-map-land: #f3f1ea;
+  --palette-map-water: #d3dfe4;
+  --palette-map-shore: #8fa7b1;
+  --palette-map-green: #e6e4da;
+  --palette-map-land-dark: #141518;
+  --palette-map-water-dark: #1b2932;
+  --palette-map-shore-dark: #3d5562;
+  --palette-map-green-dark: #1a1c1e;
+
+  /* --- Semantic: colour --- */
+  --color-bg: var(--palette-counter);
+  --color-surface: var(--palette-thermal);
+  --color-text: var(--palette-ink);
+  --color-text-muted: var(--palette-ink-600);
+  --color-rule: var(--palette-ink-400);
+  --color-rule-quiet: var(--palette-ink-200);
+  --color-border-strong: var(--palette-ink-500);
+  --color-accent: var(--palette-carbon-700);
+  --color-on-accent: var(--palette-thermal);
+  --color-focus: var(--palette-carbon-700);
+  --color-price-low: var(--palette-band-low);
+  --color-price-mid: var(--palette-band-mid);
+  --color-price-high: var(--palette-band-high);
+  --color-map-land: var(--palette-map-land);
+  --color-map-water: var(--palette-map-water);
+  --color-map-shore: var(--palette-map-shore);
+  --color-map-green: var(--palette-map-green);
+
+  /* --- Semantic: type --- */
+  --font-text: 'Atkinson Hyperlegible Next', Verdana, sans-serif;
+  --font-figures: 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+  /* Utopia: 320 px at 1.2 to 1440 px at 1.25, 16 px to 18 px base. */
+  --step--2: clamp(0.69rem, 0.68rem + 0.06vw, 0.74rem);
+  --step--1: clamp(0.83rem, 0.81rem + 0.1vw, 0.91rem);
+  --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
+  --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
+  --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
+  --step-3: clamp(1.73rem, 1.62rem + 0.48vw, 2.2rem);
+  --step-4: clamp(2.07rem, 1.92rem + 0.69vw, 2.75rem);
+
+  /* --- Semantic: space (4 px base) --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --radius: 3px;
+}
+:root[data-theme='dark'] {
+  --color-bg: var(--palette-night-950);
+  --color-surface: var(--palette-night-900);
+  --color-text: var(--palette-night-50);
+  --color-text-muted: var(--palette-night-400);
+  --color-rule: var(--palette-night-600);
+  --color-rule-quiet: var(--palette-night-700);
+  --color-border-strong: var(--palette-night-500);
+  --color-accent: var(--palette-carbon-300);
+  --color-on-accent: var(--palette-night-900);
+  --color-focus: var(--palette-carbon-300);
+  --color-price-low: var(--palette-band-low-dark);
+  --color-price-mid: var(--palette-band-mid-dark);
+  --color-price-high: var(--palette-band-high-dark);
+  --color-map-land: var(--palette-map-land-dark);
+  --color-map-water: var(--palette-map-water-dark);
+  --color-map-shore: var(--palette-map-shore-dark);
+  --color-map-green: var(--palette-map-green-dark);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+body {
+  background: #777;
+  font-family: var(--font-text);
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+  align-items: flex-start;
+}
+.screen {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--step-0);
+  line-height: 1.4;
+  position: relative;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.phone {
+  width: 390px;
+  height: 844px;
+}
+.desktop {
+  width: 1280px;
+  height: 800px;
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: inherit;
+}
+
+/* --- Masthead: one line; the wordmark is the only letter-spaced caps --- */
+.mast {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px var(--space-4) 8px;
+}
+.wordmark {
+  font-family: var(--font-figures);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.region {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+
+/* --- Search: the form, or (phones, after a search) one line --- */
+.searched {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 var(--space-4);
+  padding: 6px 0;
+  border-top: 1.5px solid var(--color-text);
+}
+.searched p {
+  font-weight: 700;
+}
+.searched p span {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+.change {
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+  font-weight: 700;
+  font-size: var(--step--1);
+}
+.search {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: end;
+}
+.field {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+.field.narrow {
+  flex: 0 0 92px;
+}
+label {
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+select,
+input {
+  font: inherit;
+  font-size: var(--step-0);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  height: 44px;
+  padding: 0 var(--space-3);
+  width: 100%;
+  appearance: none;
+}
+select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 19px,
+    calc(100% - 12px) 19px;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+.go {
+  height: 44px;
+  padding: 0 var(--space-4);
+  font-weight: 800;
+  background: var(--color-text);
+  color: var(--color-surface);
+  border-radius: var(--radius);
+}
+.locate {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: var(--step--1);
+  justify-self: start;
+  min-height: 32px;
+}
+/* The designed focus ring: 2 px accent, 2 px off. */
+.focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.favs {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 var(--space-4);
+  padding: 6px 0;
+  font-size: var(--step--1);
+  font-weight: 700;
+  border-top: 1px solid var(--color-rule-quiet);
+}
+.favs span {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+/* --- The docket strip: torn once, at the top --- */
+.docket {
+  margin: var(--space-3) 10px 0;
+  background: var(--color-surface);
+  position: relative;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+}
+.docket::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  height: 7px;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x,
+    linear-gradient(225deg, transparent 50%, var(--color-surface) 50%) 0 0 / 8px 8px repeat-x;
+}
+/* The summary, one line: "19 stations" is the visible part of the h2. */
+.summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.summary h2 {
+  font-size: var(--step-0);
+  font-weight: 750;
+}
+.summary .save {
+  font-size: var(--step--1);
+}
+.summary .save b {
+  font-family: var(--font-figures);
+  font-weight: 800;
+  font-size: var(--step-0);
+}
+.tools {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: 1.5px dashed var(--color-text);
+  border-bottom: 1.5px dashed var(--color-text);
+}
+.switch {
+  display: flex;
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.switch button {
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+.switch button[aria-pressed='true'] {
+  background: var(--color-text);
+  color: var(--color-surface);
+}
+.tools select {
+  height: 34px;
+  font-size: var(--step--1);
+  width: auto;
+  border-width: 1px;
+}
+.filters {
+  margin-left: auto;
+  font-size: var(--step--1);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 32px;
+}
+
+/* --- Station rows: an h3 holding one button (the accordion pattern) --- */
+ol {
+  list-style: none;
+  padding: 0;
+}
+.station {
+  border-bottom: 1px dashed var(--color-rule);
+}
+.station h3 {
+  font: inherit;
+}
+.pick {
+  display: block;
+  width: 100%;
+  padding: 8px 0 7px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.pick .top {
+  display: flex;
+  align-items: last baseline;
+  gap: 6px;
+}
+.pick .name {
+  font-weight: 700;
+}
+.pick .lead {
+  flex: 1;
+  min-width: 14px;
+  border-bottom: 2px dotted var(--color-rule);
+  transform: translateY(-5px);
+}
+.pick .amount {
+  font-family: var(--font-figures);
+  font-size: 1.3rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.pick .meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+.cheapest .amount,
+.cheapest .word {
+  color: var(--color-accent);
+}
+.word {
+  font-weight: 700;
+  font-size: var(--step--1);
+}
+.old {
+  color: var(--color-text);
+  font-weight: 800;
+}
+.station.open {
+  border-left: 3px solid var(--color-text);
+  margin-left: -12px;
+  padding-left: 9px;
+}
+
+/* --- The selected station: under its row, or under the map --- */
+.card {
+  padding: 0 0 var(--space-3);
+}
+.card .where {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+.card .history {
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.btn {
+  height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+  font-size: var(--step--1);
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.btn.primary {
+  background: var(--color-text);
+  color: var(--color-surface);
+}
+.btn.end {
+  margin-left: auto;
+}
+.asof {
+  font-size: var(--step--2);
+  color: var(--color-text-muted);
+  padding: var(--space-2) 0 var(--space-1);
+}
+
+/* --- Map --- */
+.mapwrap {
+  position: relative;
+}
+svg {
+  display: block;
+}
+.land {
+  fill: var(--color-map-land);
+}
+.water {
+  fill: var(--color-map-water);
+  stroke: var(--color-map-shore);
+  stroke-width: 1.2;
+}
+.park {
+  fill: var(--color-map-green);
+}
+.road-minor {
+  stroke: var(--color-text-muted);
+  stroke-width: 0.8;
+  fill: none;
+}
+.road-major-casing {
+  stroke: var(--color-text);
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.road-major {
+  stroke: none;
+  fill: none;
+}
+.road-motorway-casing {
+  stroke: var(--color-text);
+  stroke-width: 6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.road-motorway {
+  stroke: var(--color-map-land);
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.shield rect {
+  fill: var(--color-map-land);
+  stroke: var(--color-text);
+  stroke-width: 1.5;
+}
+.shield text {
+  fill: var(--color-text);
+  font: 800 9.5px var(--font-figures);
+}
+.place-label {
+  font: 700 10px var(--font-text);
+  fill: var(--color-text-muted);
+  paint-order: stroke;
+  stroke: var(--color-map-land);
+  stroke-width: 3px;
+}
+.place-label.town {
+  font-size: 11.5px;
+  fill: var(--color-text);
+}
+.water-label {
+  font: italic 600 11px var(--font-text);
+  fill: var(--color-text-muted);
+}
+.origin-ring {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+.origin-dot {
+  fill: var(--color-text);
+}
+.dot {
+  stroke: var(--color-map-land);
+  stroke-width: 2;
+}
+.dot.low {
+  fill: var(--color-price-low);
+}
+.dot.mid {
+  fill: var(--color-price-mid);
+}
+.dot.high {
+  fill: var(--color-price-high);
+}
+.dot.selected {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.tag rect {
+  fill: var(--color-surface);
+  stroke: var(--color-text);
+  stroke-width: 1;
+}
+.tag text {
+  font: 800 10.5px var(--font-figures);
+  fill: var(--color-text);
+}
+.tag.cheapest rect {
+  fill: var(--color-accent);
+  stroke: var(--color-accent);
+}
+.tag.cheapest text {
+  fill: var(--color-on-accent);
+}
+.zoom {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: grid;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+}
+.zoom span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+.zoom span + span {
+  border-top: 1.5px solid var(--color-text);
+}
+.attrib {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: var(--color-surface);
+  font-size: 10px;
+  padding: 2px 6px;
+  color: var(--color-text-muted);
+}
+/* The legend: the price spread in the map's three bands. */
+.legend {
+  position: absolute;
+  left: 10px;
+  bottom: 24px;
+  width: 250px;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-text);
+  border-radius: var(--radius);
+  padding: 6px 8px 4px;
+}
+.legend .bar {
+  display: flex;
+  height: 6px;
+}
+.legend .bar i {
+  flex: 1;
+}
+.legend .bar i:nth-child(1) {
+  background: var(--color-price-low);
+}
+.legend .bar i:nth-child(2) {
+  background: var(--color-price-mid);
+}
+.legend .bar i:nth-child(3) {
+  background: var(--color-price-high);
+}
+.legend .ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.legend .ends b {
+  font-family: var(--font-figures);
+  color: var(--color-text);
+}
+.mapcard {
+  background: var(--color-surface);
+  margin: 0 10px;
+  padding: var(--space-3);
+  border-top: 2px dashed var(--color-rule);
+}
+.mapcard .top {
+  display: flex;
+  align-items: last baseline;
+  gap: 6px;
+}
+.mapcard .name {
+  font-weight: 700;
+  font-size: var(--step-0);
+}
+.mapcard .lead {
+  flex: 1;
+  border-bottom: 2px dotted var(--color-rule);
+  transform: translateY(-5px);
+}
+.mapcard .amount {
+  font-family: var(--font-figures);
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+/* --- History --- */
+.back {
+  font-size: var(--step--1);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--color-text);
+}
+.hist h2 {
+  font-size: var(--step-1);
+  font-weight: 750;
+  line-height: 1.2;
+  margin-top: var(--space-3);
+}
+.hist .now {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+.hist .now .amount {
+  font-family: var(--font-figures);
+  font-weight: 800;
+  font-size: var(--step-4);
+  line-height: 1.05;
+}
+.hist .now .unit {
+  font-size: var(--step--1);
+  color: var(--color-text-muted);
+}
+.hist .quiet {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--step--1);
+  margin-top: var(--space-1);
+}
+.hist .quiet a,
+.hist .quiet button {
+  color: var(--color-text-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--color-rule);
+  text-underline-offset: 3px;
+}
+.hist .story {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1.5px dashed var(--color-text);
+  font-size: var(--step--1);
+}
+.chart {
+  margin-top: var(--space-2);
+}
+.chart .grid {
+  stroke: var(--color-rule-quiet);
+}
+.chart .axis {
+  font: 400 10.5px var(--font-figures);
+  fill: var(--color-text-muted);
+}
+.chart .band {
+  fill: var(--color-rule-quiet);
+}
+.chart .trace {
+  fill: none;
+  stroke: var(--color-text);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.chart .cursor {
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 2;
+}
+.chart .cursor-dot {
+  fill: var(--color-accent);
+}
+.chart .endlabel {
+  font: 800 11px var(--font-figures);
+  fill: var(--color-text);
+}
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
+  font-size: var(--step--1);
+  padding: 4px 0 6px;
+}
+.readout b {
+  font-family: var(--font-figures);
+  color: var(--color-accent);
+}
+.more {
+  border-top: 1px dashed var(--color-rule);
+  padding: var(--space-2) 0;
+  font-size: var(--step--1);
+  font-weight: 700;
+}
+.credit {
+  margin-top: var(--space-2);
+  font-size: var(--step--2);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* --- Desktop --- */
+.desktop .mast {
+  padding: 16px var(--space-6) 8px;
+}
+.desktop .search {
+  grid-template-columns: 1fr 120px 1.6fr auto auto;
+  align-items: end;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-6) var(--space-3);
+  border-bottom: 1.5px solid var(--color-text);
+}
+.desktop .search .locate {
+  align-self: end;
+  min-height: 44px;
+}
+.desktop .split {
+  display: grid;
+  grid-template-columns: 460px 1fr;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-6) 0;
+}
+.desktop .split .docket {
+  margin: 6px 0 0;
+}
+.desktop .favs {
+  margin: 0 0 var(--space-2);
+  border-top: 0;
+  padding-top: 0;
+}
+.desktop .mapwrap {
+  border: 1.5px solid var(--color-text);
+}
+.desktop .hist-wrap {
+  padding: var(--space-3) var(--space-6) 0;
+  max-width: 760px;
+}
+.desktop .hist-wrap .docket {
+  margin: 6px 0 0;
+  padding: var(--space-4) var(--space-5);
+}
+.legend .ends span {
+  white-space: nowrap;
+}
+.desktop .split .mapwrap {
+  align-self: start;
+  position: sticky;
+  top: 0;
+}

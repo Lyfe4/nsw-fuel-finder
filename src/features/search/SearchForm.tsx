@@ -1,6 +1,7 @@
 import { useId, useState, type SubmitEvent, type Ref } from 'react';
 
 import { Button } from '@/components/Button/Button';
+import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 
 import { PlaceCombobox } from './PlaceCombobox';
 import styles from './SearchForm.module.css';
@@ -17,7 +18,20 @@ export interface SearchFormProps {
   onSearchPlace: (query: string) => void;
   onUseLocation: () => void;
   placeInputRef?: Ref<HTMLInputElement>;
+  /**
+   * On a phone after a search, the form folds into one line: the fuel (still
+   * a select, so changing it is one tap), the place and distance, and
+   * Change, which opens the form again. `null` when it never folds: before a
+   * search, and on a wide screen, where the form is one row anyway.
+   */
+  folded: { open: boolean; place: string; onOpenChange: (open: boolean) => void } | null;
 }
+
+const fuelOptions = FUEL_TYPES.map(({ code, name }) => (
+  <option key={code} value={code}>
+    {name}
+  </option>
+));
 
 export function SearchForm({
   fuel,
@@ -29,10 +43,11 @@ export function SearchForm({
   onSearchPlace,
   onUseLocation,
   placeInputRef,
+  folded,
 }: SearchFormProps) {
   const fuelId = useId();
   const radiusId = useId();
-  const locationNoteId = useId();
+  const formId = useId();
   const [typed, setTyped] = useState(currentQuery);
   const [empty, setEmpty] = useState(false);
   // Follow the URL when it changes underneath the form (Back, Forward, a
@@ -50,15 +65,60 @@ export function SearchForm({
     if (query) onSearchPlace(query);
   };
 
+  const changeFuel = (value: string) => {
+    if (isFuelTypeCode(value)) onFuelChange(value);
+  };
+  const fuelName = FUEL_TYPES.find((f) => f.code === fuel)?.name ?? fuel;
+
   return (
-    <form
-      role="search"
-      aria-label="Fuel prices"
-      className={styles.form}
-      onSubmit={submit}
-      noValidate
-    >
-      <div className={styles.choices}>
+    <div className={styles.search}>
+      {folded && (
+        <div className={styles.folded}>
+          {/*
+           * The fuel stays a native select here: changing it is the most
+           * common thing after a search, and one tap. While the form is open
+           * it has its own Fuel select, so this one becomes plain text.
+           */}
+          {folded.open ? (
+            <span className={styles.fuelText}>{fuelName}</span>
+          ) : (
+            <select
+              aria-label="Fuel"
+              className={styles.fuelSelect}
+              value={fuel}
+              onChange={(event) => {
+                changeFuel(event.target.value);
+              }}
+            >
+              {fuelOptions}
+            </select>
+          )}
+          <span className={styles.where}>
+            <span aria-hidden="true">·</span>
+            <VisuallyHidden>,</VisuallyHidden> {folded.place} <span aria-hidden="true">·</span>
+            <VisuallyHidden>, within</VisuallyHidden> {radius} km
+          </span>
+          <Button
+            className={styles.change}
+            aria-expanded={folded.open}
+            aria-controls={formId}
+            onClick={() => {
+              folded.onOpenChange(!folded.open);
+            }}
+          >
+            Change <VisuallyHidden>search</VisuallyHidden>
+          </Button>
+        </div>
+      )}
+      <form
+        id={formId}
+        role="search"
+        aria-label="Fuel prices"
+        className={styles.form}
+        onSubmit={submit}
+        noValidate
+        hidden={folded !== null && !folded.open}
+      >
         <div className={styles.field}>
           <label htmlFor={fuelId} className={styles.label}>
             Fuel
@@ -72,14 +132,10 @@ export function SearchForm({
             className={styles.select}
             value={fuel}
             onChange={(event) => {
-              if (isFuelTypeCode(event.target.value)) onFuelChange(event.target.value);
+              changeFuel(event.target.value);
             }}
           >
-            {FUEL_TYPES.map(({ code, name }) => (
-              <option key={code} value={code}>
-                {name}
-              </option>
-            ))}
+            {fuelOptions}
           </select>
         </div>
         {/*
@@ -106,44 +162,39 @@ export function SearchForm({
             ))}
           </select>
         </div>
-      </div>
 
-      <div className={styles.placeRow}>
-        <PlaceCombobox
-          value={typed}
-          onValueChange={(value) => {
-            setTyped(value);
-            if (value.trim()) setEmpty(false);
-          }}
-          onSelect={(label) => {
-            setEmpty(false);
-            onSearchPlace(label);
-          }}
-          {...(placeInputRef ? { inputRef: placeInputRef } : {})}
-        />
+        <div className={styles.place}>
+          <PlaceCombobox
+            value={typed}
+            onValueChange={(value) => {
+              setTyped(value);
+              if (value.trim()) setEmpty(false);
+            }}
+            onSelect={(label) => {
+              setEmpty(false);
+              onSearchPlace(label);
+            }}
+            {...(placeInputRef ? { inputRef: placeInputRef } : {})}
+          />
+        </div>
         <Button type="submit" variant="primary" className={styles.submit}>
           Search
         </Button>
-      </div>
-      {empty && (
-        <p className={styles.error} role="alert">
-          Enter a suburb or postcode, or use your location.
-        </p>
-      )}
+        {empty && (
+          <p className={styles.error} role="alert">
+            Enter a suburb or postcode, or use your location.
+          </p>
+        )}
 
-      <div className={styles.or}>
-        <span aria-hidden="true">or</span>
         {/*
          * Not disabled while locating: disabling the focused button would drop
-         * keyboard focus to the page. Pressing it again just asks again.
+         * keyboard focus to the page. Pressing it again just asks again. What
+         * happens to the position is on the privacy page.
          */}
-        <Button onClick={onUseLocation} aria-describedby={locationNoteId}>
+        <Button variant="quiet" className={styles.locate} onClick={onUseLocation}>
           {locating ? 'Finding your location…' : 'Use my location'}
         </Button>
-        <span id={locationNoteId} className={styles.note}>
-          Only used to find stations near you; never stored.
-        </span>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }

@@ -7,7 +7,7 @@ describe('App', () => {
   it('renders the page heading', () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'NSW Fuel Finder' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Fuel Finder' })).toBeInTheDocument();
   });
 
   // That public/privacy.html exists is checked in netlify/lib/securityHeaders.test.ts.

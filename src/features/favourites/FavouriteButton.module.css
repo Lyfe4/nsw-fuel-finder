@@ -1,4 +1,4 @@
-/* Quiet like "Show on map", but a full-size target (WCAG 2.5.8). */
+/* A full-size target (WCAG 2.5.8), quiet or bordered. */
 .button {
   min-height: var(--target-size);
   gap: var(--space-1);
@@ -7,16 +7,12 @@
 .star,
 .starOn,
 .starPop {
-  font-size: var(--font-size-lg);
+  font-size: var(--step-1);
   line-height: 1;
   text-decoration: none;
 }
 
-/* Filled and coloured when saved; the filled shape alone already tells them apart. */
-.starOn,
-.starPop {
-  color: var(--color-accent);
-}
+/* Filled when saved: the shape says it, and aria-pressed. The accent is kept for prices. */
 
 /*
  * Just saved: a quick grow and settle. Transform only, so the button and the
@@ -39,6 +35,6 @@
 .full {
   flex-basis: 100%;
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--step--1);
   color: var(--color-text-muted);
 }

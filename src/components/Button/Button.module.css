@@ -5,8 +5,9 @@
   gap: var(--space-2);
   min-height: var(--target-size);
   padding: var(--space-2) var(--space-4);
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
+  border: var(--rule-width) solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--step--1);
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-tight);
   cursor: pointer;
@@ -17,18 +18,15 @@
   opacity: 0.6;
 }
 
+/* Ink, not the accent: the accent is kept for meaning. */
 .primary {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-}
-
-.primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
 }
 
 .secondary {
-  background: var(--color-surface);
-  border-color: var(--color-border-strong);
+  background: transparent;
+  border-color: var(--color-text);
   color: var(--color-text);
 }
 
@@ -37,10 +35,17 @@
 }
 
 .quiet {
-  min-height: auto;
+  min-height: 1.5rem;
   padding: 0;
   background: none;
-  color: var(--color-accent);
+  color: var(--color-text);
+  font-size: inherit;
   font-weight: var(--font-weight-regular);
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.quiet:hover {
+  text-decoration-thickness: 2px;
 }

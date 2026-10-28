@@ -2,28 +2,24 @@ import { describe, expect, it } from 'vitest';
 
 import { station } from '@/lib/testing/fakeApi';
 
-import {
-  clearOnMap,
-  closeSelection,
-  escapeSelection,
-  findSelected,
-  pickOnMap,
-  showInList,
-  showOnMap,
-} from './selection';
+import { clearOnMap, closeSelection, findSelected, pickInList, pickOnMap } from './selection';
 
 describe('list and map selection', () => {
-  describe('"Show on map" in the list', () => {
-    it('on a wide screen selects the station and leaves focus on the button', () => {
-      expect(showOnMap('42', 'wide')).toEqual({ station: '42', focus: { kind: 'stay' } });
+  describe('a station’s row in the list', () => {
+    it('opens it (selects it) and leaves focus on the row', () => {
+      expect(pickInList('42', null)).toEqual({ station: '42', focus: { kind: 'stay' } });
     });
 
-    it('on a phone switches to the map and moves focus to the card, since the list goes away', () => {
-      expect(showOnMap('42', 'narrow')).toEqual({
-        station: '42',
-        view: 'map',
-        focus: { kind: 'card' },
-      });
+    it('moves the selection from another station', () => {
+      expect(pickInList('42', '7')).toEqual({ station: '42', focus: { kind: 'stay' } });
+    });
+
+    it('pressed again, closes it, focus still on the row', () => {
+      expect(pickInList('42', '42')).toEqual({ station: null, focus: { kind: 'stay' } });
+    });
+
+    it('never changes the view: on a phone the list stays', () => {
+      expect(pickInList('42', null)).not.toHaveProperty('view');
     });
   });
 
@@ -31,24 +27,16 @@ describe('list and map selection', () => {
     expect(pickOnMap('42')).toEqual({ station: '42', focus: { kind: 'stay' } });
   });
 
-  it('"Show in list" goes back to the list with focus on that station’s button', () => {
-    expect(showInList('42')).toEqual({
-      station: '42',
-      view: 'list',
-      focus: { kind: 'list-button', station: '42' },
-    });
-  });
-
   describe('closing the card', () => {
-    it('on a wide screen returns focus to the station’s list button', () => {
-      expect(closeSelection('42', 'wide')).toEqual({
+    it('under its row, returns focus to the row', () => {
+      expect(closeSelection('42', 'list')).toEqual({
         station: null,
         focus: { kind: 'list-button', station: '42' },
       });
     });
 
-    it('on a phone returns focus to the Map switch, the list being hidden', () => {
-      expect(closeSelection('42', 'narrow')).toEqual({
+    it('under a phone’s map, returns focus to the Map switch, the list being hidden', () => {
+      expect(closeSelection('42', 'map')).toEqual({
         station: null,
         focus: { kind: 'view-switch' },
       });
@@ -58,16 +46,6 @@ describe('list and map selection', () => {
   describe('clearing from the map', () => {
     it('a tap on nothing clears it; focus stays, unless it was lost with the card', () => {
       expect(clearOnMap()).toEqual({ station: null, focus: { kind: 'map' } });
-    });
-
-    it('Escape on the map is the same as a tap on nothing', () => {
-      expect(escapeSelection('42', 'wide', false)).toEqual(clearOnMap());
-      expect(escapeSelection('42', 'narrow', false)).toEqual(clearOnMap());
-    });
-
-    it('Escape in the card is the card’s Close', () => {
-      expect(escapeSelection('42', 'wide', true)).toEqual(closeSelection('42', 'wide'));
-      expect(escapeSelection('42', 'narrow', true)).toEqual(closeSelection('42', 'narrow'));
     });
   });
 

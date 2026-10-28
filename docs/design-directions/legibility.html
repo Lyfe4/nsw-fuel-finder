@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <title>Price faces: legibility</title>
+    <style>
+      @font-face {
+        font-family: 'DSEG7 Classic';
+        src: url(fonts/DSEG7Classic-Bold.woff2) format('woff2');
+        font-weight: 700;
+      }
+      @font-face {
+        font-family: 'Overpass';
+        src: url(fonts/overpass-wght.woff2) format('woff2');
+        font-weight: 100 900;
+      }
+      @font-face {
+        font-family: 'Atkinson Hyperlegible Mono';
+        src: url(fonts/atkinson-mono-wght.woff2) format('woff2');
+        font-weight: 200 800;
+      }
+      body {
+        margin: 0;
+        background: #ddd;
+        font:
+          13px/1.3 Arial,
+          sans-serif;
+      }
+      main {
+        padding: 16px;
+        background: #fff;
+        display: grid;
+        grid-template-columns: 150px repeat(5, auto) 1fr;
+        gap: 8px 18px;
+        align-items: center;
+        width: max-content;
+      }
+      h1 {
+        grid-column: 1 / -1;
+        font-size: 15px;
+        margin: 0 0 4px;
+      }
+      .head {
+        color: #555;
+        font-size: 11px;
+      }
+      .a {
+        font-family: 'DSEG7 Classic';
+        font-weight: 700;
+        background: #151513;
+        color: #f2ede0;
+        padding: 3px 5px;
+      }
+      .b {
+        font-family: 'Overpass';
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+      .c {
+        font-family: 'Atkinson Hyperlegible Mono';
+        font-weight: 800;
+      }
+      .blur > span {
+        filter: blur(1.2px);
+      }
+      .conf {
+        font-size: 22px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>
+        Price faces at 12–40 px; the second line of each is blurred 1.2 px, a rough stand-in for low
+        vision. Last column: digits a segment face can confuse.
+      </h1>
+      <span class="head"></span><span class="head">12 px</span><span class="head">16 px</span
+      ><span class="head">24 px</span><span class="head">32 px</span><span class="head">40 px</span
+      ><span class="head">confusables, 22 px</span>
+      <span>A. DSEG7 Classic Bold</span>
+      <span class="a" style="font-size: 12px">233.9</span
+      ><span class="a" style="font-size: 16px">233.9</span
+      ><span class="a" style="font-size: 24px">233.9</span
+      ><span class="a" style="font-size: 32px">233.9</span
+      ><span class="a" style="font-size: 40px">233.9</span
+      ><span class="a conf">171.7 &nbsp;188.0 &nbsp;196.5</span>
+      <span>A, blurred</span>
+      <span class="blur"><span class="a" style="font-size: 12px">233.9</span></span
+      ><span class="blur"><span class="a" style="font-size: 16px">233.9</span></span
+      ><span class="blur"><span class="a" style="font-size: 24px">233.9</span></span
+      ><span class="blur"><span class="a" style="font-size: 32px">233.9</span></span
+      ><span class="blur"><span class="a" style="font-size: 40px">233.9</span></span
+      ><span class="blur"><span class="a conf">171.7 &nbsp;188.0 &nbsp;196.5</span></span>
+      <span>B. Overpass ExtraBold</span>
+      <span class="b" style="font-size: 12px">233.9</span
+      ><span class="b" style="font-size: 16px">233.9</span
+      ><span class="b" style="font-size: 24px">233.9</span
+      ><span class="b" style="font-size: 32px">233.9</span
+      ><span class="b" style="font-size: 40px">233.9</span
+      ><span class="b conf">171.7 &nbsp;188.0 &nbsp;196.5</span>
+      <span>B, blurred</span>
+      <span class="blur"><span class="b" style="font-size: 12px">233.9</span></span
+      ><span class="blur"><span class="b" style="font-size: 16px">233.9</span></span
+      ><span class="blur"><span class="b" style="font-size: 24px">233.9</span></span
+      ><span class="blur"><span class="b" style="font-size: 32px">233.9</span></span
+      ><span class="blur"><span class="b" style="font-size: 40px">233.9</span></span
+      ><span class="blur"><span class="b conf">171.7 &nbsp;188.0 &nbsp;196.5</span></span>
+      <span>C. Atkinson Hyperlegible Mono ExtraBold</span>
+      <span class="c" style="font-size: 12px">233.9</span
+      ><span class="c" style="font-size: 16px">233.9</span
+      ><span class="c" style="font-size: 24px">233.9</span
+      ><span class="c" style="font-size: 32px">233.9</span
+      ><span class="c" style="font-size: 40px">233.9</span
+      ><span class="c conf">171.7 &nbsp;188.0 &nbsp;196.5</span>
+      <span>C, blurred</span>
+      <span class="blur"><span class="c" style="font-size: 12px">233.9</span></span
+      ><span class="blur"><span class="c" style="font-size: 16px">233.9</span></span
+      ><span class="blur"><span class="c" style="font-size: 24px">233.9</span></span
+      ><span class="blur"><span class="c" style="font-size: 32px">233.9</span></span
+      ><span class="blur"><span class="c" style="font-size: 40px">233.9</span></span
+      ><span class="blur"><span class="c conf">171.7 &nbsp;188.0 &nbsp;196.5</span></span>
+    </main>
+    <script>
+      document.fonts.ready.then(() => {
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>

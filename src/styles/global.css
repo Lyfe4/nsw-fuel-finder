@@ -1,5 +1,46 @@
 @import './tokens.css';
 
+/*
+ * The two faces (docs/design-system.md, Type). Self-hosted, preloaded in
+ * index.html, cached for a year (netlify.toml). Each has a local fallback
+ * face whose metrics are overridden to take the same room (measured with
+ * fontTools: average advance over English text, and the hhea metrics), so
+ * the swap from fallback to font moves nothing.
+ */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  src: url('/fonts/atkinson-next-latin.v1.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Mono';
+  src: url('/fonts/atkinson-mono-latin.v1.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Atkinson Next Fallback';
+  src: local('Arial');
+  size-adjust: 99.8%;
+  ascent-override: 98.6%;
+  descent-override: 31.7%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Atkinson Mono Fallback';
+  src: local('Courier New');
+  size-adjust: 105.3%;
+  ascent-override: 93.4%;
+  descent-override: 30%;
+  line-gap-override: 0%;
+}
+
 *,
 *::before,
 *::after {
@@ -15,9 +56,11 @@ body {
   margin: 0;
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-md);
+  font-family: var(--font-text);
+  font-size: var(--step-0);
   line-height: var(--line-height-body);
+  /* Every number lines up, prices and distances included. */
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 h1,
@@ -36,14 +79,33 @@ select {
   color: inherit;
 }
 
+/* Links are ink, underlined. The accent is kept for meaning. */
 a {
-  color: var(--color-accent);
+  color: var(--color-text);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
 }
 
 /* One visible focus style for everything that can take focus. */
 :focus-visible {
   outline: var(--focus-ring);
   outline-offset: var(--focus-offset);
+}
+
+/*
+ * A heading or note the app moves focus to (tabindex -1: not a control, not
+ * in the Tab order) is marked, not boxed: a ring the width of the screen
+ * round a heading reads as something to press. The focus colour, 2px, under
+ * its text. :focus-visible only, so it shows after a key, not a click.
+ */
+[tabindex='-1']:focus-visible {
+  outline: none;
+  text-decoration: underline var(--focus-width) var(--color-focus);
+  text-underline-offset: 0.25em;
 }
 
 @media (prefers-reduced-motion: reduce) {

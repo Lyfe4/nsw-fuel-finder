@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Docket, minimal: desktop</title>
+    <link rel="stylesheet" href="minimal.css" />
+  </head>
+  <body style="flex-direction: column">
+    <template id="top">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder</span><span class="region">NSW · ACT</span>
+      </header>
+      <form class="search">
+        <div class="field">
+          <label>Fuel</label
+          ><select>
+            <option>Unleaded 91</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Within</label
+          ><select>
+            <option>5 km</option>
+          </select>
+        </div>
+        <div class="field"><label>Suburb or postcode</label><input value="2250" /></div>
+        <button class="go" type="button">Search</button>
+        <button class="locate" type="button">Use my location</button>
+      </form>
+    </template>
+
+    <section class="screen desktop" id="results" aria-label="Results">
+      <div data-use="top"></div>
+      <div class="split">
+        <div>
+          <details class="favs">
+            <summary>Favourites <span>3</span></summary>
+          </details>
+          <div class="docket">
+            <div class="summary">
+              <h2>19 stations<span class="vh"> within 5 km of postcode 2250</span></h2>
+              <p class="save" aria-hidden="true">save <b>$3.02</b> on 50 L</p>
+              <p class="vh">
+                Cheapest 233.9, average 239.9 cents a litre. Filling 50 litres at the cheapest saves
+                $3.02 on the average.
+              </p>
+            </div>
+            <div class="tools">
+              <select aria-label="Sort">
+                <option>Cheapest first</option>
+              </select>
+              <button class="filters">Filters</button>
+            </div>
+            <ol class="rows" data-open="0" aria-label="Stations, cheapest first"></ol>
+          </div>
+        </div>
+        <div class="mapwrap">
+          <svg id="mapsvg" width="725" height="600" aria-hidden="true"></svg>
+          <div class="zoom" aria-hidden="true"><span>+</span><span>−</span></div>
+          <div class="legend">
+            <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+            <p class="ends">
+              <span><b>233.9</b> cheapest</span><span>avg <b>239.9</b></span
+              ><span><b>254.9</b> dearest</span>
+            </p>
+          </div>
+          <span class="attrib">OpenFreeMap © OpenMapTiles © OpenStreetMap</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen desktop" id="history" aria-label="History">
+      <div data-use="top"></div>
+      <div class="hist-wrap">
+        <div class="docket hist">
+          <a class="back" href="#"><span aria-hidden="true">← </span>Back to results</a>
+          <h2><span class="vh">Price history: </span>Metro Petroleum Gosford</h2>
+          <p class="now">
+            <span class="amount">233.9</span
+            ><span class="unit">cents a litre of Unleaded 91 now, updated 21 hours ago</span>
+          </p>
+          <p class="quiet">
+            <a href="#">Directions<span aria-hidden="true"> ↗</span></a
+            ><button aria-pressed="true"><span aria-hidden="true">★ </span>Favourite</button>
+          </p>
+          <p class="story"></p>
+          <svg class="chart" width="670" height="250" aria-hidden="true"></svg>
+          <p class="readout"></p>
+          <details class="more"><summary>Every fuel here now</summary></details>
+          <details class="more"><summary>Daily prices as a table</summary></details>
+          <p class="credit">
+            History to 30 September from NSW FuelCheck price history (NSW Fair Trading), CC BY-SA;
+            daily figures by us, same licence.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <script src="../mock-data.js"></script>
+    <script src="../mock-history.js"></script>
+    <script src="../mock.js"></script>
+    <script src="../docket/docket.js"></script>
+    <script src="minimal.js"></script>
+    <script src="fill.js"></script>
+    <script>
+      fillScreens(10);
+      document.fonts.ready.then(() => {
+        drawMap(document.getElementById('mapsvg'), {
+          tag: 'docket',
+          selected: 'Metro Petroleum Gosford',
+          cheapestWord: 'CHEAPEST',
+          splitCheapest: true,
+          kmAcross: 11,
+        });
+        fillHistory();
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>
