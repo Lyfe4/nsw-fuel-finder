@@ -1,0 +1,41 @@
+A row (closed):
+- listitem:
+  - heading "Metro Petroleum Gosford 233.9 cents a litre, cheapest, 3.4 km away, updated 21 hours ago" [level=3]:
+    - button "Metro Petroleum Gosford 233.9 cents a litre, cheapest, 3.4 km away, updated 21 hours ago"
+
+An old price:
+- listitem:
+  - heading "7-Eleven Gosford West 235.9 cents a litre, 3.4 km away, Old price, 16 days ago" [level=3]:
+    - button "7-Eleven Gosford West 235.9 cents a litre, 3.4 km away, Old price, 16 days ago"
+
+A selected row (open):
+- listitem:
+  - heading "Ampol Foodary Gosford West 236.9 cents a litre, 2.2 km away, updated 6 hours ago" [level=3]:
+    - button "Ampol Foodary Gosford West 236.9 cents a litre, 2.2 km away, updated 6 hours ago" [expanded]
+  - paragraph: Ampol Foodary · 283 Manns Rd, West Gosford · down 1.0 cents a litre today
+  - link "Price history , Ampol Foodary Gosford West":
+    - /url: "#"
+  - link "Directions":
+    - /url: "#"
+  - button "Favourite"
+  - button "Close"
+
+The summary:
+- heading "19 stations within 5 km of postcode 2250" [level=2]
+- paragraph: Cheapest 233.9, average 239.9 cents a litre. Filling 50 litres at the cheapest saves $3.02 on the average.
+
+The collapsed search:
+- paragraph: Unleaded 91 · 2250 · 5 km
+- button "Change search"
+
+The map card:
+- heading "Metro Petroleum Gosford" [level=3]
+- text: 233.9 cents a litre, cheapest
+- paragraph:
+  - text: Metro Fuel · 3.4 km · 21 hours ago ·
+  - link "Price history":
+    - /url: "#"
+- link "Directions":
+  - /url: "#"
+- button "Favourite" [pressed]
+- button "Close"
