@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction B: Road Atlas</title>
+    <style>
+      @font-face {
+        font-family: 'Overpass';
+        src: url(fonts/overpass-wght.woff2) format('woff2');
+        font-weight: 100 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'Overpass Mono';
+        src: url(fonts/overpass-mono-wght.woff2) format('woff2');
+        font-weight: 300 700;
+        font-display: swap;
+      }
+
+      :root {
+        /* Primitives */
+        --palette-paper-50: #f7f3ea;
+        --palette-paper-100: #f2ede1;
+        --palette-paper-300: #d3cab6;
+        --palette-paper-500: #857c6a;
+        --palette-paper-600: #5c5749;
+        --palette-ink: #1d1b16;
+        --palette-slate-950: #15181a;
+        --palette-slate-925: #1a1e21;
+        --palette-slate-800: #2f3539;
+        --palette-slate-500: #7d7a70;
+        --palette-slate-400: #a39d8c;
+        --palette-slate-50: #e9e4d6;
+        --palette-blue-700: #1b4d87;
+        --palette-blue-300: #8db9ec;
+        --palette-ochre-700: #8c4a0b;
+        --palette-ochre-300: #e89a4f;
+        --palette-red-700: #a32a1a;
+        --palette-red-300: #ff9480;
+        --palette-band-low: #1b4d87;
+        --palette-band-mid: #76705f;
+        --palette-band-high: #a3560e;
+        --palette-band-low-dark: #8db9ec;
+        --palette-band-mid-dark: #9a968a;
+        --palette-band-high-dark: #e8964a;
+        --palette-map-land: #efe9db;
+        --palette-map-water: #bcd2dc;
+        --palette-map-waterline: #8fb1c2;
+        --palette-map-green: #dbe0c9;
+        --palette-map-motorway: #c9643a;
+        --palette-map-major: #e9b45a;
+        --palette-map-minor: #fffdf7;
+        --palette-map-casing: #8a7f6a;
+        --palette-map-land-dark: #14181a;
+        --palette-map-water-dark: #0c2230;
+        --palette-map-waterline-dark: #1c3a4c;
+        --palette-map-green-dark: #182019;
+        --palette-map-motorway-dark: #b0623e;
+        --palette-map-major-dark: #7a6236;
+        --palette-map-minor-dark: #2c3236;
+        --palette-map-casing-dark: #050607;
+
+        /* Semantic */
+        --color-bg: var(--palette-paper-100);
+        --color-surface: var(--palette-paper-50);
+        --color-text: var(--palette-ink);
+        --color-text-muted: var(--palette-paper-600);
+        --color-rule: var(--palette-paper-300);
+        --color-border-strong: var(--palette-paper-500);
+        --color-accent: var(--palette-blue-700);
+        --color-on-accent: var(--palette-paper-50);
+        --color-focus: var(--palette-blue-700);
+        --color-warning: var(--palette-ochre-700);
+        --color-danger: var(--palette-red-700);
+        --color-price-low: var(--palette-band-low);
+        --color-price-mid: var(--palette-band-mid);
+        --color-price-high: var(--palette-band-high);
+        --color-map-land: var(--palette-map-land);
+        --color-map-water: var(--palette-map-water);
+        --color-map-waterline: var(--palette-map-waterline);
+        --color-map-green: var(--palette-map-green);
+        --color-map-motorway: var(--palette-map-motorway);
+        --color-map-major: var(--palette-map-major);
+        --color-map-minor: var(--palette-map-minor);
+        --color-map-casing: var(--palette-map-casing);
+
+        --font-text: 'Overpass', 'Trebuchet MS', Arial, sans-serif;
+        --font-data: 'Overpass Mono', ui-monospace, monospace;
+        --step--2: clamp(0.69rem, 0.68rem + 0.06vw, 0.74rem);
+        --step--1: clamp(0.83rem, 0.81rem + 0.1vw, 0.91rem);
+        --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
+        --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
+        --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
+        --step-3: clamp(1.73rem, 1.62rem + 0.48vw, 2.2rem);
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 24px;
+        --space-6: 32px;
+      }
+      :root[data-theme='dark'] {
+        --color-bg: var(--palette-slate-950);
+        --color-surface: var(--palette-slate-925);
+        --color-text: var(--palette-slate-50);
+        --color-text-muted: var(--palette-slate-400);
+        --color-rule: var(--palette-slate-800);
+        --color-border-strong: var(--palette-slate-500);
+        --color-accent: var(--palette-blue-300);
+        --color-on-accent: var(--palette-slate-950);
+        --color-focus: var(--palette-blue-300);
+        --color-warning: var(--palette-ochre-300);
+        --color-danger: var(--palette-red-300);
+        --color-price-low: var(--palette-band-low-dark);
+        --color-price-mid: var(--palette-band-mid-dark);
+        --color-price-high: var(--palette-band-high-dark);
+        --color-map-land: var(--palette-map-land-dark);
+        --color-map-water: var(--palette-map-water-dark);
+        --color-map-waterline: var(--palette-map-waterline-dark);
+        --color-map-green: var(--palette-map-green-dark);
+        --color-map-motorway: var(--palette-map-motorway-dark);
+        --color-map-major: var(--palette-map-major-dark);
+        --color-map-minor: var(--palette-map-minor-dark);
+        --color-map-casing: var(--palette-map-casing-dark);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        background: #777;
+        font-family: var(--font-text);
+        display: flex;
+        gap: 24px;
+        padding: 24px;
+        align-items: flex-start;
+      }
+      .screen {
+        width: 390px;
+        height: 844px;
+        overflow: hidden;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-size: var(--step-0);
+        line-height: 1.4;
+        position: relative;
+        font-variant-numeric: tabular-nums;
+      }
+      .vh {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      /* Masthead: an atlas cover line, double rule. */
+      .mast {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 14px var(--space-4) 8px;
+        border-bottom: 1px solid var(--color-text);
+        box-shadow:
+          0 3px 0 -2px var(--color-bg),
+          0 4px 0 -2px var(--color-text);
+      }
+      .wordmark {
+        font-weight: 800;
+        font-size: 1.3rem;
+        letter-spacing: -0.01em;
+      }
+      .wordmark em {
+        font-style: normal;
+        font-weight: 400;
+        color: var(--color-text-muted);
+      }
+      .edition {
+        font-family: var(--font-data);
+        font-size: var(--step--2);
+        color: var(--color-text-muted);
+        letter-spacing: 0.02em;
+      }
+
+      form {
+        padding: var(--space-3) var(--space-4);
+        display: grid;
+        gap: var(--space-2);
+      }
+      .row {
+        display: flex;
+        gap: var(--space-2);
+        align-items: end;
+      }
+      .field {
+        display: grid;
+        gap: 2px;
+        flex: 1;
+      }
+      .field.narrow {
+        flex: 0 0 96px;
+      }
+      label {
+        font-size: var(--step--1);
+        font-weight: 700;
+      }
+      label span {
+        font-weight: 400;
+        color: var(--color-text-muted);
+      }
+      select,
+      input {
+        font: inherit;
+        font-size: var(--step-0);
+        color: var(--color-text);
+        background: var(--color-surface);
+        border: 0;
+        border-bottom: 2px solid var(--color-text);
+        border-radius: 0;
+        height: 42px;
+        padding: 2px var(--space-2) 0;
+        width: 100%;
+        appearance: none;
+      }
+      select {
+        background-image:
+          linear-gradient(45deg, transparent 50%, currentColor 50%),
+          linear-gradient(135deg, currentColor 50%, transparent 50%);
+        background-position:
+          calc(100% - 15px) 18px,
+          calc(100% - 10px) 18px;
+        background-size: 5px 5px;
+        background-repeat: no-repeat;
+        padding-right: 26px;
+      }
+      .go {
+        height: 42px;
+        padding: 0 var(--space-4);
+        font: inherit;
+        font-weight: 750;
+        background: var(--color-accent);
+        color: var(--color-on-accent);
+        border: 0;
+        border-radius: 2px;
+      }
+      .loc {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .textbtn {
+        font: inherit;
+        font-weight: 700;
+        color: var(--color-accent);
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-thickness: 1px;
+      }
+
+      .fav {
+        display: flex;
+        justify-content: space-between;
+        padding: 9px var(--space-4);
+        border-top: 1px solid var(--color-rule);
+        border-bottom: 1px solid var(--color-rule);
+        font-size: var(--step--1);
+        font-weight: 700;
+      }
+      .fav span {
+        color: var(--color-text-muted);
+        font-weight: 400;
+      }
+
+      .results-head {
+        padding: var(--space-3) var(--space-4) 0;
+      }
+      h2 {
+        font-size: var(--step-1);
+        font-weight: 800;
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+      }
+      .asof {
+        font-family: var(--font-data);
+        font-size: var(--step--2);
+        color: var(--color-text-muted);
+        margin-top: 4px;
+      }
+
+      /* The summary as the plate's key: a sentence, then a price scale bar. */
+      .key {
+        margin: var(--space-3) var(--space-4) 0;
+        padding: var(--space-3) 0 0;
+        border-top: 1px solid var(--color-text);
+      }
+      .key p {
+        font-size: var(--step--1);
+        line-height: 1.45;
+      }
+      .key strong {
+        font-weight: 800;
+      }
+      .key .cheap {
+        color: var(--color-accent);
+      }
+      .scale {
+        margin-top: var(--space-2);
+        position: relative;
+        height: 32px;
+      }
+      .scale .bar {
+        display: flex;
+        height: 6px;
+        border: 1px solid var(--color-text);
+      }
+      .scale .bar i {
+        flex: 1;
+      }
+      .scale .bar i:nth-child(1) {
+        background: var(--color-price-low);
+      }
+      .scale .bar i:nth-child(2) {
+        background: var(--color-price-mid);
+      }
+      .scale .bar i:nth-child(3) {
+        background: var(--color-price-high);
+      }
+      .scale .tick {
+        position: absolute;
+        top: 9px;
+        font-family: var(--font-data);
+        font-size: 10px;
+        color: var(--color-text-muted);
+        transform: translateX(-50%);
+      }
+      .scale .tick::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: -9px;
+        height: 9px;
+        border-left: 1px solid var(--color-text);
+      }
+      .scale .tick:nth-child(2) {
+        transform: none;
+      }
+      .scale .tick:nth-child(2)::before {
+        left: 0;
+      }
+      .scale .tick:last-child {
+        transform: translateX(-100%);
+      }
+      .scale .tick:last-child::before {
+        left: auto;
+        right: 0;
+      }
+
+      .tools {
+        display: flex;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-4);
+        align-items: center;
+        border-bottom: 1px solid var(--color-text);
+        margin-top: var(--space-2);
+      }
+      .switch {
+        display: flex;
+        gap: 0;
+      }
+      .switch button {
+        font: inherit;
+        font-size: var(--step--1);
+        font-weight: 700;
+        height: 36px;
+        padding: 0 2px;
+        margin-right: 14px;
+        border: 0;
+        background: transparent;
+        color: var(--color-text-muted);
+        border-bottom: 3px solid transparent;
+      }
+      .switch button[aria-pressed='true'] {
+        color: var(--color-text);
+        border-bottom-color: var(--color-text);
+      }
+      .tools select {
+        height: 34px;
+        font-size: var(--step--1);
+        width: auto;
+        border-bottom-width: 1px;
+      }
+      .filters {
+        margin-left: auto;
+        font-size: var(--step--1);
+      }
+
+      /* The index: name and locality; distance and bearing; price on the decimal. */
+      ol {
+        list-style: none;
+        padding: 0;
+      }
+      li.station {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        column-gap: var(--space-3);
+        padding: 10px var(--space-4) 10px;
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .name {
+        font-size: var(--step-0);
+        font-weight: 700;
+        line-height: 1.25;
+      }
+      .name a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .meta {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .meta .where {
+        font-family: var(--font-data);
+        font-size: var(--step--2);
+        color: var(--color-text);
+      }
+      .meta .old {
+        color: var(--color-warning);
+        font-weight: 800;
+      }
+      .acts {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: var(--space-4);
+        font-size: var(--step--1);
+        margin-top: 4px;
+        white-space: nowrap;
+      }
+      .acts > :not(.btn) {
+        color: var(--color-accent);
+        font: inherit;
+        font-weight: 600;
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-thickness: 1px;
+      }
+      .price {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        text-align: right;
+        line-height: 1;
+        padding-top: 2px;
+      }
+      .amount {
+        font-size: 1.85rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .amount .tenth {
+        font-size: 0.62em;
+        vertical-align: 0.62em;
+        letter-spacing: 0;
+        margin-left: 1px;
+      }
+      .unit {
+        display: block;
+        font-family: var(--font-data);
+        font-size: 10px;
+        color: var(--color-text-muted);
+        margin-top: 3px;
+      }
+      .station.cheapest .amount {
+        color: var(--color-accent);
+      }
+      .flag {
+        font-family: var(--font-data);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--color-accent);
+      }
+      .change {
+        font-family: var(--font-data);
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--color-accent);
+      }
+
+      /* Map */
+      .mapwrap {
+        position: relative;
+        border-bottom: 1px solid var(--color-text);
+      }
+      svg {
+        display: block;
+      }
+      .land {
+        fill: var(--color-map-land);
+      }
+      .water {
+        fill: var(--color-map-water);
+      }
+      .waterline {
+        fill: none;
+        stroke: var(--color-map-waterline);
+      }
+      .water-gap {
+        fill: none;
+        stroke: var(--color-map-water);
+      }
+      .shore {
+        fill: none;
+        stroke: var(--color-map-waterline);
+      }
+      .park {
+        fill: var(--color-map-green);
+      }
+      .road-minor {
+        stroke: var(--color-map-minor);
+        stroke-width: 1.6;
+        fill: none;
+      }
+      .road-major-casing {
+        stroke: var(--color-map-casing);
+        stroke-width: 4.6;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-major {
+        stroke: var(--color-map-major);
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-motorway-casing {
+        stroke: var(--color-map-casing);
+        stroke-width: 6.5;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-motorway {
+        stroke: var(--color-map-motorway);
+        stroke-width: 4.5;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .shield rect {
+        fill: var(--color-text);
+      }
+      .shield text {
+        fill: var(--color-map-major);
+        font: 800 10px var(--font-text);
+      }
+      .place-label {
+        font: 600 9px var(--font-text);
+        letter-spacing: 0.18em;
+        fill: var(--color-text-muted);
+        paint-order: stroke;
+        stroke: var(--color-map-land);
+        stroke-width: 3px;
+      }
+      .place-label.town {
+        font-size: 11.5px;
+        font-weight: 800;
+        fill: var(--color-text);
+        letter-spacing: 0.12em;
+      }
+      .water-label {
+        font: italic 500 11px var(--font-text);
+        fill: var(--color-accent);
+        letter-spacing: 0.04em;
+      }
+      .origin-ring {
+        fill: none;
+        stroke: var(--color-text);
+        stroke-width: 1.5;
+      }
+      .origin-dot {
+        fill: var(--color-text);
+      }
+      .dot {
+        stroke: var(--color-map-land);
+        stroke-width: 2;
+      }
+      .dot.low {
+        fill: var(--color-price-low);
+      }
+      .dot.mid {
+        fill: var(--color-price-mid);
+      }
+      .dot.high {
+        fill: var(--color-price-high);
+      }
+      .dot.selected {
+        stroke: var(--color-text);
+        stroke-width: 2.5;
+      }
+      .tag rect {
+        fill: none;
+      }
+      .tag text {
+        font: 800 11.5px var(--font-text);
+        fill: var(--color-text);
+        paint-order: stroke;
+        stroke: var(--color-map-land);
+        stroke-width: 3.5px;
+        stroke-linejoin: round;
+      }
+      .tag.cheapest text {
+        fill: var(--color-accent);
+      }
+      .tag .word {
+        font-weight: 600;
+        font-size: 10px;
+      }
+      .zoom {
+        position: absolute;
+        right: 12px;
+        top: 12px;
+        display: grid;
+        background: var(--color-surface);
+        border: 1px solid var(--color-text);
+      }
+      .zoom span {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+      }
+      .zoom span + span {
+        border-top: 1px solid var(--color-text);
+      }
+      .compass {
+        position: absolute;
+        left: 14px;
+        top: 12px;
+        font: 700 10px var(--font-data);
+        text-align: center;
+        color: var(--color-text);
+      }
+      .compass::after {
+        content: '';
+        display: block;
+        width: 0;
+        height: 0;
+        margin: 2px auto 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-bottom: 14px solid var(--color-text);
+      }
+      .attrib {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        background: var(--color-surface);
+        font-size: 10px;
+        padding: 2px 6px;
+        color: var(--color-text-muted);
+      }
+      .card {
+        padding: var(--space-3) var(--space-4);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        column-gap: var(--space-3);
+      }
+      .card .amount {
+        font-size: 2.6rem;
+      }
+      .card .addr {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .card .acts {
+        margin-top: var(--space-3);
+        gap: var(--space-2);
+      }
+      .btn {
+        font: inherit;
+        font-size: var(--step--1);
+        font-weight: 700;
+        height: 40px;
+        padding: 0 12px;
+        border: 1px solid var(--color-text);
+        background: transparent;
+        color: var(--color-text);
+        border-radius: 2px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+      .btn.primary {
+        background: var(--color-accent);
+        border-color: var(--color-accent);
+        color: var(--color-on-accent);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="screen" id="list" aria-label="List">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder <em>atlas of prices</em></span>
+        <span class="edition">NSW · ACT</span>
+      </header>
+      <form>
+        <div class="row">
+          <div class="field">
+            <label for="fuel">Fuel</label
+            ><select id="fuel">
+              <option>Unleaded 91</option>
+            </select>
+          </div>
+          <div class="field narrow">
+            <label for="within">Within</label
+            ><select id="within">
+              <option>5 km</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="place">Suburb or postcode <span>e.g. Erina or 2250</span></label
+            ><input id="place" value="2250" />
+          </div>
+          <button class="go" type="button">Search</button>
+        </div>
+        <p class="loc">
+          <button class="textbtn" type="button">Use my location</button> · rounded to 1 km, never
+          stored
+        </p>
+      </form>
+      <div class="fav">Favourites <span>3 ▸</span></div>
+      <section class="results-head">
+        <h2>19 stations within 5 km of postcode 2250</h2>
+        <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+      </section>
+      <div class="key">
+        <p>
+          Cheapest <strong class="cheap">233.9</strong>, average <strong>239.9</strong> cents a
+          litre. Filling 50 litres at the cheapest saves <strong>$3.02</strong> on the average.
+        </p>
+        <div class="scale" aria-hidden="true">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <span class="tick" style="left: 0">233.9</span
+          ><span class="tick" style="left: 28.6%">239.9 avg</span
+          ><span class="tick" style="left: 100%">254.9</span>
+        </div>
+      </div>
+      <div class="tools">
+        <div class="switch">
+          <button aria-pressed="true">List</button><button aria-pressed="false">Map</button>
+        </div>
+        <select aria-label="Sort">
+          <option>Cheapest first</option>
+        </select>
+        <button class="textbtn filters" type="button">Filters</button>
+      </div>
+      <ol id="rows" aria-label="Stations, cheapest first"></ol>
+    </section>
+
+    <section class="screen" id="map" aria-label="Map">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder <em>atlas of prices</em></span>
+        <span class="edition">NSW · ACT</span>
+      </header>
+      <section class="results-head">
+        <h2>19 stations within 5 km of postcode 2250</h2>
+        <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+      </section>
+      <div class="tools">
+        <div class="switch">
+          <button aria-pressed="false">List</button><button aria-pressed="true">Map</button>
+        </div>
+        <select aria-label="Sort">
+          <option>Cheapest first</option>
+        </select>
+        <button class="textbtn filters" type="button">Filters</button>
+      </div>
+      <div class="mapwrap">
+        <svg id="mapsvg" width="390" height="440" aria-hidden="true"></svg>
+        <div class="compass" aria-hidden="true">N</div>
+        <div class="zoom" aria-hidden="true"><span>+</span><span>−</span></div>
+        <span class="attrib">OpenFreeMap © OpenMapTiles © OpenStreetMap</span>
+      </div>
+      <div class="card station cheapest">
+        <div>
+          <h3 class="name"><a href="#">Metro Petroleum Gosford</a></h3>
+          <p class="meta">
+            <span class="where">3.4 km S</span> · Metro Fuel · updated 21 hours ago
+          </p>
+          <p class="addr">57 Central Coast Hwy, West Gosford NSW 2250</p>
+        </div>
+        <p class="price">
+          <span class="amount">233<span class="tenth">.9</span></span
+          ><span class="vh"> cents a litre</span><span class="unit">¢/L</span
+          ><span class="flag">Cheapest</span>
+        </p>
+        <div class="acts">
+          <a class="btn primary" href="#">Directions ↗</a><button class="btn">☆ Favourite</button
+          ><button class="btn">List</button
+          ><button class="btn" style="margin-left: auto">Close</button>
+        </div>
+      </div>
+    </section>
+
+    <script src="mock-data.js"></script>
+    <script src="mock.js"></script>
+    <script>
+      const rows = document.getElementById('rows');
+      const cheapest = MOCK.stations[0].price;
+      MOCK.stations.slice(0, 6).forEach((s, i) => {
+        const age = i === 1 ? 16 * 24 : s.ageH; // the second row aged to show an old price
+        const old = age >= 14 * 24;
+        const [whole, tenth] = s.price.toFixed(1).split('.');
+        const li = document.createElement('li');
+        li.className = 'station' + (s.price === cheapest ? ' cheapest' : '');
+        li.innerHTML = `
+      <h3 class="name"><a href="#">${s.name}</a></h3>
+      <p class="price"><span class="amount">${whole}<span class="tenth">.${tenth}</span></span><span class="vh"> cents a litre</span><span class="unit">${s.price === cheapest ? '<span class="flag">Cheapest</span>' : s.change ? `<span class="change"><span aria-hidden="true">↓ ${Math.abs(s.change).toFixed(1)} today</span></span>` : '¢/L'}</span></p>
+      <p class="meta"><span class="where">${s.km.toFixed(1)} km ${bearing(s)}</span> · ${locality(s.address)} · ${s.brand}<br>${old ? `<strong class="old">Old price: updated ${ageText(age)}</strong>` : `updated ${ageText(age)}`}</p>
+      <div class="acts"><button>Show on map</button><a href="#">Directions ↗</a><button>☆ Favourite</button></div>`;
+        rows.appendChild(li);
+      });
+      document.fonts.ready.then(() => {
+        drawMap(document.getElementById('mapsvg'), {
+          tag: 'plain',
+          selected: 'Metro Petroleum Gosford',
+          cheapestWord: 'Cheapest',
+          splitCheapest: true,
+          kmAcross: 8,
+          waterlines: true,
+        });
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>

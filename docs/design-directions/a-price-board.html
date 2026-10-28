@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en-AU" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Direction A: Price Board</title>
+    <style>
+      @font-face {
+        font-family: 'DSEG7 Classic';
+        src: url(fonts/DSEG7Classic-Bold.woff2) format('woff2');
+        font-weight: 700;
+        font-display: block;
+      }
+      @font-face {
+        font-family: 'Archivo';
+        src: url(fonts/archivo-wdth-wght.woff2) format('woff2');
+        font-weight: 100 900;
+        font-stretch: 62% 125%;
+        font-display: swap;
+      }
+
+      :root {
+        /* Primitives */
+        --palette-pylon-50: #f8f7f3;
+        --palette-pylon-100: #f1efe9;
+        --palette-pylon-300: #d4d0c5;
+        --palette-pylon-500: #827d6f;
+        --palette-pylon-600: #5b5850;
+        --palette-pylon-900: #1a1915;
+        --palette-night-950: #11110f;
+        --palette-night-925: #171714;
+        --palette-night-800: #2e2c27;
+        --palette-night-500: #7b766a;
+        --palette-night-400: #a39e91;
+        --palette-night-50: #ece8de;
+        --palette-panel: #151513;
+        --palette-panel-black: #000000;
+        --palette-led: #f2ede0;
+        --palette-led-amber: #ffb224;
+        --palette-amber-ink: #8a4600;
+        --palette-rust: #a1260d;
+        --palette-rust-light: #ff8a70;
+        --palette-band-low: #b25500;
+        --palette-band-mid: #77736a;
+        --palette-band-high: #2f5b8f;
+        --palette-band-low-dark: #ffb224;
+        --palette-band-mid-dark: #9a968c;
+        --palette-band-high-dark: #6f9fe0;
+        --palette-map-land: #ebe8df;
+        --palette-map-water: #c6d0d3;
+        --palette-map-green: #dcdfd2;
+        --palette-map-road: #ffffff;
+        --palette-map-casing: #cfcabd;
+        --palette-map-land-dark: #171714;
+        --palette-map-water-dark: #0f1b20;
+        --palette-map-green-dark: #1b1e17;
+        --palette-map-road-dark: #34322c;
+        --palette-map-casing-dark: #0b0b0a;
+
+        /* Semantic */
+        --color-bg: var(--palette-pylon-100);
+        --color-surface: var(--palette-pylon-50);
+        --color-text: var(--palette-pylon-900);
+        --color-text-muted: var(--palette-pylon-600);
+        --color-rule: var(--palette-pylon-300);
+        --color-border-strong: var(--palette-pylon-500);
+        --color-accent: var(--palette-amber-ink);
+        --color-focus: var(--palette-pylon-900);
+        --color-danger: var(--palette-rust);
+        --color-sign: var(--palette-panel);
+        --color-sign-edge: var(--palette-panel);
+        --color-led: var(--palette-led);
+        --color-led-lit: var(--palette-led-amber);
+        --color-price-low: var(--palette-band-low);
+        --color-price-mid: var(--palette-band-mid);
+        --color-price-high: var(--palette-band-high);
+        --color-map-land: var(--palette-map-land);
+        --color-map-water: var(--palette-map-water);
+        --color-map-green: var(--palette-map-green);
+        --color-map-road: var(--palette-map-road);
+        --color-map-casing: var(--palette-map-casing);
+
+        --font-text: 'Archivo', 'Arial Narrow', Arial, sans-serif;
+        --font-price: 'DSEG7 Classic', ui-monospace, monospace;
+        /* Utopia-style steps, 320-1440 px, 1.2 -> 1.25 */
+        --step--2: clamp(0.69rem, 0.68rem + 0.06vw, 0.74rem);
+        --step--1: clamp(0.83rem, 0.81rem + 0.1vw, 0.91rem);
+        --step-0: clamp(1rem, 0.97rem + 0.14vw, 1.13rem);
+        --step-1: clamp(1.2rem, 1.15rem + 0.22vw, 1.41rem);
+        --step-2: clamp(1.44rem, 1.37rem + 0.33vw, 1.76rem);
+        --step-3: clamp(1.73rem, 1.62rem + 0.48vw, 2.2rem);
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 24px;
+        --space-6: 32px;
+      }
+      :root[data-theme='dark'] {
+        --color-bg: var(--palette-night-950);
+        --color-surface: var(--palette-night-925);
+        --color-text: var(--palette-night-50);
+        --color-text-muted: var(--palette-night-400);
+        --color-rule: var(--palette-night-800);
+        --color-border-strong: var(--palette-night-500);
+        --color-accent: var(--palette-led-amber);
+        --color-focus: var(--palette-led-amber);
+        --color-danger: var(--palette-rust-light);
+        --color-sign: var(--palette-panel-black);
+        --color-sign-edge: var(--palette-night-800);
+        --color-led: var(--palette-led);
+        --color-led-lit: var(--palette-led-amber);
+        --color-price-low: var(--palette-band-low-dark);
+        --color-price-mid: var(--palette-band-mid-dark);
+        --color-price-high: var(--palette-band-high-dark);
+        --color-map-land: var(--palette-map-land-dark);
+        --color-map-water: var(--palette-map-water-dark);
+        --color-map-green: var(--palette-map-green-dark);
+        --color-map-road: var(--palette-map-road-dark);
+        --color-map-casing: var(--palette-map-casing-dark);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        background: #777;
+        font-family: var(--font-text);
+        display: flex;
+        gap: 24px;
+        padding: 24px;
+        align-items: flex-start;
+      }
+      .screen {
+        width: 390px;
+        height: 844px;
+        overflow: hidden;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-size: var(--step-0);
+        line-height: 1.45;
+        position: relative;
+        font-variant-numeric: tabular-nums;
+      }
+      .vh {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      /* Masthead: the pylon's top. */
+      .mast {
+        display: flex;
+        align-items: stretch;
+        justify-content: space-between;
+        padding: 0 var(--space-4);
+        height: 48px;
+        border-bottom: 3px solid var(--color-text);
+      }
+      .wordmark {
+        font-stretch: 62%;
+        font-weight: 850;
+        font-size: 1.5rem;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        line-height: 1;
+      }
+      .wordmark b {
+        background: var(--color-sign);
+        color: var(--color-led-lit);
+        font-family: var(--font-price);
+        font-size: 0.8rem;
+        padding: 4px 5px 3px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+      .region {
+        align-self: center;
+        font-size: var(--step--2);
+        font-weight: 650;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-muted);
+        font-stretch: 85%;
+      }
+
+      /* Search: three tight rows, no box. */
+      form {
+        padding: var(--space-3) var(--space-4) var(--space-3);
+        display: grid;
+        gap: var(--space-2);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .row {
+        display: flex;
+        gap: var(--space-2);
+        align-items: end;
+      }
+      .field {
+        display: grid;
+        gap: 2px;
+        flex: 1;
+      }
+      .field.narrow {
+        flex: 0 0 96px;
+      }
+      label,
+      .label {
+        font-size: var(--step--2);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-stretch: 85%;
+        color: var(--color-text-muted);
+      }
+      select,
+      input {
+        font: inherit;
+        font-size: var(--step-0);
+        color: var(--color-text);
+        background: var(--color-surface);
+        border: 1px solid var(--color-border-strong);
+        border-radius: 0;
+        height: 44px;
+        padding: 0 var(--space-3);
+        width: 100%;
+        appearance: none;
+      }
+      select {
+        background-image:
+          linear-gradient(45deg, transparent 50%, currentColor 50%),
+          linear-gradient(135deg, currentColor 50%, transparent 50%);
+        background-position:
+          calc(100% - 17px) 19px,
+          calc(100% - 12px) 19px;
+        background-size: 5px 5px;
+        background-repeat: no-repeat;
+        padding-right: 28px;
+      }
+      .go {
+        height: 44px;
+        padding: 0 var(--space-4);
+        font: inherit;
+        font-weight: 750;
+        font-stretch: 85%;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        background: var(--color-text);
+        color: var(--color-bg);
+        border: 0;
+        border-radius: 0;
+      }
+      .loc {
+        display: flex;
+        gap: var(--space-2);
+        align-items: baseline;
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .textbtn {
+        font: inherit;
+        font-weight: 650;
+        color: var(--color-text);
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-thickness: 1px;
+      }
+      .focus-demo {
+        outline: 3px solid var(--color-focus);
+        outline-offset: 2px;
+        box-shadow: 0 0 0 2px var(--color-bg);
+      }
+
+      .fav {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px var(--space-4);
+        border-bottom: 1px solid var(--color-rule);
+        font-size: var(--step--1);
+        font-weight: 650;
+      }
+      .fav span {
+        color: var(--color-text-muted);
+        font-weight: 400;
+      }
+
+      .results-head {
+        padding: var(--space-3) var(--space-4) 0;
+      }
+      h2 {
+        font-size: var(--step--1);
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      .asof {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+
+      /* The summary as a small pylon: the search's own board. */
+      .board {
+        margin: var(--space-3) var(--space-4) 0;
+        background: var(--color-sign);
+        color: var(--color-led);
+        padding: var(--space-3) var(--space-3) var(--space-2);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        row-gap: 2px;
+        align-items: baseline;
+        border: 1px solid var(--color-sign-edge);
+      }
+      .board dt {
+        font-size: var(--step--2);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-stretch: 75%;
+        color: var(--color-led);
+        opacity: 0.85;
+      }
+      .board dd {
+        font-family: var(--font-price);
+        font-size: 1.6rem;
+        text-align: right;
+        position: relative;
+        line-height: 1.15;
+      }
+      .board dd.lit {
+        color: var(--color-led-lit);
+      }
+      .board .save {
+        grid-column: 1 / -1;
+        font-size: var(--step--1);
+        border-top: 1px solid #ffffff22;
+        margin-top: 6px;
+        padding-top: 6px;
+        color: var(--color-led);
+      }
+      .board .save strong {
+        color: var(--color-led-lit);
+        font-weight: 700;
+      }
+      .ghost {
+        position: absolute;
+        inset: 0;
+        color: currentColor;
+        opacity: 0.08;
+      }
+
+      .tools {
+        display: flex;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--space-4);
+        align-items: center;
+        border-bottom: 3px solid var(--color-text);
+      }
+      .switch {
+        display: flex;
+        border: 1px solid var(--color-text);
+      }
+      .switch button {
+        font: inherit;
+        font-size: var(--step--1);
+        font-weight: 700;
+        font-stretch: 85%;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        height: 36px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: var(--color-text);
+      }
+      .switch button[aria-pressed='true'] {
+        background: var(--color-text);
+        color: var(--color-bg);
+      }
+      .tools select {
+        height: 36px;
+        font-size: var(--step--1);
+        width: auto;
+      }
+      .filters {
+        margin-left: auto;
+        font-size: var(--step--1);
+        font-weight: 650;
+      }
+
+      /* Station rows: rules, not cards. The price window is the only box. */
+      ol {
+        list-style: none;
+        padding: 0;
+      }
+      li.station {
+        display: grid;
+        grid-template-columns: 1fr 118px;
+        column-gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .name {
+        font-size: var(--step-0);
+        font-weight: 650;
+        line-height: 1.25;
+      }
+      .name a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .meta,
+      .addr {
+        font-size: var(--step--1);
+        color: var(--color-text-muted);
+      }
+      .meta .old {
+        color: var(--color-text);
+        font-weight: 750;
+      }
+      .acts {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: var(--space-4);
+        font-size: var(--step--1);
+        margin-top: 6px;
+        white-space: nowrap;
+      }
+      .acts > :not(.btn) {
+        color: var(--color-text);
+        font: inherit;
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-thickness: 1px;
+      }
+      .price {
+        grid-column: 2;
+        grid-row: 1 / span 3;
+        align-self: start;
+        text-align: right;
+      }
+      .window {
+        display: block;
+        background: var(--color-sign);
+        color: var(--color-led);
+        font-family: var(--font-price);
+        font-size: 1.5rem;
+        line-height: 1;
+        padding: 9px 9px 8px;
+        position: relative;
+        text-align: right;
+        border: 1px solid var(--color-sign-edge);
+      }
+      .window .ghost {
+        inset: 9px 9px 8px;
+      }
+      .station.cheapest .window {
+        color: var(--color-led-lit);
+      }
+      .flag {
+        display: block;
+        margin-top: 4px;
+        font-size: var(--step--2);
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-stretch: 75%;
+        color: var(--color-accent);
+      }
+      .change {
+        display: block;
+        margin-top: 2px;
+        font-size: var(--step--1);
+        font-weight: 650;
+        color: var(--color-accent);
+      }
+
+      /* Map screen */
+      .mapwrap {
+        position: relative;
+      }
+      svg {
+        display: block;
+      }
+      .land {
+        fill: var(--color-map-land);
+      }
+      .water {
+        fill: var(--color-map-water);
+      }
+      .park {
+        fill: var(--color-map-green);
+      }
+      .road-minor {
+        stroke: var(--color-map-road);
+        stroke-width: 1.5;
+        fill: none;
+      }
+      .road-major-casing {
+        stroke: var(--color-map-casing);
+        stroke-width: 5;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-major {
+        stroke: var(--color-map-road);
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-motorway-casing {
+        stroke: var(--color-map-casing);
+        stroke-width: 7;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .road-motorway {
+        stroke: var(--color-map-road);
+        stroke-width: 4.5;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .shield rect {
+        fill: var(--color-sign);
+      }
+      .shield text {
+        fill: var(--color-led);
+        font: 700 10px var(--font-text);
+        font-stretch: 75%;
+      }
+      .place-label {
+        font: 700 9px var(--font-text);
+        font-stretch: 75%;
+        letter-spacing: 0.14em;
+        fill: var(--color-text-muted);
+        paint-order: stroke;
+        stroke: var(--color-map-land);
+        stroke-width: 3px;
+      }
+      .place-label.town {
+        font-size: 11px;
+        fill: var(--color-text);
+      }
+      .water-label {
+        font: italic 500 10px var(--font-text);
+        fill: var(--color-text-muted);
+      }
+      .origin-ring {
+        fill: none;
+        stroke: var(--color-text);
+        stroke-width: 2.5;
+      }
+      .origin-dot {
+        fill: var(--color-text);
+      }
+      .dot {
+        stroke: var(--color-map-land);
+        stroke-width: 2;
+      }
+      .dot.low {
+        fill: var(--color-price-low);
+      }
+      .dot.mid {
+        fill: var(--color-price-mid);
+      }
+      .dot.high {
+        fill: var(--color-price-high);
+      }
+      .dot.selected {
+        stroke: var(--color-text);
+        stroke-width: 3;
+      }
+      .tag rect {
+        fill: var(--color-sign);
+      }
+      .tag text {
+        font: 700 10.5px var(--font-price);
+        fill: var(--color-led);
+      }
+      .tag.cheapest text {
+        fill: var(--color-led-lit);
+      }
+      .tag .word {
+        font-family: var(--font-text);
+        font-stretch: 75%;
+        font-size: 9px;
+        letter-spacing: 0.08em;
+      }
+      .zoom {
+        position: absolute;
+        right: 12px;
+        top: 12px;
+        display: grid;
+        background: var(--color-sign);
+      }
+      .zoom span {
+        width: 40px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        color: var(--color-led);
+        font-size: 22px;
+        font-weight: 400;
+      }
+      .zoom span + span {
+        border-top: 1px solid #ffffff26;
+      }
+      .attrib {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        background: var(--color-surface);
+        font-size: 10px;
+        padding: 2px 6px;
+        color: var(--color-text-muted);
+      }
+      .legend {
+        display: flex;
+        gap: var(--space-3);
+        padding: var(--space-2) var(--space-4);
+        font-size: var(--step--2);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        font-stretch: 85%;
+        border-bottom: 1px solid var(--color-rule);
+        color: var(--color-text-muted);
+      }
+      .legend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: -1px;
+      }
+      .legend .l {
+        background: var(--color-price-low);
+      }
+      .legend .m {
+        background: var(--color-price-mid);
+      }
+      .legend .h {
+        background: var(--color-price-high);
+      }
+      .card {
+        padding: var(--space-3) var(--space-4);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        column-gap: var(--space-3);
+        border-top: 3px solid var(--color-text);
+      }
+      .card .window {
+        font-size: 2.3rem;
+        padding: 12px 12px 10px;
+      }
+      .card .window .ghost {
+        inset: 12px 12px 10px;
+      }
+      .card .acts {
+        grid-column: 1 / -1;
+        margin-top: var(--space-3);
+        gap: var(--space-2);
+      }
+      .card .btn {
+        padding: 0 9px;
+        letter-spacing: 0.02em;
+      }
+      .btn {
+        font: inherit;
+        font-size: var(--step--1);
+        font-weight: 700;
+        font-stretch: 85%;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        height: 40px;
+        padding: 0 12px;
+        border: 1px solid var(--color-text);
+        background: transparent;
+        color: var(--color-text);
+        border-radius: 0;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+      }
+      .btn.primary {
+        background: var(--color-text);
+        color: var(--color-bg);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="screen" id="list" aria-label="List">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder <b aria-hidden="true">88.8</b></span>
+        <span class="region">NSW &amp; ACT prices</span>
+      </header>
+      <form>
+        <div class="row">
+          <div class="field">
+            <label for="fuel">Fuel</label
+            ><select id="fuel">
+              <option>Unleaded 91</option>
+            </select>
+          </div>
+          <div class="field narrow">
+            <label for="within">Within</label
+            ><select id="within">
+              <option>5 km</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="place"
+              >Suburb or postcode
+              <span style="text-transform: none; letter-spacing: 0; font-weight: 400"
+                >e.g. Erina or 2250</span
+              ></label
+            ><input id="place" value="2250" />
+          </div>
+          <button class="go" type="button">Search</button>
+        </div>
+        <p class="loc">
+          <button class="textbtn" type="button">Use my location</button> rounded to 1 km, never
+          stored
+        </p>
+      </form>
+      <div class="fav">Favourites <span>3 saved ▸</span></div>
+      <section class="results-head">
+        <h2>19 stations within 5 km of postcode 2250</h2>
+        <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+      </section>
+      <div class="board">
+        <span class="vh"
+          >Cheapest 233.9, average 239.9 cents a litre. Filling 50 litres at the cheapest saves
+          $3.02 on the average.</span
+        >
+        <dl aria-hidden="true" style="display: contents">
+          <dt>Cheapest</dt>
+          <dd class="lit"><span class="ghost">888.8</span>233.9</dd>
+          <dt>Average</dt>
+          <dd><span class="ghost">888.8</span>239.9</dd>
+        </dl>
+        <p class="save" aria-hidden="true">
+          50 L at the cheapest saves <strong>$3.02</strong> on the average.
+        </p>
+      </div>
+      <div class="tools">
+        <div class="switch">
+          <button aria-pressed="true">List</button><button aria-pressed="false">Map</button>
+        </div>
+        <select aria-label="Sort">
+          <option>Cheapest first</option>
+        </select>
+        <button class="textbtn filters" type="button">Filters</button>
+      </div>
+      <ol id="rows" aria-label="Stations, cheapest first"></ol>
+    </section>
+
+    <section class="screen" id="map" aria-label="Map">
+      <header class="mast">
+        <span class="wordmark">Fuel Finder <b aria-hidden="true">88.8</b></span>
+        <span class="region">NSW &amp; ACT prices</span>
+      </header>
+      <section class="results-head" style="padding-bottom: 0">
+        <h2>19 stations within 5 km of postcode 2250</h2>
+        <p class="asof">Unleaded 91 · prices as of 6:00 pm</p>
+      </section>
+      <div class="tools">
+        <div class="switch">
+          <button aria-pressed="false">List</button><button aria-pressed="true">Map</button>
+        </div>
+        <select aria-label="Sort">
+          <option>Cheapest first</option>
+        </select>
+        <button class="textbtn filters" type="button">Filters</button>
+      </div>
+      <div class="mapwrap">
+        <svg id="mapsvg" width="390" height="408" aria-hidden="true"></svg>
+        <div class="zoom" aria-hidden="true"><span>+</span><span>−</span></div>
+        <span class="attrib">OpenFreeMap © OpenMapTiles © OpenStreetMap</span>
+      </div>
+      <p class="legend">
+        <span><i class="l"></i>Cheapest third</span><span><i class="m"></i>Middle</span
+        ><span><i class="h"></i>Dearest third</span>
+      </p>
+      <div class="card station cheapest">
+        <div>
+          <h3 class="name"><a href="#">Metro Petroleum Gosford</a></h3>
+          <p class="meta">Metro Fuel · 3.4 km · updated 21 hours ago</p>
+          <p class="addr">57 Central Coast Hwy, West Gosford NSW 2250</p>
+        </div>
+        <p class="price">
+          <span class="window"><span class="ghost" aria-hidden="true">888.8</span>233.9</span
+          ><span class="vh"> cents a litre</span><span class="flag">Cheapest</span>
+        </p>
+        <div class="acts">
+          <a class="btn primary" href="#">Directions ↗</a><button class="btn">☆ Favourite</button
+          ><button class="btn">List</button
+          ><button class="btn" style="margin-left: auto">Close</button>
+        </div>
+      </div>
+    </section>
+
+    <script src="mock-data.js"></script>
+    <script src="mock.js"></script>
+    <script>
+      const rows = document.getElementById('rows');
+      const cheapest = MOCK.stations[0].price;
+      MOCK.stations.slice(0, 6).forEach((s, i) => {
+        const age = i === 1 ? 16 * 24 : s.ageH; // the second row aged to show an old price
+        const old = age >= 14 * 24;
+        const li = document.createElement('li');
+        li.className = 'station' + (s.price === cheapest ? ' cheapest' : '');
+        li.innerHTML = `
+      <h3 class="name"><a href="#">${s.name}</a></h3>
+      <p class="price"><span class="window"><span class="ghost" aria-hidden="true">888.8</span>${s.price.toFixed(1)}</span><span class="vh"> cents a litre</span>${s.price === cheapest ? '<span class="flag">Cheapest</span>' : ''}${s.change ? `<span class="change"><span aria-hidden="true">↓ ${Math.abs(s.change).toFixed(1)} today</span></span>` : ''}</p>
+      <p class="meta">${s.brand} · ${s.km.toFixed(1)} km · ${old ? `<strong class="old">Old price, ${ageText(age)}</strong>` : ageText(age)}</p>
+      <p class="addr">${shortAddress(s.address)}</p>
+      <div class="acts"><button>Show on map</button><a href="#">Directions ↗</a><button>☆ Favourite</button></div>`;
+        rows.appendChild(li);
+      });
+      document.fonts.ready.then(() => {
+        drawMap(document.getElementById('mapsvg'), {
+          tag: 'board',
+          selected: 'Metro Petroleum Gosford',
+          cheapestWord: 'CHEAPEST',
+          splitCheapest: true,
+          kmAcross: 8,
+        });
+        document.body.dataset.ready = '1';
+      });
+    </script>
+  </body>
+</html>
