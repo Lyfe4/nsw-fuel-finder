@@ -2468,17 +2468,37 @@ zooming in shows the rest, as before.
 - **Focus:** removing the focused element leaves `document.activeElement` on
   `<body>`, which is what the `map` target looks for.
 
-## 2026-10-25: Baseline
+### Verified after the merge
 
-The project as of `0112706` (round 11, pull request #5; first written for
-round 10's `d6dc135`). Future work starts from here; this entry is the
-summary, and the rounds above have the reasons.
+Pull request #7, squash-merged as `eddd797`; production published it at
+23:51 UTC on 27 October (10:51 on the 28th in Sydney).
+
+- **On its deploy preview, in CI:** both required checks passed;
+  `check:browser` 57 of 57, `check:a11y` 36 of 36.
+- **Production:** `pnpm check:browser` 57 of 57, including all eight new
+  checks (Escape on the map; mouse drag; click on nothing; touch drag and
+  pinch; double-tap; tap on nothing, the phone staying on the map);
+  `pnpm check:a11y` 36 of 36; `/api/status` 200, healthy, 183 API.NSW calls
+  counted this month.
+- **Before and after on production**, Parramatta at 25 km with Ampol Foodary
+  Granville selected, at 1350 × 940 and 390 × 844, light and dark: before,
+  Budget Granville was hidden under the selected dot and two dots under
+  prices; after, every dot is drawn, the selected price sits above its
+  marker, and the neighbour shows over the marker's edge.
+
+## 2026-10-25: Baseline (updated 28 October, round 12)
+
+The project as of `eddd797` (round 12, pull request #7; first written for
+round 10's `d6dc135`, updated for round 11's `0112706`). Future work starts
+from here; this entry is the summary, and the rounds above have the reasons.
 
 **What it does.** Live fuel prices for NSW and the ACT, cheapest first, for
 a suburb, a postcode or the visitor's rounded location, at 2, 5, 10 or 25 km.
 A list and a map (MapLibre, OpenFreeMap tiles, loaded only when shown), side
 by side on wide screens, a List/Map switch on phones. Without a GPU the wide
-map waits for "Show the map". A one-line summary
+map waits for "Show the map". On the map every station's dot is always
+drawn (prices make way for dots); a tap on empty map or Escape clears the
+selection, and drags, pinches and double-taps do not. A one-line summary
 (cheapest, average, what the difference is worth on 50 L), sort by price or
 distance, brand and price-age filters, today's move per station, directions
 in the phone's maps app, the nearest stations up to 100 km when nothing is in
@@ -2516,15 +2536,16 @@ from Blobs only. Visitors never reach API.NSW.
 **Monitoring.**
 
 - `/api/status`: snapshot age, the last run, read errors and API.NSW calls
-  this month (37 counted at the baseline since 24 October 09:30 UTC, plus
+  this month (183 counted by 28 October since 24 October 09:30 UTC, plus
   about 70 before that). A 503 when anything is wrong or calls pass 2,000.
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 567 tests, the build
-  and bundle budgets; and `pnpm check:browser` (49 checks, including CSP and
-  CLS) and `pnpm check:a11y` (36) against its deploy preview, about two
-  minutes. Both required. The same checks by hand against production.
+- CI on every pull request: typecheck, lint, format, 588 tests, the build
+  and bundle budgets; and `pnpm check:browser` (57 checks, including CSP,
+  CLS and touch gestures on the map) and `pnpm check:a11y` (36) against its
+  deploy preview, about two minutes. Both required. The same checks by hand
+  against production.
 - PageSpeed Insights, a results page: desktop 100, mobile 99, CLS 0, and 100
   for accessibility, best practices and SEO (25 October, after round 11).
   The desktop machine has no GPU, so it measures the "Show the map" page:
@@ -2568,6 +2589,13 @@ from Blobs only. Visitors never reach API.NSW.
   after 15 minutes rather than passing untested: rerun it, or merge by hand
   after checking the preview. Netlify's bot protection could one day
   challenge GitHub's runners; the check would fail, not pass.
+- **Fewer prices in a dense map view** (round 12): a price that would cover
+  any station's dot is dropped. The cheapest keep their place, and zooming
+  in shows the rest.
+- **A tap on empty map clears the selection 300 ms later**, so a double-tap
+  can zoom without clearing it. A double-tap slower than that both zooms and
+  clears. A tap within 12 px of a dot picks that station instead, so in a
+  very dense spot Escape or Close is the surer way.
 - `--badge-clearance` still keeps 4 rem clear for Netlify's badge, which is
   no longer served; harmless spacing, kept in case it returns.
 
