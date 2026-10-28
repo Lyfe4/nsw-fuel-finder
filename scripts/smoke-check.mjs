@@ -220,17 +220,33 @@ try {
   await page.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
   check('the "Loading map…" placeholder clears once the map has drawn', true);
 
-  // Layout shift, at Lighthouse's desktop size: on 800 px the footer was
-  // already below the fold while loading, so the shift never showed there.
-  const desktop = await browser.newContext({ viewport: { width: 1350, height: 940 } });
-  await desktop.addInitScript(recordLayoutShift);
-  const shiftPage = await desktop.newPage();
-  await shiftPage.goto(`${BASE}/?fuel=U91&query=2250`);
-  await shiftPage.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
-  await shiftPage.waitForLoadState('networkidle');
-  const shift = await shiftPage.evaluate(() => window.__layoutShift);
-  check('nothing moves while the results load (CLS under 0.01)', shift < 0.01, shift.toFixed(3));
-  await desktop.close();
+  // Layout shift while the results load, at Lighthouse's desktop and mobile
+  // sizes. The prices are held back a second and a half, as on a slow
+  // phone, so the loading state is on screen long enough to be measured: on
+  // a fast connection the results replaced it before it painted, and
+  // PageSpeed's mobile run saw the footer move (0.266) when this did not.
+  for (const [name, viewport] of [
+    ['desktop', { width: 1350, height: 940 }],
+    ['phone', { width: 412, height: 823 }],
+  ]) {
+    const shiftContext = await browser.newContext({ viewport });
+    await shiftContext.addInitScript(recordLayoutShift);
+    await shiftContext.route('**/api/location**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+    const shiftPage = await shiftContext.newPage();
+    await shiftPage.goto(`${BASE}/?fuel=U91&query=2250`);
+    await shiftPage.getByRole('list', { name: 'Stations, cheapest first' }).waitFor();
+    await shiftPage.waitForLoadState('networkidle');
+    const shift = await shiftPage.evaluate(() => window.__layoutShift);
+    check(
+      `nothing moves while the results load, ${name} (CLS under 0.01)`,
+      shift < 0.01,
+      shift.toFixed(3),
+    );
+    await shiftContext.close();
+  }
 
   // Suburb search, typed and submitted with Enter.
   const search = page.getByRole('combobox', { name: /suburb or postcode/i });

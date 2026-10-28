@@ -1,12 +1,15 @@
+/*
+ * As tall as the results will be at the least, so their arrival does not
+ * move the footer: a screen's height on a phone (the one-line rows no longer
+ * fill it; PageSpeed saw the footer move, CLS 0.266), the sticky map's
+ * height beside them on a wide screen (tokens.css).
+ */
 .list {
+  min-height: 100dvh;
   padding: 0;
   list-style: none;
 }
 
-/*
- * Wide screens: as tall as the results will be at the least (the sticky map
- * beside them), so their arrival does not move the footer (tokens.css).
- */
 @media (min-width: 60rem) {
   .list {
     min-height: var(--map-panel-height);
