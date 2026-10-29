@@ -21,16 +21,20 @@
 
   # FUEL_API_KEY and FUEL_API_SECRET are deliberately NOT here. They are set
   # in the Netlify UI (Site configuration > Environment variables), scoped to
-  # Functions, so they never reach the build or the browser bundle.
+  # Functions, so they never reach the build or the browser bundle. The same
+  # for QLD_FPD_TOKEN (Queensland, round 15), production context only, and
+  # QLD_PUBLIC, which stays unset until publisher approval is confirmed.
 
 # No [functions] node_bundler setting: Netlify always bundles v2 functions
 # (the Request -> Response kind used here) with NFT and ignores it. NFT copies
 # the function's node_modules dependencies next to it, which is why
 # `netlify dev` on Windows needs Developer Mode - see docs/decisions.md.
 
-# Two functions. `snapshot` is scheduled (every 30 minutes; the cron is in its
+# Three functions. `snapshot` is scheduled (every 30 minutes; the cron is in its
 # source, where Netlify reads it) and is the only code that calls API.NSW. It
-# writes prices to Netlify Blobs. `api` reads them and has no public schedule.
+# writes prices to Netlify Blobs. `snapshot-qld` does the same for Queensland
+# every 10 minutes, under `qld/` keys only. `api` reads them and has no
+# public schedule.
 #
 # The browser only ever talks to /api/*. That path, and the function's rate
 # limit, are set in the function's own `config` (netlify/functions/api/api.ts),

@@ -45,6 +45,23 @@ export const KEYS = {
   historyProgress: 'history/v2/progress',
 } as const;
 
+/**
+ * Queensland's own keys (docs/qld-plan.md, "Blobs layout"). Everything the
+ * QLD job writes is under `qld/`, so it never writes a key the NSW job does:
+ * Blobs has no compare-and-swap, so each key has one writer. Its per-station
+ * history shares `history/v2/` with NSW because its codes are prefixed
+ * (`qld-61290151`), which keeps the two apart.
+ */
+export const QLD_KEYS = {
+  snapshot: 'qld/snapshot/v1/latest',
+  reference: 'qld/reference/v1',
+  authFailure: 'qld/auth/failure',
+  lastRun: 'qld/meta/last-run',
+  calls: (month: string) => `qld/meta/calls/${month}`,
+  historyDay: (day: string) => `qld/history/v1/${day}`,
+  historyProgress: 'qld/history/v2/progress',
+} as const;
+
 /** Netlify Blobs. */
 export function blobStore(): KeyValueStore {
   /*

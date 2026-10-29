@@ -2777,6 +2777,132 @@ Pull request #13, squash-merged as `1dc55ab` at 00:29 UTC on 29 October
   kB, and one point at this end of the scale is within a run's variation;
   the next round should compare a few runs if it matters.
 
+## 2026-10-29: Round 15, phase 1a (Queensland's pipeline, dark)
+
+The research and the whole plan are in `docs/qld-plan.md`. The owner has
+applied for publisher status; until that is confirmed, nothing from
+Queensland reaches visitors. This phase only fetches and stores it, which a
+data consumer may do (licence clause 2.1).
+
+### A second job, not a second half of the first
+
+`snapshot-qld` is its own scheduled function, every 10 minutes, writing only
+keys under `qld/` (`QLD_KEYS` in `netlify/lib/store.ts`). The NSW job's code
+path, keys and blobs are unchanged. Its run was made generic instead of
+copied: `runSource` in `netlify/lib/snapshot/run.ts` takes a source's keys,
+time zone and fetch, and `runSnapshot` is NSW's source with its keys as they
+were. NSW's tests did not change and all pass.
+
+What the separation buys, with a test for each in `netlify/lib/qld/run.test.ts`:
+
+- A QLD failure of any kind (refused token, 500, bad body, missing token)
+  leaves every NSW key and its metadata byte-identical, and the reverse.
+- The partial-response guard compares Queensland with Queensland only.
+- A retry after a QLD 502 repeats QLD's calls, never NSW's.
+- Each job has its own lockout record, run record and call count.
+
+### Every 10 minutes
+
+As a publisher, a price change must be shown within 30 minutes (clause 2.3).
+At 30 minutes, plus the CDN's and the browser's minute each, a change could
+take about 32. At 10 it is about 12, a tenth of the manual's "once a minute"
+for prices. The site details refresh when 23 hours old, inside the licence's
+24 for "other published data": 3 reference calls a day.
+
+### The guard, simpler than NSW's
+
+No lockout is documented, but the token is the whole credential and the
+service monitors access. A 401 or 403 on any call writes
+`qld/auth/failure` and stops every automatic attempt with that token until
+`pnpm auth:reset --source qld`. There is no token exchange, so a timeout
+cannot hide a refusal: no unknown-outcome counting. The record is keyed on
+a hash of the token, so a new token (likely, with publisher approval) starts
+afresh.
+
+### Codes, prices and time
+
+- Station codes are `qld-` plus the site ID. They pass the existing
+  `^[\w-]{1,32}$` checks and can never equal a NSW code.
+- Prices are tenths of a cent; `9999` (unavailable) and anything outside
+  50–600 c/L are left out and counted.
+- `TransactionDateUtc` has no offset. `Date.parse` would read it as local
+  time, so `parseQldTimestamp` reads the fields itself; tested with the
+  process in three time zones. A price stamped after the run (the server's
+  clock runs about 7 s ahead) is clamped to the run's time.
+- Queensland's history days and call months are Brisbane's
+  (`brisbaneDay`), so from October to April its day starts an hour after
+  NSW's.
+- The address is built as `street, suburb QLD postcode`, the suburb from
+  the region list. Four brand names are mapped to FuelCheck's spelling
+  ("7 Eleven" to "7-Eleven", and three more).
+
+### Fixtures are synthetic
+
+NSW's fixture is a recording of live data. Queensland's licence forbids
+distributing the data (clause 3.1), and a public repository is
+distribution, so `netlify/lib/__fixtures__/fakeQld.ts` is made up: the live
+shapes and quirks (the missing `Z`, `9999`, a 31.9 c typo, a future stamp,
+an unknown suburb, a site with no street) with fictional sites.
+
+### `/api/status`
+
+A new `sources.qld` block: its run, newest snapshot written, site-details
+age, and calls this Brisbane month (alarm at 6,000; no quota is published).
+Its problems make the status unhealthy only when `QLD_PUBLIC` is `true`, so
+running the job dark cannot page the owner. The existing fields are NSW's,
+unchanged.
+
+### Library behaviour this relies on
+
+| Call                                       | Behaviour relied on                                                                                   |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `Date.parse` / `new Date(string)`          | A date-time with no offset is local time: never used on QLD stamps                                    |
+| `z.object` (Zod 4)                         | Strips unknown keys, so fields the Aggregator adds are ignored; rows are checked one by one           |
+| `AbortSignal.timeout`                      | Rejects with a `TimeoutError` `DOMException`; 6 s per call, four calls at most, inside the 30 s limit |
+| Netlify scheduled functions                | Cron in UTC, production deploys only (and `runsIn`), a 5xx is retried once                            |
+| `@netlify/blobs`                           | No compare-and-swap: hence one writer per key; `getStore()` per operation (round 3b)                  |
+| `Intl.DateTimeFormat` `Australia/Brisbane` | UTC+10 all year                                                                                       |
+
+### Measured on the live data
+
+Running the real builder over the five responses of 29 October (locally,
+no calls): 1,807 sites, 1,773 with a price we keep, 6,875 prices. 108
+unavailable and 1 implausible price left out. The snapshot is 639 kB
+(126 kB gzipped), the reference data 299 kB, a Brisbane day's history
+234 kB.
+
+### One real run, before the merge
+
+Approved by the owner: `netlify dev --offline` and
+`netlify functions:invoke snapshot-qld`, local Blobs only, at 01:22 UTC on
+29 October. 4 calls (3 reference, 1 prices), 1.5 s, 1,774 stations and
+6,881 prices. It wrote exactly `qld/history/v1/2026-10-29`,
+`qld/meta/calls/2026-10`, `qld/meta/last-run`, `qld/reference/v1` and
+`qld/snapshot/v1/latest`, and `/api/status` showed `sources.qld` healthy.
+The token appeared in no output. QLD calls so far: 9 (5 research, 4 here).
+
+### Proof that nothing from Queensland is public while QLD_PUBLIC is off
+
+`createApiDeps` (`netlify/functions/api/deps.ts`) is what the function
+runs, now buildable over any store. `qldExposure.test.ts` builds it over a
+store holding everything the QLD job writes, plus per-station and daily
+QLD history, and asks 24 routes (nearby by the border and in NSW, location
+by QLD suburb, postcode and label, places, stations and history by `qld-`
+code) with `QLD_PUBLIC` unset, `false`, `1`, `TRUE` and ` true`. Only the
+exact string `true` turns it on.
+
+- No answer contains a QLD station, price, name or address. `stations`
+  lists the codes asked for under `missing`; `history` is a 404.
+- Every store read is recorded. No route but `/api/status` reads a `qld/`
+  key or a `qld-` code. `/api/status` reads exactly four: the run record
+  and the call count, and the _metadata_ (time and count) of the snapshot
+  and the reference data. Its answer has no price, station or code.
+- A stalled QLD job shows in `sources.qld` and not in the top-level
+  `problems`, so it cannot page anyone.
+
+The same routes were probed on the local server above, with the real QLD
+data in its store: the same result.
+
 ## 2026-10-25: Baseline (updated 29 October, round 14)
 
 The project as of `1dc55ab` (round 14, icons and alignment, pull request

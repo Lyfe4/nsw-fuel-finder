@@ -9,26 +9,11 @@
  */
 import { randomUUID } from 'node:crypto';
 
+import { runsIn, type InvocationContext } from '../../lib/snapshot/context';
 import { runSnapshot, worthRetrying } from '../../lib/snapshot/run';
 import { blobStore } from '../../lib/store';
 
-/** The part of Netlify's per-invocation context this reads. */
-interface InvocationContext {
-  deploy?: { context?: string };
-}
-
-/**
- * Only production (and `netlify dev`, whose store is local) runs the job.
- * The Blobs store is site-wide, so a deploy preview shares production's: a
- * "Run now" on a preview's function in the Netlify UI would otherwise
- * overwrite production's run record from a deploy without credentials. An
- * unknown or missing context runs, so a change on Netlify's side can never
- * silently stop production's snapshots.
- */
-export function runsIn(context: InvocationContext | undefined): boolean {
-  const deploy = context?.deploy?.context;
-  return deploy !== 'deploy-preview' && deploy !== 'branch-deploy';
-}
+export { runsIn };
 
 export default async (_request: Request, context?: InvocationContext): Promise<Response> => {
   if (!runsIn(context)) {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { qldStatusReport, type QldStatusInput } from './qldStatus';
 import {
   callsRecordSchema,
   MONTHLY_BUDGET,
@@ -46,9 +47,19 @@ export function statusReport(input: {
   lastRunError?: string;
   /** This month's `meta/calls/YYYY-MM` record, or null. */
   calls?: unknown;
+  /** Queensland's records; absent counts as nothing recorded yet. */
+  qld?: QldStatusInput;
+  /** QLD_PUBLIC: only then do Queensland's problems make the status unhealthy. */
+  qldPublic?: boolean;
   now: number;
 }): StatusResponse {
   const { served, now } = input;
+  const qldPublic = input.qldPublic ?? false;
+  const qld = qldStatusReport(
+    input.qld ?? { lastRun: null, written: null, calls: null, reference: null },
+    now,
+    qldPublic,
+  );
   const parsed = lastRunSchema.safeParse(input.lastRun);
   const lastRun = parsed.success ? parsed.data : null;
   const problems: string[] = [];
@@ -97,8 +108,11 @@ export function statusReport(input: {
     );
   }
 
+  if (qldPublic) problems.push(...qld.problems.map((problem) => `QLD: ${problem}`));
+
   return {
     healthy: problems.length === 0,
+    sources: { qld },
     callsThisMonth: { month, calls: callCount, budget: MONTHLY_BUDGET },
     problems,
     checkedAt: new Date(now).toISOString(),

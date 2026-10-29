@@ -23,6 +23,16 @@ export const SNAPSHOT_INTERVAL_MINUTES = 30;
  */
 export const STALE_AFTER_MS = 3 * SNAPSHOT_INTERVAL_MINUTES * 60_000;
 
+/**
+ * Queensland's job runs every 10 minutes: as a publisher, a price change
+ * must be shown within 30 minutes (licence clause 2.3; docs/qld-plan.md).
+ * Must match the cron in netlify/functions/snapshot-qld.
+ */
+export const QLD_SNAPSHOT_INTERVAL_MINUTES = 10;
+
+/** Three missed runs, which is also the licence's 30 minutes. */
+export const QLD_STALE_AFTER_MS = 3 * QLD_SNAPSHOT_INTERVAL_MINUTES * 60_000;
+
 const priceTuple = z.tuple([z.number(), z.string()]);
 const fuelCodes = FUEL_TYPE_CODES as [FuelTypeCode, ...FuelTypeCode[]];
 
@@ -34,8 +44,12 @@ export const snapshotStationSchema = z.object({
   /** Parsed from the address; null where the address has no recognisable suburb. */
   suburb: z.string().nullable(),
   postcode: z.string().nullable(),
-  /** From the address: about 70 FuelCheck stations are in the ACT. */
-  state: z.enum(['NSW', 'ACT']),
+  /**
+   * NSW's from the address (about 70 FuelCheck stations are in the ACT);
+   * always QLD in Queensland's snapshot. Widened for QLD: the NSW job never
+   * writes it, so an older reader of NSW's snapshot is unaffected.
+   */
+  state: z.enum(['NSW', 'ACT', 'QLD']),
   lat: z.number(),
   lng: z.number(),
   prices: z.partialRecord(z.enum(fuelCodes), priceTuple),

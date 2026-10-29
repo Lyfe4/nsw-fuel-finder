@@ -64,18 +64,26 @@ export function parseUpstreamTimestamp(value: string): string | null {
   return instant.toISOString().replace('.000Z', 'Z');
 }
 
-const sydneyDate = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Australia/Sydney',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
+/** The calendar date in a time zone at an instant, as YYYY-MM-DD. */
+function dayIn(timeZone: string): (instant: Date) => string {
+  // en-CA formats as YYYY-MM-DD.
+  const format = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return (instant) => format.format(instant);
+}
 
 /**
- * The calendar date in Sydney at an instant, as YYYY-MM-DD. History is kept
- * per Sydney day because that is the "day" a NSW driver means.
+ * The calendar date in Sydney at an instant, as YYYY-MM-DD. NSW history is
+ * kept per Sydney day because that is the "day" a NSW driver means.
  */
-export function sydneyDay(instant: Date): string {
-  // en-CA formats as YYYY-MM-DD.
-  return sydneyDate.format(instant);
-}
+export const sydneyDay = dayIn('Australia/Sydney');
+
+/**
+ * The same in Brisbane, for Queensland's data: UTC+10 all year, so from
+ * October to April its day starts an hour after Sydney's.
+ */
+export const brisbaneDay = dayIn('Australia/Brisbane');
