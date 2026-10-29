@@ -7,7 +7,7 @@ import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 
 import { PlaceCombobox } from './PlaceCombobox';
 import styles from './SearchForm.module.css';
-import { RADIUS_STEPS } from './searchState';
+import { RADIUS_STEPS, splitPlace } from './searchState';
 import { FUEL_TYPES, isFuelTypeCode, type FuelTypeCode } from '../../../shared/fuelTypes';
 
 export interface SearchFormProps {
@@ -71,6 +71,7 @@ export function SearchForm({
     if (isFuelTypeCode(value)) onFuelChange(value);
   };
   const fuelName = FUEL_TYPES.find((f) => f.code === fuel)?.name ?? fuel;
+  const [suburb, postcode] = splitPlace(folded?.place ?? '');
 
   return (
     <div className={styles.search}>
@@ -109,18 +110,22 @@ export function SearchForm({
               </span>
             )}
             {/*
-             * Beside the fuel when it fits, otherwise on a line of its own
-             * under it; only a place too long for that line is cut short
-             * (an ellipsis). The distance never is.
+             * "10 km · Port Macquarie NSW 2444": beside the fuel when it
+             * fits, otherwise on a line of its own under it. The distance
+             * comes first and is never cut; a place too long for the line
+             * loses the end of its suburb ("Port Macqu…"), never the state
+             * and postcode.
              */}
             <span className={styles.where}>
-              <span className={styles.place}>
-                <VisuallyHidden>, </VisuallyHidden>
-                {folded.place}
-              </span>
               <span className={styles.distance}>
-                <span aria-hidden="true">·</span>
-                <VisuallyHidden>, within</VisuallyHidden> {radius} km
+                <VisuallyHidden>, within </VisuallyHidden>
+                {radius} km
+              </span>
+              <span aria-hidden="true">·</span>
+              <VisuallyHidden>,</VisuallyHidden>{' '}
+              <span className={styles.place}>
+                <span className={styles.suburb}>{suburb}</span>
+                {postcode && <span className={styles.postcode}>{postcode}</span>}
               </span>
             </span>
           </div>

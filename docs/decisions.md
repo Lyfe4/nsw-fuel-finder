@@ -2728,6 +2728,28 @@ October, so mid-November is likely), run
 token, as in the README's Maintenance section, after asking the owner. The
 chart then has no gap, and needs no change.
 
+### Three fixes after review
+
+- **The chart's key** at 320 px wrapped "its low to high" away from its
+  swatch. Each swatch and its words are now one unit that wraps whole.
+- **The search line** at 320 px cut the postcode ("Port Macquarie NSW
+  2…") and left a gap before the distance. Now the distance comes first
+  and is never cut, and only the suburb gives way: "10 km · Port Macqu…
+  NSW 2444". 360 to 430 px show the whole place.
+- **Names in capitals.** 130 of 2,400 names in the snapshot are all
+  capitals. Title case risks respelling brands, so the words were checked
+  first: METCO, TEMCO, APCO, APW, OPT, IOR and EBM are written in capitals
+  in FuelCheck's careful names or brands; "SG Chambers" is initials; "YOGI'S"
+  would have become "Yogi'S" under the address rule (fixed for addresses too:
+  "St John's Rd"). So `formatStationName` keeps a list of known capitals,
+  the capital words of a mixed-case brand, and vowel-less initials (except
+  "Mt", "St" and other short forms), and only touches a name with no
+  lower-case letter. It runs in the browser where answers arrive
+  (`src/lib/api.ts`), as addresses are tidied in the browser, so the API
+  still sends FuelCheck's own spelling. Accepted: a brand we do not know
+  that spells itself in capitals ("GTORQUE PETROLEUM" becomes "Gtorque
+  Petroleum"); add it to the list if one turns up.
+
 ### Also
 
 - `private/` is in `.gitignore`: the owner keeps local files there that must

@@ -153,3 +153,9 @@ export function serializeSearch({
 export function roundPosition(lat: number, lng: number): { lat: number; lng: number } {
   return { lat: roundTo(lat, COORDINATE_DECIMALS), lng: roundTo(lng, COORDINATE_DECIMALS) };
 }
+
+/** "Port Macquarie NSW 2444" -> ["Port Macquarie", "NSW 2444"]; anything else whole. */
+export function splitPlace(place: string): [string, string] {
+  const match = /^(.+?)\s+((?:NSW|ACT)\s+\d{4})$/.exec(place);
+  return match ? [match[1] ?? place, match[2] ?? ''] : [place, ''];
+}

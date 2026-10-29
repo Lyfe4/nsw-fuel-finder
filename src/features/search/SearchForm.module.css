@@ -139,13 +139,22 @@
   white-space: nowrap;
 }
 
-.place {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.distance,
+.postcode {
+  flex: none;
 }
 
-.distance {
-  flex: none;
+/* The suburb gives way first, and only it: the state and postcode stay. */
+.place {
+  display: flex;
+  min-width: 0;
+  gap: 0.3em;
+}
+
+.suburb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /*

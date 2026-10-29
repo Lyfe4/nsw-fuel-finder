@@ -266,9 +266,14 @@ export function HistoryChart({ days, fuelName }: { days: HistoryDayRow[]; fuelNa
         <strong>{formatDay(current[0])}:</strong> last {formatPrice(current[3])}, low{' '}
         {formatPrice(current[1])}, high {formatPrice(current[2])} cents a litre
       </p>
+      {/* Each swatch and its words are one unit: the items wrap whole, never inside. */}
       <p className={styles.key}>
-        <span className={styles.keyLine} aria-hidden="true" /> The day’s last price{' '}
-        <span className={styles.keyBand} aria-hidden="true" /> its low to high
+        <span className={styles.keyItem}>
+          <span className={styles.keyLine} aria-hidden="true" /> The day’s last price
+        </span>{' '}
+        <span className={styles.keyItem}>
+          <span className={styles.keyBand} aria-hidden="true" /> its low to high
+        </span>
       </p>
     </div>
   );

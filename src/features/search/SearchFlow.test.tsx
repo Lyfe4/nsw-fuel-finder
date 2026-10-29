@@ -293,7 +293,8 @@ describe('the folded search, on a phone', () => {
     const change = screen.getByRole('button', { name: 'Change search' });
     expect(change).toHaveAttribute('title', 'Change search');
     expect(change).toHaveTextContent(/^Change search$/);
-    expect(change.previousElementSibling).toHaveTextContent(/Erina.*10 km/);
+    // The distance first, never cut; then the place.
+    expect(change.previousElementSibling).toHaveTextContent(/10 km.*Erina/);
     await expectNoAxeViolations(container);
 
     await user.selectOptions(fuel, 'Diesel');

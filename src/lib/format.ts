@@ -48,13 +48,78 @@ const STATES = new Set(['NSW', 'ACT', 'QLD', 'VIC', 'SA', 'WA', 'TAS', 'NT']);
  */
 export function formatAddress(address: string): string {
   if (/[a-z]/.test(address)) return address;
-  return address.replace(/[A-Z][A-Z'-]*/g, (word) =>
-    STATES.has(word)
-      ? word
-      : word.toLowerCase().replace(/(^|[-'])([a-z])/g, (_, before: string, letter: string) => {
-          return `${before}${letter.toUpperCase()}`;
-        }),
-  );
+  return address.replace(/[A-Z][A-Z'-]*/g, (word) => (STATES.has(word) ? word : titleWord(word)));
+}
+
+/**
+ * One word in capitals in title case: "GOSFORD" -> "Gosford", "7-ELEVEN"'s
+ * "ELEVEN" after its hyphen, "U-GO" -> "U-Go", "O'CONNELL" -> "O'Connell".
+ * A possessive stays small: "JOHN'S" -> "John's", not "John'S".
+ */
+function titleWord(word: string): string {
+  return word
+    .toLowerCase()
+    .replace(
+      /(^|-)([a-z])/g,
+      (_, before: string, letter: string) => `${before}${letter.toUpperCase()}`,
+    )
+    .replace(/^([a-z])'([a-z]{2,})/i, (_, first: string, rest: string) => {
+      return `${first.toUpperCase()}'${rest.charAt(0).toUpperCase()}${rest.slice(1)}`;
+    });
+}
+
+/**
+ * Kept in capitals in a station's name: brands and initials FuelCheck's
+ * retailers write that way (found in the snapshot, October 2026), the
+ * states, and motorway numbers' letters.
+ */
+const NAME_CAPITALS = new Set([
+  ...STATES,
+  'BP',
+  'EG',
+  'OTR',
+  'OPT',
+  'APW',
+  'APCO',
+  'AUS',
+  'CBD',
+  'EBM',
+  'IGA',
+  'IOR',
+  'LPG',
+  'LPO',
+  'METCO',
+  'NRMA',
+  'RSL',
+  'TASCO',
+  'TEMCO',
+]);
+
+/** Short forms with no vowel that are words, not initials: "MT DRUITT" -> "Mt Druitt". */
+const ABBREVIATIONS = new Set(['MT', 'ST', 'RD', 'DR', 'CNR', 'CT', 'PL', 'HWY']);
+
+/**
+ * "MOBIL HASTINGS RIVER" -> "Mobil Hastings River", as formatAddress does
+ * for addresses, and only for a name with no lower-case letter at all, so
+ * one a retailer wrote with care ("OTR Kings Park") is left alone.
+ *
+ * What stays in capitals, so a brand is never respelt: the words in
+ * NAME_CAPITALS ("BP Camden", "Lowes North Star OPT"); any word the
+ * station's brand writes in capitals beside lower case ("TEMCO Petroleum",
+ * "EG Ampol"); and initials, a word with no vowel ("SG Chambers", "PK's"),
+ * except the usual short forms ("Mt", "St"). An all-capitals brand ("MATEX
+ * FUEL") is no guide: it shouts like the name does.
+ */
+export function formatStationName(name: string, brand = ''): string {
+  if (/[a-z]/.test(name)) return name;
+  const brandCapitals = new Set(/[a-z]/.test(brand) ? brand.match(/[A-Z][A-Z0-9-]+/g) : []);
+  return name.replace(/[A-Z][A-Z'-]*/g, (word) => {
+    const possessive = word.endsWith("'S");
+    const base = possessive ? word.slice(0, -2) : word;
+    const initials = base.length > 1 && !/[AEIOUY]/.test(base) && !ABBREVIATIONS.has(base);
+    const kept = NAME_CAPITALS.has(base) || brandCapitals.has(base) || initials;
+    return `${kept ? base : titleWord(base)}${possessive ? "'s" : ''}`;
+  });
 }
 
 /** 0.42 -> "420 m", 3.91 -> "3.9 km", 12.3 -> "12 km". */

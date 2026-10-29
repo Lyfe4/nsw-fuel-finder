@@ -201,9 +201,10 @@ Every row of controls is one row on purpose at every width from 320 to
 1440 px, in both themes, or breaks in one planned place:
 
 - **Search line (phone, folded):** fuel and place on one line when they
-  fit; otherwise the place moves under the fuel. The search button stays at
-  the right, centred on both lines. Never three lines; a place too long even
-  for its own line ends in an ellipsis, the distance never does.
+  fit; otherwise they move under the fuel. The search button stays at the
+  right, centred on both lines. Never three lines; a place too long even for
+  its own line ends its suburb in an ellipsis and keeps "NSW 2444"; the
+  distance is never cut.
 - **Search form (wide):** "Use my location" sits on the controls' row, not
   centred on labels and controls together.
 - **Toolbar:** one row from 360 px. Under 360 px, two rows on purpose:
@@ -212,8 +213,10 @@ Every row of controls is one row on purpose at every width from 320 to
   width; under 360 px the buttons' side padding drops from 12 to 8 px so
   they fit. `check:browser` fails if the three are not on one row at 320,
   360, 390 or 430 px.
-- **History actions, favourites rows, legend, footer:** one row (the legend
-  from 320 px); a long station name in a favourite wraps, its Remove stays
+- **Keys and legends:** each swatch and its words are one unit that wraps
+  whole (the price chart's key at 320 px: two lines, each with its swatch).
+- **History actions, favourites rows, legend, footer:** one row (the map's
+  legend from 320 px); a long station name in a favourite wraps, its Remove stays
   under it at the left.
 - Nothing scrolls sideways at any width (also in `check:browser`).
 
@@ -232,7 +235,7 @@ at the left, "NSW · ACT" (muted) at the right, then a 1.5 px rule. The
   "Use my location" (a text button). No hints or helper text. On wide
   screens it is one row.
 - **On phones after a search:** one line in place of the form:
-  `Unleaded 91 (caret)  2250 · 5 km  [search]` (a long place on a second
+  `Unleaded 91 (caret)  5 km · 2250  [search]` (a long place on a second
   line, see Alignment).
   - The fuel is a native `<select>`, named "Fuel", laid invisibly over the
     fuel's name and the icon set's caret, so the line is exactly as wide as
@@ -246,8 +249,10 @@ at the left, "NSW · ACT" (muted) at the right, then a 1.5 px rule. The
     Tab is the form. A successful search closes the form and moves focus to
     the results heading. A failed one ("no such place") keeps it open with
     focus in the place field, and the error announced.
-  - The place and distance are text (they are the search button's
-    context).
+  - The distance and place are text (they are the search button's
+    context), distance first: it is short and never cut. A place too long
+    for its line loses the end of its suburb, never its state and postcode:
+    "10 km · Port Macqu… NSW 2444" at 320 px.
 
 ### Favourites
 
@@ -297,10 +302,23 @@ Metro Petroleum Gosford ··········· 233.9
   returns to the row.
 - A long name wraps, and the leader and price sit on its last line.
 
+### Station names
+
+FuelCheck has about 130 of 2,400 names in capitals ("MOBIL HASTINGS
+RIVER"). The browser sets those in title case where answers come in
+(`src/lib/api.ts`, `formatStationName`), so every place a name is shown
+or read out agrees. Only a name with no lower-case letter is touched.
+Kept in capitals: known brands and initials (BP, EG, OTR, OPT, APW, METCO
+and others in `format.ts`), any word the station's brand writes in
+capitals beside lower case ("TEMCO Petroleum"), and words with no vowel
+("SG Chambers", "PK's"), except short forms like "Mt" and "St". A
+possessive stays small ("Yogi's").
+
 ### Station card
 
 Under its row in the list, at every width: brand · address (an
-all-capitals address set in title case in the browser; a capitals suburb
+all-capitals address set in title case in the browser, and an all-capitals
+name too, brand capitals kept (Station names, below); a capitals suburb
 in an otherwise careful address given the ABS gazetteer's spelling in the
 API), "down 1.0
 today" when it moved, a "Price history" link, then one row of actions:
