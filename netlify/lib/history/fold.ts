@@ -68,20 +68,37 @@ function rowsFor(code: string, from: string, through: string, days: Map<string, 
 }
 
 /**
- * One run's share of the fold. `today` is the Sydney day of this run's
- * snapshot; `codes` are the stations in it.
+ * Where a source keeps its daily files and its fold progress, and its first
+ * day. NSW's by default; Queensland's are under `qld/` (store.ts).
+ */
+export interface FoldKeys {
+  historyDay: (day: string) => string;
+  historyProgress: string;
+  start: string;
+}
+
+const NSW_FOLD: FoldKeys = {
+  historyDay: KEYS.historyDay,
+  historyProgress: KEYS.historyProgress,
+  start: LIVE_HISTORY_START,
+};
+
+/**
+ * One run's share of the fold. `today` is the day (in the source's own time
+ * zone) of this run's snapshot; `codes` are the stations in it.
  */
 export async function foldHistory(
   store: KeyValueStore,
   today: string,
   codes: readonly string[],
+  keys: FoldKeys = NSW_FOLD,
 ): Promise<FoldResult | null> {
   const target = addDays(today, -1);
-  if (target < LIVE_HISTORY_START) return null;
+  if (target < keys.start) return null;
 
   const sorted = [...codes].sort((a, b) => a.localeCompare(b));
   // Anything unreadable starts the day again: re-folding a station is harmless.
-  const saved = foldProgressSchema.safeParse(await store.getJSON(KEYS.historyProgress, 'strong'));
+  const saved = foldProgressSchema.safeParse(await store.getJSON(keys.historyProgress, 'strong'));
   const done = saved.success && saved.data.target === target ? saved.data.done : 0;
   const slice = sorted.slice(done, done + STATIONS_PER_RUN);
   if (slice.length === 0) return { target, stations: 0, written: 0, remaining: 0 };
@@ -97,13 +114,13 @@ export async function foldHistory(
     );
     const history = parsed.success ? parsed.data : null;
     existing.set(code, history);
-    const start = history ? addDays(history.through, 1) : LIVE_HISTORY_START;
+    const start = history ? addDays(history.through, 1) : keys.start;
     for (let day = start < earliest ? earliest : start; day <= target; day = addDays(day, 1)) {
       needed.add(day);
     }
   });
   for (const day of [...needed].sort()) {
-    const parsed = historyDaySchema.safeParse(await store.getJSON(KEYS.historyDay(day), 'strong'));
+    const parsed = historyDaySchema.safeParse(await store.getJSON(keys.historyDay(day), 'strong'));
     if (parsed.success) days.set(day, parsed.data);
   }
 
@@ -111,7 +128,7 @@ export async function foldHistory(
   const keepFrom = addDays(target, -(LIVE_DAYS_KEPT - 1));
   await mapLimit(slice, CONCURRENCY, async (code) => {
     const history = existing.get(code) ?? null;
-    const start = history ? addDays(history.through, 1) : LIVE_HISTORY_START;
+    const start = history ? addDays(history.through, 1) : keys.start;
     if (start > target) return;
     // Written even when empty (a station with no prices yet), so tomorrow it
     // needs one day's file, not the whole catch-up window.
@@ -137,7 +154,7 @@ export async function foldHistory(
   });
 
   const progress: FoldProgress = { target, done: done + slice.length };
-  await store.setJSON(KEYS.historyProgress, progress);
+  await store.setJSON(keys.historyProgress, progress);
   return {
     target,
     stations: slice.length,

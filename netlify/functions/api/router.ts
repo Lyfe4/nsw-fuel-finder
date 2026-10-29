@@ -17,6 +17,7 @@ import { sydneyMonth } from '../../lib/snapshot/calls';
 import { STALE_AFTER_MS } from '../../lib/snapshot/format';
 import { sydneyDay } from '../../lib/upstream/time';
 
+import type { QldStatusInput } from './qldStatus';
 import type {
   PlaceSuggestionsResponse,
   PricesResponse,
@@ -99,6 +100,10 @@ export interface HandlerDeps {
   getHistory: (code: string) => Promise<{ backfill: unknown; live: unknown }>;
   /** A finished day's prices (history/v1/DAY), or null; never throws. */
   getDay: (day: string) => Promise<HistoryDay['fuels'] | null>;
+  /** Queensland's run record, newest snapshot, calls and reference metadata, for /api/status. */
+  getQldStatus?: () => Promise<QldStatusInput>;
+  /** QLD_PUBLIC (round 15): whether Queensland is served and can make /api/status unhealthy. */
+  qldPublic?: boolean;
   now: () => number;
 }
 
@@ -148,7 +153,7 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
   if (route === 'places') return suggestions(params);
   if (route === 'status') {
     const now = deps.now();
-    const [served, run, calls] = await Promise.all([
+    const [served, run, calls, qld] = await Promise.all([
       deps.getSnapshot().then(
         (loaded) => loaded.snapshot,
         () => null,
@@ -169,8 +174,25 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
         console.error('Reading the call count failed', error);
         return null;
       }),
+      deps.getQldStatus?.().catch((error: unknown): QldStatusInput => {
+        console.error('Reading the QLD records failed', error);
+        return {
+          lastRun: null,
+          lastRunError: error instanceof Error ? error.message : String(error),
+          written: null,
+          calls: null,
+          reference: null,
+        };
+      }),
     ]);
-    const report = statusReport({ served, ...run, calls, now });
+    const report = statusReport({
+      served,
+      ...run,
+      calls,
+      ...(qld ? { qld } : {}),
+      qldPublic: deps.qldPublic ?? false,
+      now,
+    });
     return json(report, report.healthy ? 200 : 503, 'no-store');
   }
 

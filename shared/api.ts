@@ -97,6 +97,28 @@ export interface StatusResponse {
   served: { fetchedAt: string; stations: number } | null;
   /** The latest scheduled run, as recorded in Blobs. */
   lastRun: { ok: boolean; startedAt: string; fetchedAt?: string; error?: string } | null;
+  /**
+   * Round 15: each source on its own. The fields above are NSW's, kept as
+   * they were. Queensland's problems count towards `healthy` and `problems`
+   * only once it is public.
+   */
+  sources: { qld: QldSourceStatus };
+}
+
+/** Queensland's pipeline in /api/status. */
+export interface QldSourceStatus {
+  healthy: boolean;
+  /** Whether the API serves Queensland's prices (QLD_PUBLIC). */
+  public: boolean;
+  /** Plain-English reasons, without the "QLD: " the top-level list adds. */
+  problems: string[];
+  lastRun: { ok: boolean; startedAt: string; fetchedAt?: string; error?: string } | null;
+  /** The newest snapshot the QLD job wrote. */
+  written: { fetchedAt: string; stations: number } | null;
+  /** When the site details (names, brands, addresses) were last fetched. */
+  referenceFetchedAt: string | null;
+  /** Calls this Brisbane month, against the level that raises an alarm. */
+  callsThisMonth: { month: string; calls: number; budget: number };
 }
 
 export type ApiErrorCode =

@@ -29,22 +29,58 @@ export function sydneyMonth(at: Date): string {
   return sydneyDay(at).slice(0, 7);
 }
 
-/** Adds one run's calls to its month's record. */
+/**
+ * Any source's record: the month, the runs, and a count per kind of call
+ * (`token` and `prices` for API.NSW, `reference` and `prices` for Queensland).
+ */
+export const anyCallsRecordSchema = z
+  .object({
+    version: z.literal(1),
+    month: z.string().regex(/^\d{4}-\d{2}$/),
+    runs: z.number().int().min(0),
+  })
+  .catchall(z.number().int().min(0));
+
+/** Every call in a record, whatever its kinds. */
+export function totalCalls(record: z.infer<typeof anyCallsRecordSchema>): number {
+  return Object.entries(record)
+    .filter(([field]) => field !== 'version' && field !== 'month' && field !== 'runs')
+    .reduce((sum, [, count]) => sum + (typeof count === 'number' ? count : 0), 0);
+}
+
+/**
+ * Adds one run's calls to the record at `key` for `month`. Runs of one source
+ * never overlap (a retry starts after the failed run has returned), and each
+ * source has its own key, so a read-modify-write is safe.
+ */
+export async function addCalls(
+  store: KeyValueStore,
+  key: string,
+  month: string,
+  calls: Record<string, number>,
+): Promise<Record<string, number | string>> {
+  const parsed = anyCallsRecordSchema.safeParse(await store.getJSON(key, 'strong'));
+  const previous: Record<string, unknown> =
+    parsed.success && parsed.data.month === month ? parsed.data : {};
+  const next: Record<string, number | string> = {
+    version: 1,
+    month,
+    runs: (typeof previous.runs === 'number' ? previous.runs : 0) + 1,
+  };
+  for (const [what, count] of Object.entries(calls)) {
+    const before = previous[what];
+    next[what] = (typeof before === 'number' ? before : 0) + count;
+  }
+  await store.setJSON(key, next);
+  return next;
+}
+
+/** Adds one NSW run's calls to its Sydney month's record. */
 export async function recordCalls(
   store: KeyValueStore,
   at: Date,
   calls: { token: number; prices: number },
 ): Promise<CallsRecord> {
   const month = sydneyMonth(at);
-  const parsed = callsRecordSchema.safeParse(await store.getJSON(KEYS.calls(month), 'strong'));
-  const previous = parsed.success && parsed.data.month === month ? parsed.data : null;
-  const next: CallsRecord = {
-    version: 1,
-    month,
-    token: (previous?.token ?? 0) + calls.token,
-    prices: (previous?.prices ?? 0) + calls.prices,
-    runs: (previous?.runs ?? 0) + 1,
-  };
-  await store.setJSON(KEYS.calls(month), next);
-  return next;
+  return callsRecordSchema.parse(await addCalls(store, KEYS.calls(month), month, calls));
 }

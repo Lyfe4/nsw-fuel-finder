@@ -34,13 +34,18 @@ export const historyDaySchema = z.object({
 
 export type HistoryDay = z.infer<typeof historyDaySchema>;
 
-export function historyDayFor(snapshot: Snapshot): string {
-  return sydneyDay(new Date(snapshot.fetchedAt));
+/** The snapshot's calendar day, by default in Sydney; Queensland's is Brisbane's. */
+export function historyDayFor(snapshot: Snapshot, dayOf = sydneyDay): string {
+  return dayOf(new Date(snapshot.fetchedAt));
 }
 
 /** Folds one snapshot into the day's record. `existing` is null on the day's first run. */
-export function updateHistoryDay(existing: HistoryDay | null, snapshot: Snapshot): HistoryDay {
-  const day = historyDayFor(snapshot);
+export function updateHistoryDay(
+  existing: HistoryDay | null,
+  snapshot: Snapshot,
+  dayOf = sydneyDay,
+): HistoryDay {
+  const day = historyDayFor(snapshot, dayOf);
   const fuels: HistoryDay['fuels'] = existing?.day === day ? existing.fuels : {};
 
   for (const station of snapshot.stations) {

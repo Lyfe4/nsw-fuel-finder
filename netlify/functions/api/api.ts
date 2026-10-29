@@ -9,7 +9,8 @@
 import { createPreviousDaySource } from './previousDay';
 import { createHandler } from './router';
 import { createSnapshotSource } from './snapshotSource';
-import { blobStore, KEYS } from '../../lib/store';
+import { blobStore, KEYS, QLD_KEYS } from '../../lib/store';
+import { brisbaneDay } from '../../lib/upstream/time';
 
 const now = () => Date.now();
 const store = blobStore();
@@ -29,6 +30,18 @@ export default createHandler({
     return { backfill, live };
   },
   getDay: (day) => previousDay.get(day),
+  // Strong, like NSW's run record: these say whether the QLD job is healthy.
+  getQldStatus: async () => {
+    const month = brisbaneDay(new Date(now())).slice(0, 7);
+    const [lastRun, written, calls, reference] = await Promise.all([
+      store.getJSON(QLD_KEYS.lastRun, 'strong'),
+      store.getMetadata(QLD_KEYS.snapshot, 'strong'),
+      store.getJSON(QLD_KEYS.calls(month), 'strong').catch(() => null),
+      store.getMetadata(QLD_KEYS.reference, 'strong').catch(() => null),
+    ]);
+    return { lastRun, written, calls, reference };
+  },
+  qldPublic: process.env.QLD_PUBLIC === 'true',
   now,
 });
 
