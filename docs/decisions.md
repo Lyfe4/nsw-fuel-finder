@@ -2871,6 +2871,38 @@ unavailable and 1 implausible price left out. The snapshot is 639 kB
 (126 kB gzipped), the reference data 299 kB, a Brisbane day's history
 234 kB.
 
+### One real run, before the merge
+
+Approved by the owner: `netlify dev --offline` and
+`netlify functions:invoke snapshot-qld`, local Blobs only, at 01:22 UTC on
+29 October. 4 calls (3 reference, 1 prices), 1.5 s, 1,774 stations and
+6,881 prices. It wrote exactly `qld/history/v1/2026-10-29`,
+`qld/meta/calls/2026-10`, `qld/meta/last-run`, `qld/reference/v1` and
+`qld/snapshot/v1/latest`, and `/api/status` showed `sources.qld` healthy.
+The token appeared in no output. QLD calls so far: 9 (5 research, 4 here).
+
+### Proof that nothing from Queensland is public while QLD_PUBLIC is off
+
+`createApiDeps` (`netlify/functions/api/deps.ts`) is what the function
+runs, now buildable over any store. `qldExposure.test.ts` builds it over a
+store holding everything the QLD job writes, plus per-station and daily
+QLD history, and asks 24 routes (nearby by the border and in NSW, location
+by QLD suburb, postcode and label, places, stations and history by `qld-`
+code) with `QLD_PUBLIC` unset, `false`, `1`, `TRUE` and ` true`. Only the
+exact string `true` turns it on.
+
+- No answer contains a QLD station, price, name or address. `stations`
+  lists the codes asked for under `missing`; `history` is a 404.
+- Every store read is recorded. No route but `/api/status` reads a `qld/`
+  key or a `qld-` code. `/api/status` reads exactly four: the run record
+  and the call count, and the _metadata_ (time and count) of the snapshot
+  and the reference data. Its answer has no price, station or code.
+- A stalled QLD job shows in `sources.qld` and not in the top-level
+  `problems`, so it cannot page anyone.
+
+The same routes were probed on the local server above, with the real QLD
+data in its store: the same result.
+
 ## 2026-10-25: Baseline (updated 29 October, round 14)
 
 The project as of `1dc55ab` (round 14, icons and alignment, pull request

@@ -3,47 +3,15 @@
  * Netlify Blobs and never calls API.NSW; netlify/functions/snapshot keeps the
  * snapshot fresh. See router.ts for the routes.
  *
- * The snapshot source lives at module scope, so a warm instance keeps its
- * parsed copy between requests.
+ * The snapshot source lives at module scope (in the deps built here once), so
+ * a warm instance keeps its parsed copy between requests. What the routes
+ * read is in deps.ts.
  */
-import { createPreviousDaySource } from './previousDay';
+import { createApiDeps } from './deps';
 import { createHandler } from './router';
-import { createSnapshotSource } from './snapshotSource';
-import { blobStore, KEYS, QLD_KEYS } from '../../lib/store';
-import { brisbaneDay } from '../../lib/upstream/time';
+import { blobStore } from '../../lib/store';
 
-const now = () => Date.now();
-const store = blobStore();
-const source = createSnapshotSource({ store, now });
-const previousDay = createPreviousDaySource({ store, now });
-
-export default createHandler({
-  getSnapshot: () => source.get(),
-  getLastRun: () => store.getJSON(KEYS.lastRun, 'strong'),
-  getCalls: (month) => store.getJSON(KEYS.calls(month), 'strong'),
-  // Eventual: history changes once a day, and a minute's lag does not matter.
-  getHistory: async (code) => {
-    const [backfill, live] = await Promise.all([
-      store.getJSON(KEYS.historyBackfill(code), 'eventual'),
-      store.getJSON(KEYS.historyLive(code), 'eventual'),
-    ]);
-    return { backfill, live };
-  },
-  getDay: (day) => previousDay.get(day),
-  // Strong, like NSW's run record: these say whether the QLD job is healthy.
-  getQldStatus: async () => {
-    const month = brisbaneDay(new Date(now())).slice(0, 7);
-    const [lastRun, written, calls, reference] = await Promise.all([
-      store.getJSON(QLD_KEYS.lastRun, 'strong'),
-      store.getMetadata(QLD_KEYS.snapshot, 'strong'),
-      store.getJSON(QLD_KEYS.calls(month), 'strong').catch(() => null),
-      store.getMetadata(QLD_KEYS.reference, 'strong').catch(() => null),
-    ]);
-    return { lastRun, written, calls, reference };
-  },
-  qldPublic: process.env.QLD_PUBLIC === 'true',
-  now,
-});
+export default createHandler(createApiDeps(blobStore(), () => Date.now(), process.env));
 
 /*
  * ROUTING AND RATE LIMIT, read by Netlify from the source (keep them literals).
