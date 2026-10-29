@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { PLAUSIBLE_CENTS, QLD_BRAND_ALIASES, QLD_FUELS, QLD_UNAVAILABLE } from './mapping';
+import {
+  PLAUSIBLE_CENTS,
+  QLD_BOUNDS,
+  QLD_BRAND_ALIASES,
+  QLD_FUELS,
+  QLD_UNAVAILABLE,
+} from './mapping';
 import { qldPriceSchema, qldSiteSchema, type QldBrands, type QldRegions } from './schemas';
 import { SNAPSHOT_VERSION, type Snapshot, type SnapshotStation } from '../snapshot/format';
 
@@ -43,6 +49,8 @@ export interface ReferenceStats {
   sites: number;
   skippedSites: number;
   unknownSuburbs: number;
+  /** Sites whose coordinates are outside Queensland's box: left out (round 16). */
+  outsideBounds: number;
 }
 
 export function buildReference(
@@ -56,7 +64,7 @@ export function buildReference(
       tidy(region.Name),
     ]),
   );
-  const stats: ReferenceStats = { sites: 0, skippedSites: 0, unknownSuburbs: 0 };
+  const stats: ReferenceStats = { sites: 0, skippedSites: 0, unknownSuburbs: 0, outsideBounds: 0 };
   const sites: QldReference['sites'] = {};
   for (const row of raw.sites) {
     const parsed = qldSiteSchema.safeParse(row);
@@ -65,6 +73,13 @@ export function buildReference(
       continue;
     }
     const site = parsed.data;
+    if (
+      !(site.Lat >= QLD_BOUNDS.minLat && site.Lat <= QLD_BOUNDS.maxLat) ||
+      !(site.Lng >= QLD_BOUNDS.minLng && site.Lng <= QLD_BOUNDS.maxLng)
+    ) {
+      stats.outsideBounds++;
+      continue;
+    }
     const suburb = suburbs.get(site.G1) ?? null;
     if (suburb === null) stats.unknownSuburbs++;
     const brand = brands.get(site.B) ?? '';

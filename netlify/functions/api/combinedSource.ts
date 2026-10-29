@@ -1,6 +1,6 @@
 import { buildPlaceIndex } from './places';
 import { SnapshotUnavailableError, type LoadedSnapshot } from './snapshotSource';
-import { SNAPSHOT_VERSION } from '../../lib/snapshot/format';
+import { QLD_SERVE_MAX_MS, SNAPSHOT_VERSION } from '../../lib/snapshot/format';
 
 import type { SourceId } from '../../../shared/api';
 
@@ -9,22 +9,26 @@ interface Source {
 }
 
 /**
- * WHAT THE ROUTES SEARCH: NSW's snapshot, and Queensland's when it is public
- * (round 15, docs/qld-plan.md, "The API reads two snapshots").
+ * WHAT THE ROUTES SEARCH: NSW's snapshot, and Queensland's when the request
+ * may have it (round 15, docs/qld-plan.md, "The API reads two snapshots";
+ * the gate is in router.ts and deps.ts).
  *
- * - QLD_PUBLIC off: NSW's snapshot, as it always was. Queensland's is never
- *   read (qldExposure.test.ts).
- * - On: both are read independently, each with its own cache and recheck
- *   (snapshotSource.ts), and merged in memory. Either can be missing or
- *   unreadable and the other is still served, with the missing one listed
+ * - Without Queensland: NSW's snapshot, as it always was. Queensland's is
+ *   never read (qldExposure.test.ts).
+ * - With it: both are read independently, each with its own cache and
+ *   recheck (snapshotSource.ts), and merged in memory. Either can be missing
+ *   or unreadable and the other is still served, with the missing one listed
  *   in `unavailable`; only when neither can be read is it a 503. So a QLD
  *   outage never breaks NSW's answers, nor the reverse.
+ * - A Queensland snapshot older than QLD_SERVE_MAX_MS counts as unavailable
+ *   (licence clause 2.3: prices current within 30 minutes), so a stopped
+ *   job takes Queensland out of every answer on every deploy by itself.
  *
- * The merge (and its place index) is rebuilt only when either snapshot
+ * The merge (and its place index) is rebuilt only when what is merged
  * changes, about every 10 minutes, not per request. Station codes cannot
  * collide: Queensland's start with `qld-`.
  */
-export function createCombinedSource(deps: { nsw: Source; qld: Source; qldPublic: boolean }) {
+export function createCombinedSource(deps: { nsw: Source; qld: Source; now: () => number }) {
   let merged: { key: string; value: LoadedSnapshot } | null = null;
 
   async function both(): Promise<LoadedSnapshot> {
@@ -35,10 +39,19 @@ export function createCombinedSource(deps: { nsw: Source; qld: Source; qldPublic
       ['nsw', nsw],
       ['qld', qld],
     ] as const) {
-      if (result.status === 'fulfilled') parts.push({ id, loaded: result.value });
-      else {
+      if (result.status === 'rejected') {
         console.error(`The ${id.toUpperCase()} snapshot is unavailable`, result.reason);
         unavailable.push(id);
+      } else if (
+        id === 'qld' &&
+        deps.now() - Date.parse(result.value.snapshot.fetchedAt) > QLD_SERVE_MAX_MS
+      ) {
+        console.error(
+          `The QLD snapshot from ${result.value.snapshot.fetchedAt} is too old to serve`,
+        );
+        unavailable.push(id);
+      } else {
+        parts.push({ id, loaded: result.value });
       }
     }
     const [first] = parts;
@@ -66,8 +79,8 @@ export function createCombinedSource(deps: { nsw: Source; qld: Source; qldPublic
   }
 
   return {
-    async get(): Promise<LoadedSnapshot> {
-      if (!deps.qldPublic) {
+    async get(withQld: boolean): Promise<LoadedSnapshot> {
+      if (!withQld) {
         const loaded = await deps.nsw.get();
         return { ...loaded, sources: [{ id: 'nsw', fetchedAt: loaded.snapshot.fetchedAt }] };
       }

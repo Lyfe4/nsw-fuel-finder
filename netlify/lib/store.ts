@@ -60,6 +60,13 @@ export const QLD_KEYS = {
   calls: (month: string) => `qld/meta/calls/${month}`,
   historyDay: (day: string) => `qld/history/v1/${day}`,
   historyProgress: 'qld/history/v2/progress',
+  /** The last failed refresh of the reference data, so the next waits an hour (run.ts). */
+  referenceAttempt: 'qld/reference/attempt',
+  /**
+   * The owner's kill switch for serving Queensland (killSwitch.ts). Written
+   * only by `pnpm qld:switch`, never by a job; read by every deploy's API.
+   */
+  enabled: 'config/qld-enabled',
 } as const;
 
 /** Netlify Blobs. */

@@ -267,17 +267,18 @@ redeploys.
 The store is `fuel-finder`. It is site-wide, not deploy-scoped, so the snapshot and history
 outlive deploys.
 
-| Key                        | Contents                                                                               | Size                     |
-| -------------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| `snapshot/v1/latest`       | `{ version, fetchedAt, stations: [...] }`, with metadata `{ fetchedAt, stationCount }` | 875 kB (189 kB gzipped)  |
-| `history/v1/YYYY-MM-DD`    | The Sydney day's `[min, max, last]` per station per fuel                               | 262 kB/day (~95 MB/year) |
-| `auth/token`               | `{ token, expiresAt }`                                                                 | tiny                     |
-| `auth/failure`             | `{ version: 2, key (hash of the API key), rejected, unknown, lastAt, detail }`         | tiny                     |
-| `meta/last-run`            | The last run's summary: ok/error, calls made, counts                                   | tiny                     |
-| `meta/calls/YYYY-MM`       | API.NSW calls by Sydney month: `{ version, month, token, prices, runs }`               | tiny                     |
-| `history/v2/live/CODE`     | One station's daily `[day, low, high, last]` rows from our snapshots, by fuel          | up to ~25 kB             |
-| `history/v2/backfill/CODE` | The same from FuelCheck's monthly files (CC BY-SA), written by `history:backfill`      | ~15 kB                   |
-| `history/v2/progress`      | How far today's fold of yesterday into the live files has got                          | tiny                     |
+| Key                        | Contents                                                                                                   | Size                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `snapshot/v1/latest`       | `{ version, fetchedAt, stations: [...] }`, with metadata `{ fetchedAt, stationCount }`                     | 875 kB (189 kB gzipped)  |
+| `history/v1/YYYY-MM-DD`    | The Sydney day's `[min, max, last]` per station per fuel                                                   | 262 kB/day (~95 MB/year) |
+| `auth/token`               | `{ token, expiresAt }`                                                                                     | tiny                     |
+| `auth/failure`             | `{ version: 2, key (hash of the API key), rejected, unknown, lastAt, detail }`                             | tiny                     |
+| `meta/last-run`            | The last run's summary: ok/error, calls made, counts                                                       | tiny                     |
+| `meta/calls/YYYY-MM`       | API.NSW calls by Sydney month: `{ version, month, token, prices, runs }`                                   | tiny                     |
+| `history/v2/live/CODE`     | One station's daily `[day, low, high, last]` rows from our snapshots, by fuel                              | up to ~25 kB             |
+| `history/v2/backfill/CODE` | The same from FuelCheck's monthly files (CC BY-SA), written by `history:backfill`                          | ~15 kB                   |
+| `history/v2/progress`      | How far today's fold of yesterday into the live files has got                                              | tiny                     |
+| `config/qld-enabled`       | The Queensland kill switch, `{ version, enabled, changedAt }`; only `pnpm qld:switch` writes it (round 16) | tiny                     |
 
 A snapshot station:
 
@@ -327,7 +328,7 @@ A history day:
 | `GET /api/places?query`                 | `PlaceSuggestionsResponse`: up to 8 place labels for a partly typed name or postcode                         |
 | `GET /api/stations?codes`               | `StationsResponse`: up to 50 stations by code (favourites), every fuel each sells                            |
 | `GET /api/history?station&fuel`         | `HistoryResponse`: up to 120 days of daily low, high and last, with its sources and licence                  |
-| `GET /api/status`                       | `StatusResponse`: 200 if the pipeline is healthy, 503 with `problems` if not. Never cached                   |
+| `GET /api/status`                       | `StatusResponse`: 200 if the pipeline is healthy, 503 with `problems` if not. 30 s at the CDN (round 16)     |
 
 The function's only address is `/api/*`, set in its own `config` with the rate
 limit (120 requests a minute per IP address, then Netlify's 429). Everything
@@ -394,8 +395,28 @@ Caching:
 - Suggestions: an hour in the browser, a day at the edge. They only change
   with a deploy, and a deploy purges the CDN. The client sends the query
   lower-cased with single spaces, so "Erina" and "erina" share an entry.
-- History: ten minutes in the browser and at the edge.
-- Errors and `/api/status` are `no-store`.
+- History: ten minutes in the browser and at the edge; a Queensland
+  station's, one minute, as its prices (round 16), so switching Queensland
+  off reaches the edge quickly.
+- `/api/status` (round 16): 30 seconds at the edge, `no-store` in the
+  browser, and `Netlify-Vary: query=status`, a parameter it never reads, so
+  any query shares the one entry.
+- A GET's 4xx (round 16): a minute at the edge, with its route's
+  `Netlify-Vary`, and `no-store` in the browser, so a corrected search is
+  never answered from the browser's copy. A 5xx is never cached.
+
+**Queensland (round 16).** Served only through the gate in
+`netlify/functions/api/deps.ts`: `QLD_PUBLIC=true` on the deploy, the
+request on the published production deploy (`context.deploy.published`),
+and `config/qld-enabled` on in Blobs (`pnpm qld:switch`). A Queensland
+snapshot older than 25 minutes is left out and `qld` listed in
+`unavailable`, in searches and `/api/stations` alike; `/api/history` for a
+Queensland station is then a 503. An answer with a Queensland station
+carries `notices`: the clause 4.2 notice and "Queensland prices may not be
+republished.", word for word, which the page shows as sent. While
+Queensland is not served, `/api/status`'s `sources.qld` is only
+`healthy`, `public` and general `problems`.
+
 - **Cache keys** (round 9): by default Netlify keys a function's response on
   every query parameter, so `&x=1` was a fresh function run. Each route now
   sends `Netlify-Vary: query=` with its own parameters (`fuel|lat|lng|radius`,

@@ -1,5 +1,5 @@
 import { formatAsOf } from './format';
-import { qldDataNotice, stationSource, type PricesResponse, type SourceId } from '../../shared/api';
+import { stationSource, type PricesResponse, type SourceId } from '../../shared/api';
 
 /*
  * Where prices come from (round 15). NSW and the ACT from NSW FuelCheck,
@@ -40,20 +40,3 @@ export function asOfSentence(data: PricesResponse, fuelName: string, now: Date):
   const when = sources.map((s, i) => `${times[i] ?? ''} (${STATE_SHORT[s.id]})`).join(' and ');
   return `${fuelName} prices as of ${when}, from ${names}.`;
 }
-
-const brisbaneYear = new Intl.DateTimeFormat('en-CA', {
-  timeZone: TIME_ZONES.qld,
-  year: 'numeric',
-});
-
-/** The year in Queensland's licence notice: the year of the data shown. */
-export function qldNoticeYear(data: PricesResponse): number {
-  const qld = data.sources?.find((s) => s.id === 'qld');
-  return Number(brisbaneYear.format(new Date(qld?.fetchedAt ?? data.fetchedAt)));
-}
-
-export function hasQldStation(stations: readonly { stationCode: string }[]): boolean {
-  return stations.some((s) => stationSource(s.stationCode) === 'qld');
-}
-
-export { qldDataNotice };

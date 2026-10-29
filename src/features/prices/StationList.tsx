@@ -4,6 +4,7 @@ import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { SelectedStation } from '@/features/map/SelectedStation';
 import { formatAge, formatDistance, formatPrice } from '@/lib/format';
+import { SOURCE_NAMES, stationSource } from '@/lib/sources';
 
 import { priceAge } from './priceAge';
 import styles from './StationList.module.css';
@@ -132,6 +133,14 @@ export function StationList({
                       ) : (
                         <>
                           <VisuallyHidden>updated</VisuallyHidden> {age}
+                        </>
+                      )}
+                      {/* Queensland's licence, clause 4.4: its prices told apart in the list too. */}
+                      {stationSource(station.stationCode) === 'qld' && (
+                        <>
+                          {' '}
+                          <span aria-hidden="true">·</span> Qld
+                          <VisuallyHidden>, price from {SOURCE_NAMES.qld}</VisuallyHidden>
                         </>
                       )}
                     </span>

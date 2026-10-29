@@ -211,6 +211,7 @@ pnpm dev:netlify          # the app and the functions together, at :8888
 | `pnpm screenshots`       | These screenshots and the social card, from committed fixtures (`--record`) |
 | `pnpm history:backfill`  | Rebuild history from FuelCheck's monthly files (`--upload` writes to Blobs) |
 | `pnpm auth:reset`        | Show the lockout guard's record and, if you type `reset`, clear it          |
+| `pnpm qld:switch`        | Show the Queensland kill switch; `on` or `off`, after typing the word       |
 
 CI runs typecheck, lint, format, tests, build and the bundle budget on every
 pull request and every push to `main`. `main` is protected: each change
@@ -236,6 +237,24 @@ against `pnpm serve:headers`, a preview or production.
   stopped the job: fix the cause (the key, the secret, or the app's Fuel API
   subscription), then run `pnpm auth:reset` with the same kind of short-lived
   token.
+- **Queensland on and off.** The API serves Queensland only when all three
+  hold: `QLD_PUBLIC=true` on the deploy (Netlify, production context,
+  Functions scope), the request reached the published production deploy
+  (never a preview or an older deploy's permalink), and the kill switch in
+  Blobs is on (`config/qld-enabled`, off when missing). And a Queensland
+  snapshot more than 25 minutes old is never served, whatever they say.
+  - **On** (phase 1c, only with publisher approval in writing): set
+    `QLD_PUBLIC=true` for production first, then merge the 1c pull request
+    (its deploy picks the variable up), then run `pnpm qld:switch on` with a
+    short-lived token, as for `auth:reset`, and type `on`.
+  - **Off, at once:** `pnpm qld:switch off`, type `off`. Every deploy stops
+    serving Queensland within about two minutes (15 s in each warm API
+    instance, then the CDN's minute or two), with no redeploy. Netlify
+    deletes deploys after 30 days on this plan; until then the switch is
+    what covers the older ones.
+  - **If the licence ends** (clause 4.6: stop using the data): switch off,
+    then remove `QLD_FPD_TOKEN` and redeploy, so the job stops calling. Ask
+    before deleting what is stored under `qld/` and the `qld-` history files.
 - **If `check:browser` says Netlify's badge is back**, the policy is blocking
   it: decide whether to allow it again (docs/decisions.md, round 9).
 - **UptimeRobot** checks
@@ -280,4 +299,6 @@ site at [/privacy.html](https://nsw-fuel-finder.netlify.app/privacy.html).
   © [OpenMapTiles](https://openmaptiles.org/), data ©
   [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, drawn
   with [MapLibre GL JS](https://maplibre.org/).
-- **Code:** [MIT](LICENSE).
+- **Code:** [MIT](LICENSE). The licences of the open-source packages in the
+  app are served with it at `/third-party-notices.txt` (written by the
+  build), and the fonts' at `/fonts/OFL.txt`.

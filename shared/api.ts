@@ -72,6 +72,12 @@ export interface PricesResponse {
    * answer is from the others. Empty or absent when everything was read.
    */
   unavailable?: SourceId[];
+  /**
+   * Round 16: licence notices for the data in this answer, word for word,
+   * to be shown with it. Present only when the answer has a Queensland
+   * station (licence clauses 4.2 and 2.3; see qldPriceNotices).
+   */
+  notices?: string[];
 }
 
 /**
@@ -100,6 +106,35 @@ export function qldDataNotice(year: number): string {
   );
 }
 
+/**
+ * The notice Queensland's licence requires on any copy of its data "however
+ * altered, reformatted or redisplayed" (clause 4.2), word for word, with the
+ * year. A station's price as we show it is that data, redisplayed.
+ */
+export function qldCopyNotice(year: number): string {
+  return (
+    `© State of Queensland (Department of Energy and Climate) ${String(year)}. ` +
+    'In consideration of the State permitting use of this data you acknowledge and agree that the State gives no ' +
+    'warranty in relation to the data (including accuracy, reliability, completeness, currency or suitability) and ' +
+    'accepts no liability (including without limitation, liability in negligence) for any loss, damage or costs ' +
+    '(including consequential damage) relating to any use of the data. Data must not be used for direct marketing ' +
+    'or be used in breach of the privacy laws.'
+  );
+}
+
+/** Clause 2.3: a publisher "must prohibit further publication". */
+export const QLD_NO_REPUBLISHING = 'Queensland prices may not be republished.';
+
+/**
+ * What goes with Queensland's prices, wherever they are shown or served:
+ * the clause 4.2 notice and the prohibition. History, which is built from
+ * them (daily low, high and last), carries the clause 4.3 notice instead
+ * (qldDataNotice).
+ */
+export function qldPriceNotices(year: number): string[] {
+  return [qldCopyNotice(year), QLD_NO_REPUBLISHING];
+}
+
 /** One source in a PricesResponse: its own snapshot time and staleness. */
 export interface PriceSource {
   id: SourceId;
@@ -125,7 +160,7 @@ export interface PlaceSuggestionsResponse {
 
 /**
  * GET /api/status: whether the price pipeline is healthy end to end. 200 when
- * healthy, 503 with `problems` when not; never cached.
+ * healthy, 503 with `problems` when not; cached for 30 seconds at the CDN.
  */
 export interface StatusResponse {
   healthy: boolean;
@@ -147,22 +182,33 @@ export interface StatusResponse {
    * only once it is public.
    */
   sources: { qld: QldSourceStatus };
+  /**
+   * Round 16: which deploy answered, as Netlify tells the function: its
+   * context and whether it is the published one, which the Queensland gate
+   * needs. Null where Netlify gave nothing (tests, `netlify dev`).
+   */
+  deploy?: { context: string | null; published: boolean | null };
 }
 
-/** Queensland's pipeline in /api/status. */
+/**
+ * Queensland's pipeline in /api/status. While it is not served, only
+ * `healthy`, `public` and `problems` (in general words, with no counts or
+ * times) are published: the details would describe a dataset the site does
+ * not show.
+ */
 export interface QldSourceStatus {
   healthy: boolean;
-  /** Whether the API serves Queensland's prices (QLD_PUBLIC). */
+  /** Whether this deploy serves Queensland's prices now (all three gates). */
   public: boolean;
   /** Plain-English reasons, without the "QLD: " the top-level list adds. */
   problems: string[];
-  lastRun: { ok: boolean; startedAt: string; fetchedAt?: string; error?: string } | null;
+  lastRun?: { ok: boolean; startedAt: string; fetchedAt?: string; error?: string } | null;
   /** The newest snapshot the QLD job wrote. */
-  written: { fetchedAt: string; stations: number } | null;
+  written?: { fetchedAt: string; stations: number } | null;
   /** When the site details (names, brands, addresses) were last fetched. */
-  referenceFetchedAt: string | null;
+  referenceFetchedAt?: string | null;
   /** Calls this Brisbane month, against the level that raises an alarm. */
-  callsThisMonth: { month: string; calls: number; budget: number };
+  callsThisMonth?: { month: string; calls: number; budget: number };
 }
 
 export type ApiErrorCode =
@@ -215,6 +261,13 @@ export interface StationsResponse {
   stations: StationSummary[];
   /** Asked for but not in the snapshot: closed, renumbered, or never real. */
   missing: string[];
+  /**
+   * Round 16: sources that could not be served just now, so a station from
+   * one of them in `missing` may only be unavailable, not gone.
+   */
+  unavailable?: SourceId[];
+  /** As in PricesResponse: present when a Queensland station is in `stations`. */
+  notices?: string[];
 }
 
 /** One day of one fuel at one station: cents a litre, low, high and the day's last. */

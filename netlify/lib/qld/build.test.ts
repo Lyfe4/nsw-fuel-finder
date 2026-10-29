@@ -74,7 +74,34 @@ describe('buildReference', () => {
       lng: 149.068,
     });
     expect(reference.sites['61000004']).toMatchObject({ street: '', suburb: null, brand: '' });
-    expect(referenceStats).toEqual({ sites: 4, skippedSites: 1, unknownSuburbs: 1 });
+    expect(referenceStats).toEqual({
+      sites: 4,
+      skippedSites: 1,
+      unknownSuburbs: 1,
+      outsideBounds: 0,
+    });
+  });
+
+  it('leaves out a site whose coordinates are outside Queensland, and counts it (round 16)', () => {
+    const [first] = qldSites.S as Record<string, unknown>[];
+    const sites = [
+      ...qldSites.S,
+      // Swapped, at 0,0, and in Sydney: none can be a Queensland site.
+      { ...first, S: 61000101, Lat: 153.514, Lng: -28.164 },
+      { ...first, S: 61000102, Lat: 0, Lng: 0 },
+      { ...first, S: 61000103, Lat: -33.87, Lng: 151.21 },
+    ];
+    const { reference, stats } = buildReference(
+      { sites, brands: qldBrands, regions: qldRegions },
+      at,
+    );
+    expect(stats.outsideBounds).toBe(3);
+    expect(stats.sites).toBe(4);
+    expect(Object.keys(reference.sites)).not.toEqual(
+      expect.arrayContaining(['61000101', '61000102', '61000103']),
+    );
+    for (const id of ['61000101', '61000102', '61000103'])
+      expect(reference.sites[id]).toBeUndefined();
   });
 });
 

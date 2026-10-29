@@ -10,7 +10,7 @@ its history, without the two states being able to break each other.
 | 0: licence                           | **Waiting.** The owner submitted the publisher sign-up on 29 October; nothing public until it is confirmed |
 | 1a: pipeline, dark                   | **Live** since 29 October (pull request #16, `6ca2719`). First good production run 02:00 UTC               |
 | 1b: search and UI, behind QLD_PUBLIC | **Merged** (pull request #17, `b3e159f`). `QLD_PUBLIC` is unset, so nothing from Queensland is served      |
-| 1c: switch on                        | Not started. Only with the owner's explicit go-ahead, after phase 0                                        |
+| 1c: switch on                        | Not started. Only with the owner's explicit go-ahead, after phase 0. Round 16 added the three-way gate     |
 | 2: history                           | Not started                                                                                                |
 
 The rest of this document is the research and plan as written before the
@@ -239,6 +239,56 @@ Climate). In short:
 | 1.4/4.1 | A fee of $1 "payable upon demand"                                                                                                    | Pay it if asked                                                                   |
 | 5       | Audits                                                                                                                               | Keep these docs; they show what we do                                             |
 
+#### Checked against the licence's own text (round 16)
+
+The table above was written from a reading of the licence before the build.
+On 29 October the owner put `LimitedUseLicence.pdf` (_Fuel Price Data
+Licence Terms and Conditions - 2024_) in `private/qld/`, and the clauses
+were checked word by word. Where the table differs from the text:
+
+- **2.2** says the data must be changed "irreversibly" in form, or
+  augmented or incorporated with other data. Merging with NSW's prices
+  is the second kind; nothing changes.
+- **2.3** matches: publisher only, "must prohibit further publication",
+  prices within thirty minutes of a change, "all other published data
+  (including locality, address, brand)" within 24 hours. The text does not
+  say whether the 30 minutes start at the pump or when the price reaches
+  the Aggregator; the build assumes the latter (retailers have 30 minutes
+  to report). Worth asking with the publisher application.
+- **3.1** matches.
+- **4.2 and 4.3 are two notices, not one with a choice.** 4.2 ("©
+  State of Queensland (Department of Energy and Climate) [year]. …") goes
+  on "any copies of the Licensed Data however altered, reformatted or
+  redisplayed"; 4.3 ("Based on or contains data provided by …") on
+  Licensed Data Products. The disclaimer after the first sentence is the
+  same. Phase 1b used 4.3 everywhere. Since round 16, a station's price as
+  shown (the data, redisplayed) carries 4.2, and history (daily low, high
+  and last, built from the prices) keeps 4.3. A merged search is arguably
+  both; **confirm with the Licensor which to show** when publisher status
+  is granted.
+- **4.4** reads "distinguish between data sourced from the Licensor and
+  other sources", as the table says. Done per station on the card, the
+  list row and favourites (round 16).
+- **4.5 was missing from the table:** if metadata is supplied with the
+  data, a Licensed Data Product must carry at least that metadata. The API
+  sends none beyond each price's own fields (we keep its time; we drop
+  `CollectionMethod`, always "Q"). Worth asking whether anything counts.
+- **4.6** matches, and adds that after termination "you must not continue
+  using the Licensed Data or any Licensed Data Products": the kill switch
+  stops publication at once; stopping the job and the stored copies is in
+  the README's procedure.
+- **4.7** also forbids Queensland Government "acronyms" in association
+  with the data. "Qld" and "QLD" are the state's abbreviation, used for
+  addresses, not a government mark; "Fuel Prices Qld" is the service's
+  own name, which 4.4 needs.
+- **4.8** matches: usage data only when the Licensor asks, within 10
+  business days, and for a publisher Google-Analytics-style active, new and
+  returning users by month and region. Still the open question: the site
+  has no analytics.
+- **Not in the table:** 1.5 also allows termination on 3 business days'
+  notice for any uncorrected breach; 1.7, terms can change on 20 business
+  days' notice; 5, audits may include our premises and records.
+
 ### 1.6 What has to happen before QLD prices go public
 
 1. **Publisher status.** The owner is approved as a _data consumer_. Clause 4.6
@@ -368,6 +418,8 @@ keep their names, so no migration and no change to the backfill or
 | `qld/history/v1/YYYY-MM-DD` | The Brisbane day's `[low, high, last]` per station per fuel             |
 | `history/v2/live/qld-…`     | Per-station files; same key family as NSW (codes are prefixed)          |
 | `qld/history/v2/progress`   | The QLD fold's own progress                                             |
+| `qld/reference/attempt`     | The last failed reference refresh, so the next waits an hour (round 16) |
+| `config/qld-enabled`        | The owner's kill switch (round 16); only `pnpm qld:switch` writes it    |
 
 The per-station history files stay in `history/v2/live/` and
 `history/v2/backfill/` because `/api/history` looks them up by station code
@@ -768,10 +820,14 @@ is left for 1c: the masthead, the footer, `index.html`, the manifest,
   and notice, `index.html`, manifest, `package.json`, README, privacy note
   ("Queensland prices may not be republished"), screenshots, and the
   Baseline in `docs/decisions.md`.
-- Set `QLD_PUBLIC=true` (production, Functions scope), then **redeploy**:
-  a deploy only gets variables that existed when it was built. The deploy
-  also purges the CDN, so no answer cached with the switch off survives.
-  QLD problems then make `/api/status` unhealthy and page the owner.
+- Set `QLD_PUBLIC=true` (production only, Functions scope; not Netlify's
+  default "same value for all contexts") **before** merging the 1c pull
+  request: a deploy only gets variables that existed when it was built, so
+  the merge's deploy picks it up. The deploy also purges the CDN, so no
+  answer cached with Queensland off survives.
+- Then `pnpm qld:switch on` (round 16). Until then nothing is served, even
+  on the new deploy. QLD problems then make `/api/status` unhealthy and
+  page the owner. The README's Maintenance section has the off procedure.
 - Then the domain (6.2), if the owner wants it.
 
 ### Phase 2: history (one round, any time after 1a)

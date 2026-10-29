@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { REFERENCE_REFRESH_MS, runQldSnapshot } from './run';
 import { config } from '../../functions/snapshot-qld/snapshot-qld';
-import { fakeQld, QLD_FIXTURE_AT } from '../__fixtures__/fakeQld';
+import { fakeQld, QLD_FIXTURE_AT, qldSites } from '../__fixtures__/fakeQld';
 import { fakeUpstream, jsonResponse } from '../__fixtures__/fakeUpstream';
 import { anyCallsRecordSchema } from '../snapshot/calls';
 import { QLD_SNAPSHOT_INTERVAL_MINUTES, snapshotSchema } from '../snapshot/format';
@@ -84,6 +84,66 @@ describe('runQldSnapshot', () => {
       refreshed: false,
       error: 'unavailable',
     });
+  });
+
+  it('waits an hour after a failed refresh before calling for reference data again (round 16)', async () => {
+    const { store } = memoryStore();
+    await runQldSnapshot(fakeQld({}, store).deps);
+    const down = () => new Response('', { status: 500 });
+
+    // Due, and failing: one try, then the stored copy.
+    const first = fakeQld({ sites: [down] }, store);
+    first.advance(REFERENCE_REFRESH_MS);
+    expect((await runQldSnapshot(first.deps)).ok).toBe(true);
+    expect(first.callsTo('sites')).toHaveLength(1);
+
+    // Every run for the next hour: no reference call, prices as usual.
+    for (const minutes of [10, 20, 50]) {
+      const later = fakeQld({ sites: [down] }, store);
+      later.advance(REFERENCE_REFRESH_MS + minutes * MINUTE);
+      const summary = await runQldSnapshot(later.deps);
+      expect(summary.ok).toBe(true);
+      expect(summary.calls).toEqual({ reference: 0, prices: 1 });
+      expect(summary.stats?.reference.error).toBe('backing_off');
+    }
+
+    // An hour on, it tries again, and a good answer is stored.
+    const hourOn = fakeQld({}, store);
+    hourOn.advance(REFERENCE_REFRESH_MS + 61 * MINUTE);
+    const summary = await runQldSnapshot(hourOn.deps);
+    expect(summary.calls).toEqual({ reference: 3, prices: 1 });
+    expect(summary.stats?.reference.refreshed).toBe(true);
+  });
+
+  it('refuses a reference with under half the stored sites, and keeps the stored one (round 16)', async () => {
+    const { store } = memoryStore();
+    await runQldSnapshot(fakeQld({}, store).deps);
+    const before = await store.getJSON(QLD_KEYS.reference, 'strong');
+    const [onlyOne] = qldSites.S;
+    const thin = fakeQld({ sites: [() => jsonResponse({ S: [onlyOne] })] }, store);
+    thin.advance(REFERENCE_REFRESH_MS);
+    const summary = await runQldSnapshot(thin.deps);
+    expect(summary.ok).toBe(true);
+    expect(summary.stats?.reference).toMatchObject({ refreshed: false, error: 'partial_response' });
+    expect(summary.stats?.stations).toBe(3);
+    expect(await store.getJSON(QLD_KEYS.reference, 'strong')).toEqual(before);
+  });
+
+  it('without stored reference data, a failed refresh fails the run and the next ones wait', async () => {
+    const { store } = memoryStore();
+    const down = () => new Response('', { status: 500 });
+    const first = fakeQld({ sites: [down] }, store);
+    expect(await runQldSnapshot(first.deps)).toMatchObject({
+      ok: false,
+      error: { kind: 'unavailable' },
+    });
+    // Netlify's retry seconds later, or the next run: no calls, and no retry asked for.
+    const retry = fakeQld({ sites: [down] }, store);
+    retry.advance(10_000);
+    const summary = await runQldSnapshot(retry.deps);
+    expect(summary).toMatchObject({ ok: false, error: { kind: 'backing_off' } });
+    expect(retry.calls).toHaveLength(0);
+    expect(worthRetrying(summary)).toBe(false);
   });
 
   it('fails without any reference data to fall back on', async () => {

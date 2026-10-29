@@ -5,9 +5,18 @@ import { describe, expect, it } from 'vitest';
 import { renderApp, results } from '@/features/search/testing';
 import { asOfSentence } from '@/lib/sources';
 import { expectNoAxeViolations } from '@/lib/testing/axe';
-import { apiError, fakeApi, json, prices, station } from '@/lib/testing/fakeApi';
+import {
+  apiError,
+  fakeApi,
+  json,
+  prices,
+  station,
+  stationsResponse,
+  summary,
+} from '@/lib/testing/fakeApi';
 
-import { qldDataNotice } from '../../../shared/api';
+import { qldPriceNotices } from '../../../shared/api';
+import { FAVOURITES_STORAGE_KEY } from '../favourites/favourites';
 
 /*
  * The page with Queensland's prices in an answer (round 15). The API sends
@@ -43,6 +52,8 @@ const both = prices({
     { id: 'qld', fetchedAt: QLD_AT, stale: false },
   ],
   unavailable: [],
+  // As the API sends them with any answer that has a Queensland station (round 16).
+  notices: qldPriceNotices(2026),
 });
 
 describe('asOfSentence', () => {
@@ -75,8 +86,17 @@ describe('results with Queensland in them', () => {
     const { container } = renderApp('/?query=Tweed%20Heads');
     const list = await screen.findByRole('list', { name: 'Stations, cheapest first' });
     expect(within(list).getByText('Test Fuel Coolangatta')).toBeInTheDocument();
-    expect(within(results()).getByText(qldDataNotice(2026), { exact: false })).toBeVisible();
-    expect(within(results()).getByText(/Queensland prices may not be republished/)).toBeVisible();
+    // The notices the API sent, word for word (licence clauses 4.2 and 2.3).
+    const [copyNotice] = qldPriceNotices(2026);
+    expect(within(results()).getByText(copyNotice ?? '')).toBeVisible();
+    expect(within(results()).getByText('Queensland prices may not be republished.')).toBeVisible();
+    // Each Queensland row says so in the list, before it is opened (clause 4.4).
+    const qldRow = within(list).getByRole('button', { name: /Test Fuel Coolangatta/ });
+    expect(qldRow).toHaveTextContent('Qld');
+    expect(qldRow).toHaveAccessibleName(/price from Fuel Prices Qld/);
+    expect(
+      within(list).getByRole('button', { name: /Border Servo Tweed Heads/ }),
+    ).not.toHaveTextContent('Qld');
     await expectNoAxeViolations(container);
 
     // Opened, a Queensland station's card says where its price is from (licence clause 4.4).
@@ -142,5 +162,47 @@ describe('results without Queensland (QLD_PUBLIC off, as in production now)', ()
     expect(await within(results()).findByText(/from FuelCheck\.$/)).toBeVisible();
     expect(within(results()).queryByText(/State of Queensland/)).not.toBeInTheDocument();
     expect(within(results()).queryByText(/Fuel Prices Qld/)).not.toBeInTheDocument();
+  });
+});
+
+describe('a Queensland favourite (round 16)', () => {
+  const store = (favourites: { code: string; name: string }[]) => {
+    window.localStorage.setItem(FAVOURITES_STORAGE_KEY, JSON.stringify(favourites));
+  };
+
+  it('says where its price is from, with the licence notices the API sent', async () => {
+    store([
+      { code: 'qld-61000001', name: 'Test Fuel Coolangatta' },
+      { code: '99001', name: 'Border Servo Tweed Heads' },
+    ]);
+    fakeApi({
+      stations: () =>
+        json({
+          ...stationsResponse([summary(coolangatta), summary(tweed)]),
+          notices: qldPriceNotices(2026),
+        }),
+    });
+    const { container } = renderApp('/');
+    const list = await screen.findByRole('list', { name: 'Favourites, Unleaded 91' });
+    await within(list).findByText(/239\.9/);
+    const rows = within(list).getAllByRole('listitem');
+    const qld = rows.find((row) => row.textContent.includes('Coolangatta'));
+    const nsw = rows.find((row) => row.textContent.includes('Tweed Heads'));
+    expect(qld).toHaveTextContent('from Fuel Prices Qld');
+    expect(nsw).not.toHaveTextContent('Fuel Prices Qld');
+    expect(screen.getByText('Queensland prices may not be republished.')).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
+  it('says Queensland is unavailable, not that the station is gone, when its source is', async () => {
+    store([{ code: 'qld-61000001', name: 'Test Fuel Coolangatta' }]);
+    fakeApi({
+      stations: () => json({ ...stationsResponse([], ['qld-61000001']), unavailable: ['qld'] }),
+    });
+    renderApp('/');
+    expect(
+      await screen.findByText('Fuel Prices Qld prices are unavailable right now.'),
+    ).toBeVisible();
+    expect(screen.queryByText(/no longer lists/)).not.toBeInTheDocument();
   });
 });

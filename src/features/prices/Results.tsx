@@ -4,13 +4,7 @@ import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { ViewSwitch } from '@/features/map/ViewSwitch';
 import { formatAge, formatAsOf } from '@/lib/format';
-import {
-  asOfSentence,
-  hasQldStation,
-  qldDataNotice,
-  qldNoticeYear,
-  SOURCE_NAMES,
-} from '@/lib/sources';
+import { asOfSentence, SOURCE_NAMES } from '@/lib/sources';
 import { useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
 import { LoadingStations } from './LoadingStations';
@@ -268,12 +262,17 @@ export function Results({
 
       {/* When the prices are from: after the list, where it does not push the prices down. */}
       {'data' in view && <p className={styles.asOf}>{asOfSentence(view.data, fuelName, now)}</p>}
-      {/* Queensland's licence (clause 4.3): its notice wherever its prices are shown. */}
-      {'data' in view && hasQldStation([...view.data.stations, ...view.data.nearest]) && (
-        <p className={styles.asOf}>
-          {qldDataNotice(qldNoticeYear(view.data))} Queensland prices may not be republished.
-        </p>
-      )}
+      {/*
+        Licence notices for what is shown (round 16): the API sends them, word
+        for word, with any answer that has a Queensland station (clauses 4.2
+        and 2.3), so the page and the JSON always carry the same text.
+      */}
+      {'data' in view &&
+        view.data.notices?.map((notice) => (
+          <p key={notice} className={styles.asOf}>
+            {notice}
+          </p>
+        ))}
     </section>
   );
 }

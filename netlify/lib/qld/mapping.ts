@@ -30,6 +30,15 @@ export const QLD_BRAND_ALIASES: Readonly<Record<string, string>> = {
   SOLO: 'Solo',
 };
 
+/**
+ * A box around Queensland: its sites span -29.0 to -9.75 (the Torres
+ * Strait) and 138.1 to 153.5. The API accepts searches in it only while
+ * Queensland is served (validate.ts), and a site outside it is dropped and
+ * counted (build.ts): a coordinate typo must not put a station in NSW, or
+ * at 0,0.
+ */
+export const QLD_BOUNDS = { minLat: -29.2, maxLat: -9.0, minLng: 137.9, maxLng: 153.7 } as const;
+
 /** Tenths of a cent that mean "not available at this site". */
 export const QLD_UNAVAILABLE = 9999;
 
