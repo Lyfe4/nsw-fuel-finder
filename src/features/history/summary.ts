@@ -41,6 +41,33 @@ export interface Gap {
   through: string;
 }
 
+const dayOnly = new Intl.DateTimeFormat('en-AU', { timeZone: 'UTC', day: 'numeric' });
+const dayMonth = new Intl.DateTimeFormat('en-AU', {
+  timeZone: 'UTC',
+  day: 'numeric',
+  month: 'short',
+});
+
+/** A gap, short, for the chart and the table: "1–22 Oct", "28 Sept–3 Oct", "5 Oct". */
+export function formatGap({ from, through }: Gap): string {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${through}T00:00:00Z`);
+  if (from === through) return dayMonth.format(end);
+  const sameMonth = from.slice(0, 7) === through.slice(0, 7);
+  return `${(sameMonth ? dayOnly : dayMonth).format(start)}–${dayMonth.format(end)}`;
+}
+
+/** The gaps in a sentence of their own, for the summary over the chart. */
+export function gapsText(gapList: readonly Gap[]): string {
+  if (gapList.length === 0) return '';
+  const spans = gapList.map((gap) =>
+    gap.from === gap.through
+      ? formatDayWithYear(gap.from)
+      : `${formatDayWithYear(gap.from)} to ${formatDayWithYear(gap.through)}`,
+  );
+  return `No data for ${spans.join(', ')}.`;
+}
+
 /** Runs of missing days between the first and last day we have. */
 export function gaps(days: readonly HistoryDayRow[]): Gap[] {
   const result: Gap[] = [];
@@ -104,12 +131,7 @@ export function coverageText(sources: readonly HistorySource[], gapList: readonl
       ? `${formatDayWithYear(source.from)} to ${formatDayWithYear(source.through)} from FuelCheck’s published price history`
       : `${formatDayWithYear(source.from)} to ${formatDayWithYear(source.through)} from our own half-hourly snapshots`,
   );
-  const missing = gapList.map((gap) =>
-    gap.from === gap.through
-      ? formatDayWithYear(gap.from)
-      : `${formatDayWithYear(gap.from)} to ${formatDayWithYear(gap.through)}`,
-  );
   const sentence = parts.length > 0 ? `Daily prices: ${parts.join('; ')}.` : '';
-  const holes = missing.length > 0 ? ` No data for ${missing.join(', ')}.` : '';
+  const holes = gapList.length > 0 ? ` ${gapsText(gapList)}` : '';
   return `${sentence}${holes}`;
 }

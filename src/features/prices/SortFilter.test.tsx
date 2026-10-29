@@ -280,7 +280,10 @@ describe('each station', () => {
     expect(within(item('Cheaper')).queryByText(/today/)).not.toBeInTheDocument();
 
     const cheaper = await open('Cheaper');
-    expect(cheaper.getByText('↓ 2.0 today')).toHaveAttribute('aria-hidden', 'true');
+    // The arrow is the icon set's, not a text arrow (which iOS can draw as an emoji).
+    const shown = cheaper.getByText('2.0 today');
+    expect(shown).toHaveAttribute('aria-hidden', 'true');
+    expect(shown.querySelector('svg')).toHaveClass('tabler-icon-arrow-down');
     expect(cheaper.getByText('down 2.0 cents a litre since yesterday')).toBeInTheDocument();
     await expectNoAxeViolations(container);
     expect((await open('Dearer')).getByText('up 4.5 cents a litre since yesterday')).toBeVisible();

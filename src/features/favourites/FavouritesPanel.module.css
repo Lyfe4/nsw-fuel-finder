@@ -4,7 +4,6 @@
 }
 
 .summary {
-  display: list-item;
   padding-block: var(--space-2);
   font-size: var(--step--1);
   font-weight: var(--font-weight-bold);

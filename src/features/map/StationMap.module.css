@@ -27,6 +27,25 @@
   color: var(--color-text);
 }
 
+/*
+ * The credit the tiles' licences ask for, in full, but in proportion: the
+ * smallest type on the page (the legend's), one line in the corner from
+ * 320 px, not MapLibre's 12/20 px, which on a phone was a full-width band
+ * over the map. Above the zoom buttons' corner, clear of both.
+ */
+.map :global(.maplibregl-ctrl-attrib) {
+  padding: 1px var(--space-1);
+  font-family: var(--font-text);
+  font-size: var(--step--2);
+  line-height: 1.3;
+}
+
+@media (max-width: 40rem) {
+  .map :global(.maplibregl-ctrl-attrib) {
+    font-size: 0.625rem;
+  }
+}
+
 .map :global(.maplibregl-ctrl-attrib) a {
   color: var(--color-text);
 }
@@ -47,4 +66,25 @@
   background: var(--color-highlight);
   color: var(--color-text-muted);
   text-align: center;
+}
+
+/* The zoom buttons: a column of two in the top-right corner, on the paper. */
+.zoom {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: grid;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+}
+
+.zoom > button + button {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: calc(-1 * var(--rule-width));
+}
+
+.zoom > button:first-child {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }

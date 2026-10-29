@@ -4,15 +4,10 @@
   gap: var(--space-1);
 }
 
-.star,
-.starOn,
-.starPop {
-  font-size: var(--step-1);
-  line-height: 1;
-  text-decoration: none;
-}
-
-/* Filled when saved: the shape says it, and aria-pressed. The accent is kept for prices. */
+/*
+ * Outline, or filled when saved: the shape says it, and aria-pressed. Ink,
+ * not the accent, which is kept for prices.
+ */
 
 /*
  * Just saved: a quick grow and settle. Transform only, so the button and the
@@ -20,7 +15,6 @@
  */
 @media (prefers-reduced-motion: no-preference) {
   .starPop {
-    display: inline-block;
     animation: star-pop 260ms ease-out;
   }
 }

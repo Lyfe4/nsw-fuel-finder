@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { coverageText, gaps, summarise, summaryText } from './summary';
+import { coverageText, formatGap, gaps, gapsText, summarise, summaryText } from './summary';
 
 import type { HistoryDayRow } from '../../../shared/api';
 
@@ -53,5 +53,25 @@ describe('the words around the chart', () => {
         '23 Oct 2026 to 23 Oct 2026 from our own half-hourly snapshots. ' +
         'No data for 13 Sept 2026 to 22 Oct 2026.',
     );
+  });
+});
+
+describe('formatGap', () => {
+  it('is short: one month once, two when it spans them, a single day alone', () => {
+    expect(formatGap({ from: '2026-10-01', through: '2026-10-22' })).toBe('1–22 Oct');
+    expect(formatGap({ from: '2026-09-28', through: '2026-10-03' })).toBe('28 Sept–3 Oct');
+    expect(formatGap({ from: '2026-10-05', through: '2026-10-05' })).toBe('5 Oct');
+  });
+});
+
+describe('gapsText', () => {
+  it('names every gap, or says nothing when there is none', () => {
+    expect(
+      gapsText([
+        { from: '2026-10-01', through: '2026-10-22' },
+        { from: '2026-10-25', through: '2026-10-25' },
+      ]),
+    ).toBe('No data for 1 Oct 2026 to 22 Oct 2026, 25 Oct 2026.');
+    expect(gapsText([])).toBe('');
   });
 });

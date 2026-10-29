@@ -49,3 +49,12 @@
 .quiet:hover {
   text-decoration-thickness: 2px;
 }
+
+/* Icon only: a 44 px square, the icon at body size. */
+.iconOnly {
+  flex: none;
+  width: var(--target-size);
+  height: var(--target-size);
+  padding: 0;
+  font-size: var(--step-0);
+}

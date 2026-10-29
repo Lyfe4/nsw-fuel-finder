@@ -43,11 +43,10 @@
 }
 
 /*
- * A list item, so the browser's open/closed marker stays: it is what says
- * this opens. Padded to a 36 px target (WCAG 2.5.8 asks 24).
+ * The chevron (Summary) is what says this opens. Padded to a 36 px target
+ * (WCAG 2.5.8 asks 24).
  */
 .summary {
-  display: list-item;
   padding-block: var(--space-2);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
@@ -107,4 +106,16 @@
   height: 1.25rem;
   margin: 0;
   accent-color: var(--color-ink);
+}
+
+/*
+ * Under 360 px the row cannot hold all three, and Filters used to drop to
+ * a line of its own. Two rows on purpose instead: the List/Map switch
+ * across the full width, then Sort at the left and Filters at the right.
+ */
+@media (max-width: 22.4rem) {
+  .tools > :first-child:not(.sort) {
+    flex-basis: 100%;
+    width: 100%;
+  }
 }

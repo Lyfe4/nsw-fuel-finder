@@ -91,11 +91,20 @@
   outline: var(--border-width) solid var(--color-border);
 }
 
-.gap {
-  fill: var(--color-highlight);
+/* Where there are no prices: muted, thin and dashed, plainly not the ink trace. */
+.gapLine {
+  stroke: var(--color-text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
 }
 
+/* "No data, 1–22 Oct", on a halo of paper so the gridlines never cross it. */
 .gapLabel {
   fill: var(--color-text-muted);
   font-size: var(--step--2);
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }

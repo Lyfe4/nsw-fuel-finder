@@ -640,6 +640,38 @@ try {
     new URL(mobile.url()).searchParams.get('view') === 'map' && (await phoneCanvas.isVisible()),
   );
 
+  // The card's actions, [Directions] [Favourite] ... [x], on one row at
+  // every phone width (docs/design-system.md, Alignment). Close used to drop
+  // to a line of its own on a phone.
+  await mobile.getByRole('button', { name: 'List', exact: true }).click();
+  for (const width of [320, 360, 390, 430]) {
+    await mobile.setViewportSize({ width, height: 800 });
+    const firstRow = mobile
+      .getByRole('list', { name: 'Stations, cheapest first' })
+      .getByRole('heading')
+      .first()
+      .getByRole('button');
+    if ((await firstRow.getAttribute('aria-expanded')) !== 'true') await firstRow.click();
+    const card = mobile.locator('[id^="card-"]');
+    await card.waitFor();
+    const centres = await Promise.all(
+      [
+        card.getByRole('link', { name: /^Directions/ }),
+        card.getByRole('button', { name: /^Favourite/ }),
+        card.getByRole('button', { name: /^Close/ }),
+      ].map(async (control) => {
+        const box = await control.boundingBox();
+        return box ? Math.round(box.y + box.height / 2) : NaN;
+      }),
+    );
+    check(
+      `at ${String(width)} px the card's Directions, Favourite and Close share one row, and nothing scrolls sideways`,
+      centres.every((y) => Math.abs(y - (centres[0] ?? NaN)) <= 2) &&
+        (await mobile.evaluate((w) => document.documentElement.scrollWidth <= w, width)),
+      centres.join(', '),
+    );
+  }
+
   const phoneViolations = await mobile.evaluate(() => window.__cspViolations ?? []);
   check(
     'no Content-Security-Policy violations on the phone map',

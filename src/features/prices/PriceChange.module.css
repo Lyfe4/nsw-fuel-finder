@@ -17,3 +17,11 @@
 .up {
   color: var(--color-warning);
 }
+
+/* The arrow and the figure as one unit, the arrow centred on the text. */
+.shown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  vertical-align: bottom;
+}

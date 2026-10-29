@@ -1,4 +1,5 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { prices, station } from '@/lib/testing/fakeApi';
@@ -43,6 +44,8 @@ const { FakeMap, maps } = vi.hoisted(() => {
     resize = vi.fn();
     fitBounds = vi.fn();
     remove = vi.fn();
+    zoomIn = vi.fn();
+    zoomOut = vi.fn();
     setStyle = vi.fn(() => {
       // A new style replaces every source, layer and image, ours included.
       this.sources.clear();
@@ -128,7 +131,6 @@ function fire(map: InstanceType<typeof FakeMap>, type: string, point = { x: 0, y
 
 vi.mock('maplibre-gl', () => ({
   Map: FakeMap,
-  NavigationControl: vi.fn(),
   setWorkerUrl: vi.fn(),
 }));
 
@@ -295,12 +297,12 @@ describe('StationMap', () => {
     rerender({ selected: 'b' });
     expect(map.filters.get('cheapest-label')).toEqual([
       'all',
-      ['!=', ['get', 'code'], 'b'],
+      ['!', ['in', ['get', 'code'], ['literal', ['b']]]],
       ['get', 'cheapest'],
     ]);
     expect(map.filters.get('station-labels')).toEqual([
       'all',
-      ['!=', ['get', 'code'], 'b'],
+      ['!', ['in', ['get', 'code'], ['literal', ['b']]]],
       ['!', ['get', 'cheapest']],
     ]);
   });
@@ -396,6 +398,40 @@ describe('StationMap', () => {
     });
   });
 
+  it('zooms with its own 44 px buttons, named, with tooltips, once the map has drawn', async () => {
+    const user = userEvent.setup();
+    const { map } = setup({ reducedMotion: true });
+    expect(screen.queryByRole('button', { name: 'Zoom in' })).toBeNull();
+    fire(map, 'style.load');
+    fire(map, 'load');
+    const zoomIn = screen.getByRole('button', { name: 'Zoom in' });
+    expect(zoomIn).toHaveAttribute('title', 'Zoom in');
+    expect(zoomIn.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    await user.click(zoomIn);
+    await user.click(screen.getByRole('button', { name: 'Zoom out' }));
+    expect(map.zoomIn).toHaveBeenCalledWith({ animate: false });
+    expect(map.zoomOut).toHaveBeenCalledWith({ animate: false });
+  });
+
+  it('one price tag by the selected station: a neighbour at the same price a street away gives its price up, not its dot', () => {
+    const twin = station({
+      stationCode: 'c',
+      name: 'Twin',
+      priceCents: 250,
+      latitude: -33.5008,
+      longitude: 151.4005,
+    });
+    const { map, rerender } = setup({ stations: [...STATIONS, twin] });
+    fire(map, 'style.load');
+    rerender({ selected: 'b' });
+    expect(map.filters.get('station-labels')).toEqual([
+      'all',
+      ['!', ['in', ['get', 'code'], ['literal', ['b', 'c']]]],
+      ['!', ['get', 'cheapest']],
+    ]);
+    expect(map.filters.get('station-dots')).toEqual(['!=', ['get', 'code'], 'b']);
+  });
+
   it('a station selected from the list is highlighted and panned to, at street zoom', () => {
     const { map, rerender } = setup();
     fire(map, 'style.load');
@@ -403,9 +439,11 @@ describe('StationMap', () => {
     expect(map.filters.get('selected-label')).toEqual(['==', ['get', 'code'], 'a']);
     expect(map.filters.get('station-labels')).toEqual([
       'all',
-      ['!=', ['get', 'code'], 'a'],
+      ['!', ['in', ['get', 'code'], ['literal', ['a']]]],
       ['!', ['get', 'cheapest']],
     ]);
+    // Its own ordinary dot goes (the marker replaces it); every other dot stays.
+    expect(map.filters.get('station-dots')).toEqual(['!=', ['get', 'code'], 'a']);
     // The card has just changed the map's height: resize before working out the pan.
     expect(map.resize.mock.invocationCallOrder[0]).toBeLessThan(
       map.easeTo.mock.invocationCallOrder[0] ?? 0,

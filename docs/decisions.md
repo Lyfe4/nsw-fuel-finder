@@ -2599,6 +2599,142 @@ Pull request #9, squash-merged as `5d87272` at 06:42 UTC on 28 October
   passed in the other runs and in CI. Left as they are: a slow machine, not
   a race.
 
+## 2026-10-29: Round 14 (icons, alignment and the history gap, from the phone test)
+
+The owner tested round 13 on an iPhone. Asked for as "round 13: polish";
+numbered 14 here, since round 13 is the Docket redesign.
+
+### One icon set: Tabler
+
+**Problem:** iOS draws some text characters as coloured emoji. The
+Directions arrow (↗) and the Favourite star (☆) were emoji on the phone,
+in the middle of a design whose rule is one accent, used for meaning.
+
+**Decision:** every icon-like character is an SVG icon from one set,
+[Tabler Icons](https://tabler.io/icons) (MIT, `@tabler/icons-react`):
+arrows, stars, ×, the fuel caret, the disclosure chevrons (in place of the
+browser's own marker, also a text triangle), and the map's zoom buttons
+(our own, in place of MapLibre's). The rules are in docs/design-system.md,
+Icons and Alignment.
+
+**Why Tabler:**
+
+- **The stroke matches the type.** A 24 px grid with a 2 px round stroke,
+  drawn at 1.25em: about 1.7 px beside a 13–15 px bold label, close to the
+  stem of Atkinson Hyperlegible Next at 700. Plain monoline geometry, like
+  Atkinson's own humanist strokes and the docket's print.
+- **Not Lucide.** The owner ruled it out: it is the shadcn default and the
+  set most generated UIs ship, and would make Docket look like them.
+- **Phosphor** (the other candidate) looks as good, but its React package
+  puts all six weights of an icon (thin to duotone) in every icon's module,
+  so each costs several times its one drawing. Its regular stroke is also
+  lighter (1.5 px on 24) than Atkinson bold.
+- **Per-icon files.** Each Tabler icon is its own module, one path list and
+  a shared 30-line component. `src/components/Icon/icons.ts` imports them
+  one file each, so the build holds 12 icons and the tests never load the
+  set's 6,000-icon index; an ESLint rule (`no-restricted-imports`) fails on
+  any other import of the package. The per-icon files have no types of their
+  own; `tabler.d.ts` gives them the type the index declares.
+- **CSP:** inline SVG elements created by React, `currentColor` for stroke
+  and fill, no `style` attributes, no font, no CDN, no sprite. Nothing in
+  the policy changed, and `check:browser` saw no violation.
+
+**Cost:** initial JS 342.8 kB from 339.6 (+3.2 kB raw, +1.1 kB gzipped,
+inside the 350 kB budget); initial CSS 24.1 kB from 23.3, so its budget is
+raised to 25 kB (written up in `check-bundle-budget.js`). The map chunk is
+6 kB smaller without MapLibre's navigation control.
+
+**Accessibility:** every icon is `aria-hidden` and `focusable="false"`.
+Icon-only buttons (search toggle, Close, Clear, zoom) are 44 px squares
+named in visually hidden text, with a `title` tooltip. Directions and
+Favourite keep their words (the owner's call: clarity, screen readers,
+speech input, translation). Favourite's star is outline, or filled when
+saved, alongside `aria-pressed`. A unit test fails if any arrow, star,
+cross or triangle character is rendered in the search line, a card or a
+history view.
+
+### The search line
+
+"Change" is now a 44 px magnifier button (still named "Change search",
+`aria-expanded`), outlined while the form is folded and ink while it is
+open. The fuel select is laid invisibly over the fuel's name and the
+caret icon, so the line is as wide as the name in Safari too
+(`field-sizing` is Chromium's only). A long place ("Ethanol 94 · Port
+Macquarie NSW 2444 · 10 km") used to wrap and push the button onto a line
+of its own; now the place moves to a second line under the fuel when it
+cannot fit beside it, the button stays at the right, and only a place too
+long for its own line is cut with an ellipsis. The distance never is. The
+search block needed `min-width: 0` as a grid item, or the one-line layout
+widened the page.
+
+### Alignment, at seven widths
+
+A scripted audit at 320, 360, 390, 430, 768, 1024 and 1440 px in both
+themes measured how many rows each group of controls takes, and sideways
+scrolling. Found and fixed:
+
+- **The card's actions** (the owner's report): Close dropped to its own line
+  under 390 px. Close is now the × icon alone, and the buttons' side padding
+  is 8 px under 360 px, so `[Directions] [Favourite] … [×]` is one row at
+  every width. A new `check:browser` step fails if the three are not on one
+  row at 320, 360, 390 or 430 px; against production (before this change) it
+  failed at 320 and 360 and passed at 390 and 430.
+- **The toolbar** under 360 px: Filters wrapped alone. Now two rows on
+  purpose: List/Map across the width, then Sort and Filters.
+- **"Use my location"** on a wide screen sat above the controls' row (it
+  was centred on labels and controls together).
+
+Favourites, history actions, legend and footer were already one row.
+
+### The doubled price tag
+
+**Finding:** in the owner's report two "236.5" tags stood side by side by
+the selected station. The map's layers were not drawing one station twice
+(their filters exclude the selected station from the ordinary prices, and a
+test checks it). Production's snapshot has 29 pairs of stations within 60 m
+of each other, some at the same prices; in Cessnock, Pearl Energy and Metro
+Petroleum are 124 m apart and both sold U91 at 236.5 on 29 October. With
+one selected, the other's tag sat right beside it and read as the same
+station tagged twice. Reproduced on production at 390 px.
+
+**Decision:** while a station is selected, a neighbour within 250 m at the
+same price gives up its price tag (`lookalikes` in `mapData.ts`), keeping
+its dot. Different prices nearby still show: they cannot be mistaken for
+the selected one. The neighbour's price is one tap away and in the list.
+
+### Map attribution
+
+MapLibre sets 12/20 px, which on a phone was a full-width band over the
+map. Now 10 px under 40rem and `--step--2` above, in Atkinson, with tight
+padding: one line in the corner, still in full, as OpenFreeMap's,
+OpenMapTiles' and OpenStreetMap's licences ask.
+
+### The October history gap
+
+**Checked (read-only, the data.nsw.gov.au CKAN API) on 29 October:** the
+newest monthly file is "FuelCheck Price History September 2026", published
+14 October. October's is not out, so there was nothing to backfill.
+
+**Decision:** the gap is drawn as intentional, not as a grey block: a thin
+dashed line in the muted colour from the last price before to the first
+after, and "No data, 1–22 Oct" on the plot, away from the line. No
+interpolated prices: the dashes carry no values and the slider moves only
+over days with prices. The gap is also named in the summary over the chart,
+the credit under it, and as one row in the daily table.
+
+**Still due:** when FuelCheck publishes October (September's came on 14
+October, so mid-November is likely), run
+`pnpm history:backfill --months 4 --upload` with a short-lived Netlify
+token, as in the README's Maintenance section, after asking the owner. The
+chart then has no gap, and needs no change.
+
+### Also
+
+- `private/` is in `.gitignore`: the owner keeps local files there that must
+  never be committed.
+- The screenshots' fixtures were recorded again from production, so the
+  README's history shows the gap as drawn now.
+
 ## 2026-10-25: Baseline (updated 28 October, round 13)
 
 The project as of `5d87272` (round 13, the redesign, pull request #9; first
@@ -2726,8 +2862,10 @@ from Blobs only. Visitors never reach API.NSW.
 
 **Open maintenance items.**
 
-- **Early November 2026:** run `pnpm history:backfill --months 4 --upload`
-  when FuelCheck publishes October, to fill 1–22 October.
+- **When FuelCheck publishes October 2026** (not out on 29 October; likely
+  mid-November): run `pnpm history:backfill --months 4 --upload`, after
+  asking the owner, to fill 1–22 October. Until then the chart shows the gap
+  as a dashed line with "No data, 1–22 Oct" (round 14).
 - **November 2026:** `/api/status`'s call count covers the whole month from
   then on; until then the API.NSW dashboard is the authority for October.
 - **Optional:** see our 429 on production once Netlify no longer challenges

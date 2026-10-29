@@ -1,6 +1,8 @@
 import { useId, useState, type SubmitEvent, type Ref } from 'react';
 
-import { Button } from '@/components/Button/Button';
+import { Button, IconButton } from '@/components/Button/Button';
+import { Icon } from '@/components/Icon/Icon';
+import { Caret, Search } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 
 import { PlaceCombobox } from './PlaceCombobox';
@@ -20,8 +22,8 @@ export interface SearchFormProps {
   placeInputRef?: Ref<HTMLInputElement>;
   /**
    * On a phone after a search, the form folds into one line: the fuel (still
-   * a select, so changing it is one tap), the place and distance, and
-   * Change, which opens the form again. `null` when it never folds: before a
+   * a select, so changing it is one tap), the place and distance, and the
+   * search button ("Change search"), which opens the form again. `null` when it never folds: before a
    * search, and on a wide screen, where the form is one row anyway.
    */
   folded: { open: boolean; place: string; onOpenChange: (open: boolean) => void } | null;
@@ -74,40 +76,65 @@ export function SearchForm({
     <div className={styles.search}>
       {folded && (
         <div className={styles.folded}>
-          {/*
-           * The fuel stays a native select here: changing it is the most
-           * common thing after a search, and one tap. While the form is open
-           * it has its own Fuel select, so this one becomes plain text.
-           */}
-          {folded.open ? (
-            <span className={styles.fuelText}>{fuelName}</span>
-          ) : (
-            <select
-              aria-label="Fuel"
-              className={styles.fuelSelect}
-              value={fuel}
-              onChange={(event) => {
-                changeFuel(event.target.value);
-              }}
-            >
-              {fuelOptions}
-            </select>
-          )}
-          <span className={styles.where}>
-            <span aria-hidden="true">·</span>
-            <VisuallyHidden>,</VisuallyHidden> {folded.place} <span aria-hidden="true">·</span>
-            <VisuallyHidden>, within</VisuallyHidden> {radius} km
-          </span>
-          <Button
-            className={styles.change}
+          <div className={styles.lead}>
+            {/*
+             * The fuel stays a native select here: changing it is the most
+             * common thing after a search, and one tap. While the form is open
+             * it has its own Fuel select, so this one becomes plain text.
+             */}
+            {folded.open ? (
+              <span className={styles.fuelText}>{fuelName}</span>
+            ) : (
+              /*
+               * The select itself is invisible over the fuel's name and caret,
+               * so the line is exactly as wide as the name in every browser
+               * (field-sizing is Chromium's alone), and a tap anywhere on it
+               * opens the phone's own picker.
+               */
+              <span className={styles.fuelPick}>
+                <span aria-hidden="true" className={styles.fuelName}>
+                  {fuelName}
+                </span>
+                <Icon icon={Caret} />
+                <select
+                  aria-label="Fuel"
+                  className={styles.fuelSelect}
+                  value={fuel}
+                  onChange={(event) => {
+                    changeFuel(event.target.value);
+                  }}
+                >
+                  {fuelOptions}
+                </select>
+              </span>
+            )}
+            {/*
+             * Beside the fuel when it fits, otherwise on a line of its own
+             * under it; only a place too long for that line is cut short
+             * (an ellipsis). The distance never is.
+             */}
+            <span className={styles.where}>
+              <span className={styles.place}>
+                <VisuallyHidden>, </VisuallyHidden>
+                {folded.place}
+              </span>
+              <span className={styles.distance}>
+                <span aria-hidden="true">·</span>
+                <VisuallyHidden>, within</VisuallyHidden> {radius} km
+              </span>
+            </span>
+          </div>
+          <IconButton
+            icon={Search}
+            label="Change search"
+            title="Change search"
+            className={styles.toggle}
             aria-expanded={folded.open}
             aria-controls={formId}
             onClick={() => {
               folded.onOpenChange(!folded.open);
             }}
-          >
-            Change <VisuallyHidden>search</VisuallyHidden>
-          </Button>
+          />
         </div>
       )}
       <form

@@ -169,8 +169,9 @@ minutes.
   with the last price our 30-minute snapshot saw yesterday, so a change made
   and undone between two snapshots is not seen.
 - **History has a gap from 1 to 22 October 2026.** The published history
-  currently ends on 30 September, and our own starts on 23 October. The gap is
-  shaded "No data" until FuelCheck publishes October (see Maintenance).
+  currently ends on 30 September, and our own starts on 23 October. The chart
+  bridges the gap with a dashed line marked "No data, 1–22 Oct" (no made-up
+  prices) until FuelCheck publishes October (see Maintenance).
 - **Suburbs are found by the ABS's 2021 boundaries**, so a suburb created or
   renamed since then is found only by postcode.
 - **The map needs WebGL.** Without it the list still has every station.
@@ -223,7 +224,7 @@ against `pnpm serve:headers`, a preview or production.
 
 ## Maintenance
 
-- **Early November 2026:** FuelCheck publishes October's history. Run
+- **Mid-November 2026 (likely):** FuelCheck publishes October's history. Run
   `pnpm history:backfill --months 4 --upload` to fill the 1-22 October gap.
   It writes to production Blobs and needs `NETLIFY_SITE_ID` and
   `NETLIFY_AUTH_TOKEN`. A Netlify personal access token reaches the whole

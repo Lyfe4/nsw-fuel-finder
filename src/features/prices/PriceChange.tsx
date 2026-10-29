@@ -1,3 +1,5 @@
+import { Icon } from '@/components/Icon/Icon';
+import { ArrowDown, ArrowUp } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { formatPrice } from '@/lib/format';
 
@@ -5,7 +7,7 @@ import styles from './PriceChange.module.css';
 
 /**
  * How far a price has moved today, against the station's last price
- * yesterday: "↓ 2.0 today". Nothing when it has not moved (most stations,
+ * yesterday: "(down arrow) 2.0 today". Nothing when it has not moved (most stations,
  * most days) or when yesterday is unknown, so the ones that did move stand
  * out.
  *
@@ -25,8 +27,9 @@ export function PriceChange({
   const amount = formatPrice(Math.abs(cents));
   return (
     <span className={[down ? styles.down : styles.up, className].filter(Boolean).join(' ')}>
-      <span aria-hidden="true">
-        {down ? '↓' : '↑'} {amount} today
+      <span aria-hidden="true" className={styles.shown}>
+        <Icon icon={down ? ArrowDown : ArrowUp} />
+        {amount} today
       </span>
       <VisuallyHidden>
         {down ? 'down' : 'up'} {amount} cents a litre since yesterday

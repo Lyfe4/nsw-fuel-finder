@@ -1,6 +1,8 @@
 import { cheapestPrice } from '@/features/prices/priceAge';
 import { formatPrice } from '@/lib/format';
 
+import { haversineKm } from '../../../shared/geo';
+
 import type { PricesResponse, StationPrice } from '../../../shared/api';
 
 /**
@@ -74,6 +76,30 @@ export function toFeatures(stations: readonly StationPrice[]): StationFeatureCol
       },
     })),
   };
+}
+
+/** Nearer than this, a neighbour at the same price passes for the selected station's own tag. */
+export const LOOKALIKE_KM = 0.25;
+
+/**
+ * Stations whose price would read as the selected station's, twice: the
+ * same price, within LOOKALIKE_KM. FuelCheck lists some sites a street
+ * apart, or twice (diesel and petrol sides of a highway stop), and two
+ * "236.5" tags side by side looked like one station tagged twice (Cessnock,
+ * October 2026). While one is selected, these neighbours' prices make way;
+ * their dots stay, and the list has their prices.
+ */
+export function lookalikes(stations: readonly StationPrice[], selected: string | null): string[] {
+  const chosen = stations.find((station) => station.stationCode === selected);
+  if (!chosen) return [];
+  return stations
+    .filter(
+      (station) =>
+        station.stationCode !== chosen.stationCode &&
+        station.priceCents === chosen.priceCents &&
+        haversineKm(station, chosen) < LOOKALIKE_KM,
+    )
+    .map((station) => station.stationCode);
 }
 
 /** [[west, south], [east, north]] around every station and the search origin. */

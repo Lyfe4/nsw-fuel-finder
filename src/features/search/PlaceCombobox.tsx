@@ -1,6 +1,8 @@
 import { useCombobox } from 'downshift';
 import { useId, type Ref } from 'react';
 
+import { Icon } from '@/components/Icon/Icon';
+import { Close } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 
 import styles from './PlaceCombobox.module.css';
@@ -92,13 +94,14 @@ export function PlaceCombobox({ value, onValueChange, onSelect, inputRef }: Plac
             type="button"
             className={styles.clear}
             aria-label="Clear suburb or postcode"
+            title="Clear"
             onClick={() => {
               document.getElementById(inputId)?.focus();
               closeMenu();
               onValueChange('');
             }}
           >
-            <span aria-hidden="true">×</span>
+            <Icon icon={Close} />
           </button>
         )}
       </div>
