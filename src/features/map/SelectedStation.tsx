@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef } from 'react';
 
-import { Button } from '@/components/Button/Button';
+import { IconButton } from '@/components/Button/Button';
+import { Close } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { HistoryLink } from '@/features/history/HistoryLink';
@@ -106,9 +107,13 @@ export function SelectedStation({
       <div className={styles.actions}>
         <DirectionsLink station={station} primary />
         <FavouriteButton code={station.stationCode} name={station.name} variant="secondary" />
-        <Button className={styles.close} onClick={onClose}>
-          Close<VisuallyHidden>, {station.name}</VisuallyHidden>
-        </Button>
+        <IconButton
+          icon={Close}
+          label={`Close, ${station.name}`}
+          title="Close"
+          className={styles.close}
+          onClick={onClose}
+        />
       </div>
     </div>
   );

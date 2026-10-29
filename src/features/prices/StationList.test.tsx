@@ -121,6 +121,26 @@ describe('a long list', () => {
 });
 
 describe('what each station says', () => {
+  it('sets a name in capitals in title case, brand capitals kept, in the row and its name', async () => {
+    fakeApi({
+      location: () =>
+        json(
+          prices({
+            stations: [
+              station({ stationCode: '1', name: 'MOBIL HASTINGS RIVER', brand: 'Mobil' }),
+              station({ stationCode: '2', name: 'BP MT DRUITT', brand: 'BP', priceCents: 239.9 }),
+            ],
+          }),
+        ),
+    });
+    const { user } = renderApp('/?query=Erina');
+    await screen.findByRole('list', { name: 'Stations, cheapest first' });
+    expect(stationRow('Mobil Hastings River')).toBeVisible();
+    await user.click(stationRow('BP Mt Druitt'));
+    expect(screen.getByRole('button', { name: 'Close, BP Mt Druitt' })).toBeVisible();
+    expect(screen.queryByText(/HASTINGS|DRUITT/)).toBeNull();
+  });
+
   it('marks the cheapest in words, ties included', async () => {
     fakeApi({
       location: () =>

@@ -1,6 +1,7 @@
 import { useId } from 'react';
 
 import { Button } from '@/components/Button/Button';
+import { Summary } from '@/components/Disclosure/Summary';
 
 import { brandCounts, filtersText, hasFilters, withoutOld } from './filters';
 import { OLD_PRICE_DAYS } from './priceAge';
@@ -82,10 +83,10 @@ export function ResultsTools({
         </select>
       </div>
       <details className={styles.filters}>
-        <summary className={styles.summary}>
+        <Summary className={styles.summary}>
           <span>Filters</span>
           {hasFilters(filters) && <span className={styles.current}>: {filtersText(filters)}</span>}
-        </summary>
+        </Summary>
         <div className={styles.panel}>
           <fieldset className={styles.brands}>
             <legend className={styles.legend}>Brands</legend>

@@ -278,16 +278,23 @@ describe('searching by suburb or postcode', () => {
 });
 
 describe('the folded search, on a phone', () => {
-  it('after a search is one line: the fuel is still one tap, place and distance behind Change', async () => {
+  it('after a search is one line: the fuel is still one tap, place and distance, and the search button', async () => {
     const api = fakeApi();
     const { user, container } = renderApp('/?query=Erina&radius=10');
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
 
-    // One Fuel select on screen: the folded line's, with its own visible name.
+    // One Fuel select: the folded line's, laid invisibly over the fuel's name
+    // and caret (so the line is as wide as the name in every browser).
     const fuel = screen.getByRole('combobox', { name: 'Fuel' });
-    expect(fuel).toBeVisible();
+    expect(fuel.parentElement).toBeVisible();
+    expect(fuel.parentElement).toHaveTextContent('Unleaded 91');
+    expect(fuel.parentElement?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    // The search button: the magnifier alone, named in words, with a tooltip.
     const change = screen.getByRole('button', { name: 'Change search' });
-    expect(change.previousElementSibling).toHaveTextContent(/Erina.*10 km/);
+    expect(change).toHaveAttribute('title', 'Change search');
+    expect(change).toHaveTextContent(/^Change search$/);
+    // The distance first, never cut; then the place.
+    expect(change.previousElementSibling).toHaveTextContent(/10 km.*Erina/);
     await expectNoAxeViolations(container);
 
     await user.selectOptions(fuel, 'Diesel');

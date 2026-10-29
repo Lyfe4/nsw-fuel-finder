@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import { Button } from '@/components/Button/Button';
+import { Icon } from '@/components/Icon/Icon';
+import { Star, StarFilled } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 
 import styles from './FavouriteButton.module.css';
@@ -11,8 +13,9 @@ import { useFavourites } from './useFavourites';
  * A toggle button: "Favourite, Metro Gosford", pressed or not. The name stays
  * the same either way and aria-pressed carries the state, as a toggle's
  * should; "Add Metro Gosford to favourites" would be read out as "Add ... ,
- * pressed" once added, which says the opposite. The star is decoration; the
- * word is the label, so speech input users can say what they see.
+ * pressed" once added, which says the opposite. The star (outline, or
+ * filled when saved) is decoration; the word is the label, so speech input
+ * users can say what they see.
  *
  * Saving one gives the star a short pop, so the press visibly did something.
  * Only after a press here: stars already saved when the list appears stay
@@ -38,7 +41,7 @@ export function FavouriteButton({
   const saved = favourites.some((favourite) => favourite.code === code);
   // Gone again once there is room, or once this station is saved some other way.
   const showFull = full && !saved && favourites.length >= MAX_FAVOURITES;
-  const starClass = saved ? (pressed ? styles.starPop : styles.starOn) : styles.star;
+  const starClass = saved && pressed ? styles.starPop : undefined;
   return (
     <>
       <Button
@@ -50,9 +53,7 @@ export function FavouriteButton({
           setFull(!toggleFavourite({ code, name }));
         }}
       >
-        <span aria-hidden="true" className={starClass}>
-          {saved ? '★' : '☆'}
-        </span>
+        <Icon icon={saved ? StarFilled : Star} className={starClass} />
         Favourite<VisuallyHidden>, {name}</VisuallyHidden>
       </Button>
       {showFull && (

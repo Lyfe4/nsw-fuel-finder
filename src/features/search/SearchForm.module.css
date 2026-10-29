@@ -1,3 +1,8 @@
+/* A grid item: without this, the one-line search would widen the page instead of cutting the place short. */
+.search {
+  min-width: 0;
+}
+
 /*
  * No box: the form sits on the counter under the masthead. Phone: fuel and
  * distance on one row, the place and Search on the next. Wide: all one row.
@@ -63,49 +68,112 @@
 }
 
 /*
- * Folded (a phone, after a search): one line. The fuel is a native select
- * drawn as bold text, with a caret; its focus ring is the global one.
+ * Folded (a phone, after a search): [Fuel ⌄]  place · 5 km  [search] on
+ * one line when it fits; when it does not, the place and distance move to
+ * a second line under the fuel, on purpose, and the search button stays
+ * at the right, centred on both. Nothing else ever wraps: a place too long
+ * even for its own line is cut with an ellipsis (it is in full in the
+ * form the button opens), and the distance never is.
  */
 .folded {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1) var(--space-2);
+  gap: var(--space-2);
+  min-height: var(--target-size);
   margin-bottom: var(--space-2);
 }
 
-.fuelSelect,
+.lead {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+  min-width: 0;
+}
+
+.fuelPick,
 .fuelText {
+  flex: none;
   font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+/* The name and the caret on show; the real select over them, invisible. */
+.fuelPick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--target-size);
+  border-radius: var(--radius);
 }
 
 .fuelSelect {
-  /* As wide as the chosen fuel, so the caret sits beside it. Chromium only so far; elsewhere it is as wide as the longest option, which still works. */
-  field-sizing: content;
-  min-height: var(--target-size);
-  margin-left: calc(-1 * var(--space-1));
-  padding: 0 var(--space-4) 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius);
-  appearance: none;
-  background: transparent linear-gradient(45deg, transparent 50%, currentColor 50%) right 6px
-    center / 5px 5px no-repeat;
-  color: var(--color-text);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  /* 16 px or more: iOS zooms the page into a smaller control on focus. */
+  font-size: max(1rem, 1em);
+  opacity: 0;
   cursor: pointer;
 }
 
-.fuelSelect:hover {
+.fuelPick:hover .fuelName {
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The ring the select would have drawn, round what is on show. */
+.fuelPick:has(.fuelSelect:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .where {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  gap: 0.3em;
   color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
-.change {
-  min-height: 2.25rem;
+.distance,
+.postcode {
+  flex: none;
+}
+
+/* The suburb gives way first, and only it: the state and postcode stay. */
+.place {
+  display: flex;
+  min-width: 0;
+  gap: 0.3em;
+}
+
+.suburb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * The search button: outlined while the form is folded away, ink while it
+ * is open (as the pressed List/Map switch is), so its state shows without
+ * reading aria-expanded.
+ */
+.toggle {
   margin-left: auto;
-  padding-block: var(--space-1);
+}
+
+.toggle[aria-expanded='true'] {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-on-ink);
+}
+
+.toggle[aria-expanded='true']:hover {
+  background: var(--color-ink);
 }
 
 @media (min-width: 60rem) {
@@ -117,8 +185,9 @@
     column-gap: var(--space-3);
   }
 
+  /* On the controls row, not centred on labels and controls together. */
   .locate {
-    align-self: center;
+    align-self: end;
     min-height: var(--target-size);
   }
 }

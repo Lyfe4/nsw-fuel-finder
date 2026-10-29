@@ -1,0 +1,28 @@
+/*
+ * Block, not flex: Safari has not always opened a <details> whose summary
+ * is a flex box. The row inside it is the flex box.
+ */
+.summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.marker {
+  margin-left: -0.15em;
+  transition: transform 150ms ease-out;
+}
+
+[open] > .summary .marker {
+  transform: rotate(90deg);
+}

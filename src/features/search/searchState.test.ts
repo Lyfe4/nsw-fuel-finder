@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSearch, serializeSearch } from './searchState';
+import { parseSearch, serializeSearch, splitPlace } from './searchState';
 
 describe('parseSearch', () => {
   it('defaults to Unleaded 91, 5 km and no search', () => {
@@ -137,5 +137,18 @@ describe('sort and filters in the URL', () => {
     ];
     const search = brands.map((brand) => `brand=${encodeURIComponent(brand)}`).join('&');
     expect(parseSearch(`?${search}`).brands).toEqual(brands);
+  });
+});
+
+describe('splitPlace', () => {
+  it('parts a suburb from its state and postcode, which are never cut short', () => {
+    expect(splitPlace('Port Macquarie NSW 2444')).toEqual(['Port Macquarie', 'NSW 2444']);
+    expect(splitPlace('Braddon ACT 2612')).toEqual(['Braddon', 'ACT 2612']);
+  });
+
+  it('keeps anything else whole', () => {
+    expect(splitPlace('2250')).toEqual(['2250', '']);
+    expect(splitPlace('near you')).toEqual(['near you', '']);
+    expect(splitPlace('Erina')).toEqual(['Erina', '']);
   });
 });

@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { formatPrice } from '@/lib/format';
 
 import styles from './HistoryChart.module.css';
-import { daysBetween, formatDay, gaps } from './summary';
+import { daysBetween, formatDay, formatGap, gaps } from './summary';
 
 import type { HistoryDayRow } from '../../../shared/api';
 
@@ -21,6 +21,8 @@ import type { HistoryDayRow } from '../../../shared/api';
 
 const HEIGHT = 240;
 const MARGIN = { top: 16, right: 56, bottom: 28, left: 44 };
+/** A gap this many days long or more is named on the chart; a shorter one is just dashed. */
+const GAP_NOTE_DAYS = 3;
 
 /** Clean tick values: whole cents, in steps of 1, 2, 5, 10, 20 or 50. */
 function ticks(min: number, max: number): number[] {
@@ -194,31 +196,42 @@ export function HistoryChart({ days, fuelName }: { days: HistoryDayRow[]; fuelNa
             </text>
           ))}
           {/*
-           * Missing days, shaded and named, so a gap reads as "no data" and
-           * not as a price that held still or a drawing fault. Measured from
-           * the last day before to the first day after.
+           * Missing days: a faint dashed line from the last price before to
+           * the first after, so the trace is not cut off as if by a fault,
+           * and named ("No data, 1–22 Oct"), so the dashes are not read as
+           * prices: they mark where there are none, and nothing on them is
+           * a value (the slider skips them). The note sits at the top or
+           * the bottom of the plot, whichever is further from the line, on
+           * a halo of paper over the gridlines. Gaps shorter than
+           * GAP_NOTE_DAYS get the dashes alone; the summary and the table
+           * name every gap.
            */}
           {gaps(days).map((gap) => {
-            const left = x(gap.from) - plotWidth / span;
-            const right = x(gap.through) + plotWidth / span;
-            const gapWidth = right - left;
+            const before = days.findLast((row) => row[0] < gap.from);
+            const after = days.find((row) => row[0] > gap.through);
+            if (!before || !after) return null;
+            const [x1, y1, x2, y2] = [x(before[0]), y(before[3]), x(after[0]), y(after[3])];
+            const missing = daysBetween(gap.from, gap.through) + 1;
+            const middle = (y1 + y2) / 2;
+            const nearTop = middle - MARGIN.top < plotHeight / 2;
+            const label = `No data, ${formatGap(gap)}`;
+            // Kept inside the plot: centred on the gap, unless that would cross an edge.
+            const half = (label.length * 6.5) / 2;
+            const labelX = Math.min(
+              Math.max((x1 + x2) / 2, MARGIN.left + half),
+              width - MARGIN.right - half,
+            );
             return (
               <g key={gap.from}>
-                <rect
-                  className={styles.gap}
-                  x={left}
-                  y={MARGIN.top}
-                  width={Math.max(gapWidth, 1)}
-                  height={plotHeight}
-                />
-                {gapWidth >= 56 && (
+                <line className={styles.gapLine} x1={x1} y1={y1} x2={x2} y2={y2} />
+                {missing >= GAP_NOTE_DAYS && (
                   <text
                     className={styles.gapLabel}
-                    x={left + gapWidth / 2}
-                    y={MARGIN.top + 14}
+                    x={labelX}
+                    y={nearTop ? HEIGHT - MARGIN.bottom - 6 : MARGIN.top + 10}
                     textAnchor="middle"
                   >
-                    No data
+                    {label}
                   </text>
                 )}
               </g>
@@ -253,9 +266,14 @@ export function HistoryChart({ days, fuelName }: { days: HistoryDayRow[]; fuelNa
         <strong>{formatDay(current[0])}:</strong> last {formatPrice(current[3])}, low{' '}
         {formatPrice(current[1])}, high {formatPrice(current[2])} cents a litre
       </p>
+      {/* Each swatch and its words are one unit: the items wrap whole, never inside. */}
       <p className={styles.key}>
-        <span className={styles.keyLine} aria-hidden="true" /> The day’s last price{' '}
-        <span className={styles.keyBand} aria-hidden="true" /> its low to high
+        <span className={styles.keyItem}>
+          <span className={styles.keyLine} aria-hidden="true" /> The day’s last price
+        </span>{' '}
+        <span className={styles.keyItem}>
+          <span className={styles.keyBand} aria-hidden="true" /> its low to high
+        </span>
       </p>
     </div>
   );

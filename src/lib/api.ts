@@ -1,3 +1,5 @@
+import { formatStationName } from './format';
+
 import type {
   ApiErrorBody,
   ApiErrorCode,
@@ -95,11 +97,22 @@ function normalisePrices(body: PricesOnTheWire): PricesResponse {
   return {
     ...body,
     stations: body.stations.map((station) => ({
-      ...station,
+      ...tidyName(station),
       changeCents: station.changeCents ?? null,
     })),
-    nearest: body.nearest ?? [],
+    nearest: (body.nearest ?? []).map(tidyName),
   };
+}
+
+/**
+ * A name in capitals set in title case (formatStationName), here, where
+ * every answer comes in, so the row, the card, the history, favourites and
+ * every accessible name agree. The API sends FuelCheck's own spelling, as
+ * it does for addresses.
+ */
+function tidyName<T extends { name: string; brand: string }>(station: T): T {
+  const name = formatStationName(station.name, station.brand);
+  return name === station.name ? station : { ...station, name };
 }
 
 /** GET /api/nearby or /api/location. Parameter names match the API exactly. */
@@ -125,12 +138,14 @@ export function fetchPlaceSuggestions(query: string, signal?: AbortSignal) {
  * GET /api/stations?codes= for favourites. Sorted, so the same favourites in
  * any order share one cache entry at the edge.
  */
-export function fetchStations(codes: readonly string[], signal?: AbortSignal) {
+export async function fetchStations(codes: readonly string[], signal?: AbortSignal) {
   const sorted = [...codes].sort((a, b) => a.localeCompare(b)).join(',');
-  return getJson<StationsResponse>('/api/stations', { codes: sorted }, signal);
+  const body = await getJson<StationsResponse>('/api/stations', { codes: sorted }, signal);
+  return { ...body, stations: body.stations.map(tidyName) };
 }
 
 /** GET /api/history?station=&fuel= */
-export function fetchHistory(station: string, fuel: string, signal?: AbortSignal) {
-  return getJson<HistoryResponse>('/api/history', { station, fuel }, signal);
+export async function fetchHistory(station: string, fuel: string, signal?: AbortSignal) {
+  const body = await getJson<HistoryResponse>('/api/history', { station, fuel }, signal);
+  return { ...body, station: tidyName(body.station) };
 }

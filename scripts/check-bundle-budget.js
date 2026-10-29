@@ -48,7 +48,15 @@ const INITIAL_JS_BUDGET = 350 * 1024;
 // to, and the new parts (fonts, folded search, card, scale bar) are real.
 // 24 kB is about 4% headroom, as the other budgets have. The history view's
 // styles are in its own lazy chunk, so its redesign does not touch this.
-const INITIAL_CSS_BUDGET = 24 * 1024;
+// RAISED IN ROUND 14, on purpose: 24.1 kB raw / 5.5 kB gzipped, +0.8 kB
+// from 23.3 for the icon set (icon sizing, icon-only buttons, the
+// disclosure chevron in place of the browser's marker), the one-line
+// search with its ellipsis and search toggle, the card's one action row
+// and the zoom buttons. All of it is on the first screen. 25 kB is about
+// 4% headroom again. The icons' JavaScript (12 Tabler icons, about 2 kB)
+// is inside the unchanged initial JS budget, which would also catch the
+// set's whole index slipping in (eslint.config.js forbids importing it).
+const INITIAL_CSS_BUDGET = 25 * 1024;
 // The map chunk: MapLibre itself, measured at 1,016.0 kB raw / 273.1 kB
 // gzipped (MapLibre 6.14). It cannot be split further.
 const LAZY_CHUNK_BUDGET = 1100 * 1024;

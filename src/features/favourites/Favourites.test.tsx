@@ -15,7 +15,7 @@ function store(favourites: { code: string; name: string }[]) {
 }
 
 const panel = () =>
-  screen.queryByText(/^Favourites/, { selector: 'summary' })?.closest('details') ?? null;
+  screen.queryByText(/^Favourites/, { selector: 'summary span' })?.closest('details') ?? null;
 
 describe('favourites storage', () => {
   it('reads nothing from junk, duplicates or a throwing storage', () => {

@@ -1,7 +1,6 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   Map as MapLibreMap,
-  NavigationControl,
   setWorkerUrl,
   type ExpressionSpecification,
   type GeoJSONSource,
@@ -9,10 +8,12 @@ import {
 } from 'maplibre-gl';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
+import { IconButton } from '@/components/Button/Button';
+import { ZoomIn, ZoomOut } from '@/components/Icon/icons';
 import type { Theme } from '@/features/theme/theme';
 
 import { restyleBasemap } from './basemap';
-import { boundsOf, toFeatures } from './mapData';
+import { boundsOf, lookalikes, toFeatures } from './mapData';
 import { addLayers, LAYER, SOURCE, tokenColours } from './mapLayers';
 import { MAPLIBRE_WORKER_URL, mapStyleUrl } from './mapStyle';
 import styles from './StationMap.module.css';
@@ -187,7 +188,6 @@ export function StationMap({
     });
     map.touchZoomRotate.disableRotation();
     map.keyboard.disableRotation();
-    map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
     // The placeholder that held focus has just been replaced, leaving it on
     // <body>. The map only exists from this effect on, so the move cannot be
     // in a layout effect; it is safe here because it only ever takes focus
@@ -303,10 +303,14 @@ export function StationMap({
     map.setFilter(LAYER.selectedDot, filter);
     map.setFilter(LAYER.selectedLabel, filter);
     // Its ordinary label would repeat the price beside the bold one, and its
-    // ordinary dot would draw a second ring inside its marker.
+    // ordinary dot would draw a second ring inside its marker. A neighbour at
+    // the same price a street away loses its price too (lookalikes): beside
+    // the selected tag it read as the same station tagged twice.
     const others: ExpressionSpecification = ['!=', ['get', 'code'], selected ?? ''];
-    map.setFilter(LAYER.labels, ['all', others, ['!', ['get', 'cheapest']]]);
-    map.setFilter(LAYER.cheapestLabel, ['all', others, ['get', 'cheapest']]);
+    const unpriced = [selected ?? '', ...lookalikes(stations, selected)];
+    const priced: ExpressionSpecification = ['!', ['in', ['get', 'code'], ['literal', unpriced]]];
+    map.setFilter(LAYER.labels, ['all', priced, ['!', ['get', 'cheapest']]]);
+    map.setFilter(LAYER.cheapestLabel, ['all', priced, ['get', 'cheapest']]);
     map.setFilter(LAYER.dots, others);
 
     const key = `${selected ?? ''}:${String(showRequest)}`;
@@ -334,6 +338,31 @@ export function StationMap({
   return (
     <div className={styles.frame}>
       <div ref={containerRef} className={styles.map} />
+      {/*
+       * Our own zoom buttons, not MapLibre's (29 px, its own icons): the
+       * icon set's plus and minus at the full 44 px target, in the map's
+       * top-right corner. After the map in the Tab order, as MapLibre's were.
+       */}
+      {loading === 'loaded' && (
+        <div className={styles.zoom}>
+          <IconButton
+            icon={ZoomIn}
+            label="Zoom in"
+            title="Zoom in"
+            onClick={() => {
+              mapRef.current?.zoomIn({ animate: !reducedMotion });
+            }}
+          />
+          <IconButton
+            icon={ZoomOut}
+            label="Zoom out"
+            title="Zoom out"
+            onClick={() => {
+              mapRef.current?.zoomOut({ animate: !reducedMotion });
+            }}
+          />
+        </div>
+      )}
       {loading !== 'loaded' && (
         <p className={styles.loading}>
           {loading === 'loading'

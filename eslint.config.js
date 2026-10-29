@@ -120,6 +120,35 @@ export default tseslint.config(
     },
   },
 
+  // --- One icon set, from one file --------------------------------------------
+  // Every icon comes from src/components/Icon/icons.ts, so the set stays one
+  // set (docs/design-system.md, Icons) and nothing pulls in its full index.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/components/Icon/icons.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@tabler/icons-react',
+              allowTypeImports: true,
+              message: 'Import icons from @/components/Icon/icons.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['@tabler/icons-react/*'],
+              allowTypeImports: true,
+              message: 'Add the icon to @/components/Icon/icons and import it from there.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // --- The Netlify functions run on Node, not in a browser -------------------
   {
     files: ['netlify/**/*.ts'],

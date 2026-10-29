@@ -71,7 +71,6 @@
 }
 
 .moreSummary {
-  display: list-item;
   padding-block: var(--space-2);
   font-size: var(--step--1);
   font-weight: var(--font-weight-bold);
@@ -132,4 +131,13 @@
 .charted {
   color: var(--color-text-muted);
   font-size: var(--step--1);
+}
+
+/* Missing days: one row naming them, in words, not a row per day of dashes. */
+.table .gapRow th,
+.table .gapRow td {
+  color: var(--color-text-muted);
+  font-family: var(--font-text);
+  font-weight: var(--font-weight-regular);
+  text-align: left;
 }

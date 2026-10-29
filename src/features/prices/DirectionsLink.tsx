@@ -1,3 +1,5 @@
+import { Icon } from '@/components/Icon/Icon';
+import { NewTab } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { directionsUrl } from '@/lib/directions';
 
@@ -12,7 +14,7 @@ import type { StationPrice } from '../../../shared/api';
  *
  * Its name starts with the visible word (WCAG 2.5.3) and says where it goes
  * and that it opens a new tab: "Directions to Metro Gosford, opens in a new
- * tab". The arrow is the usual visual cue for the new tab.
+ * tab". The arrow after the word is the usual visual cue for the new tab.
  */
 export function DirectionsLink({
   station,
@@ -31,9 +33,7 @@ export function DirectionsLink({
     >
       {/* The space outside the hidden text: some name calculations trim it from inside. */}
       Directions <VisuallyHidden>to {station.name}, opens in a new tab</VisuallyHidden>
-      <span aria-hidden="true" className={styles.icon}>
-        ↗
-      </span>
+      <Icon icon={NewTab} />
     </a>
   );
 }

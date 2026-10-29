@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { prices, station } from '@/lib/testing/fakeApi';
 
-import { boundsOf, priceBands, toFeatures } from './mapData';
+import { boundsOf, lookalikes, priceBands, toFeatures } from './mapData';
 
 describe('priceBands', () => {
   it('splits stations into cheapest, middle and dearest thirds by rank', () => {
@@ -79,5 +79,35 @@ describe('boundsOf', () => {
       [151.0, -33.6],
       [151.3, -33.4],
     ]);
+  });
+});
+
+describe('lookalikes', () => {
+  // Pearl Energy and Metro Petroleum in Cessnock: 124 m apart, both 236.5.
+  const selected = station({
+    stationCode: '2393',
+    latitude: -32.8335,
+    longitude: 151.3561,
+    priceCents: 236.5,
+  });
+  const twin = station({
+    stationCode: '20206',
+    latitude: -32.8346,
+    longitude: 151.3555,
+    priceCents: 236.5,
+  });
+
+  it('finds a neighbour a street away at the same price', () => {
+    expect(lookalikes([selected, twin], '2393')).toEqual(['20206']);
+  });
+
+  it('leaves a neighbour at a different price, or the same price further off', () => {
+    const dearer = { ...twin, stationCode: '3', priceCents: 236.9 };
+    const across = { ...twin, stationCode: '4', latitude: -32.84 };
+    expect(lookalikes([selected, dearer, across], '2393')).toEqual([]);
+  });
+
+  it('is nothing without a selection', () => {
+    expect(lookalikes([selected, twin], null)).toEqual([]);
   });
 });

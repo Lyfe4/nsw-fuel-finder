@@ -38,9 +38,13 @@ so another state is a data change, not a rebrand.
    furniture ("TAX INVOICE", docket numbers, "THANK YOU").
 6. **Letter-spaced capitals only for the wordmark.** Labels are sentence
    case.
-7. **Decorative characters are hidden from assistive technology**
-   (`aria-hidden`): leaders, `·`, `↗`, `☆`/`★`, `↓`/`↑`, `←`. Words carry the
-   meaning in visually hidden text where the character did.
+7. **Decoration is hidden from assistive technology** (`aria-hidden`):
+   leaders, `·` and every icon. Words carry the meaning, on screen or in
+   visually hidden text.
+8. **No text characters as icons.** Arrows, stars, crosses, carets and
+   disclosure triangles are SVG icons from the one icon set (Icons, below):
+   iOS draws characters like the north-east arrow and the white star as
+   coloured emoji.
 
 Banned outright (from the brief): Inter, Geist, Space Grotesk, DM Sans,
 Poppins, Plus Jakarta Sans, Satoshi, Instrument Serif or system-ui as the
@@ -48,7 +52,10 @@ brand face; purple, indigo or violet; gradients, gradient text, glass,
 glows and blobs; a card with a soft shadow per item; uniform radius
 everywhere; pill badges; emoji or a decorative icon set; a centred hero
 stack; teal or emerald; fade-up-on-scroll, springs, hover scale; the
-grey-50 page with white cards.
+grey-50 page with white cards. Icons are allowed only as the functional
+set described below (never decoration), and never Lucide: it is the
+default set of shadcn and most generated UIs, and would make Docket look
+like them.
 
 ## Colour
 
@@ -146,6 +153,73 @@ height 1.4 for text, 1.15 for headings.
 - Touch targets: at least 44 × 44 px (`--target-size`), except inline text
   buttons, which are at least 24 px high (WCAG 2.5.8) with space around them.
 
+## Icons
+
+**One set: [Tabler Icons](https://tabler.io/icons) (MIT), outline.** A 24 px
+grid, a 2 px stroke with round caps and joins, drawn at 1.25em: next to a
+13–15 px bold label that is a stroke of about 1.7 px, close to the stem of
+Atkinson Hyperlegible Next at 700, so icon and word read as one weight.
+Plain geometric strokes, no two-tone or duotone, which suits a thermal
+print. Why Tabler and not the others is in docs/decisions.md (round 14).
+
+**How they get in.** `src/components/Icon/icons.ts` imports each icon from
+its own file (`@tabler/icons-react/dist/esm/icons/IconX.mjs`) and names it
+by its job (`Close`, `NewTab`, `Disclosure`). Nothing else imports the
+package: an ESLint rule fails the build otherwise. Each is inline SVG in the
+JavaScript: no icon font, no CDN, no external sprite, nothing the CSP has to
+allow. `stroke="currentColor"`, so they take the text's colour in both
+themes; the one filled icon (the saved star) is `fill="currentColor"`.
+
+**`<Icon icon={…} />`** draws one: `aria-hidden`, `focusable="false"`,
+1.25em square, never shrinking in a row. **`<IconButton>`** is an
+icon-only button: a 44 × 44 px square, its name in visually hidden text
+(translated with the page, read by every screen reader) and a `title` for
+a tooltip under a pointer.
+
+| Job              | Icon                       | Where                                                   | With words?     |
+| ---------------- | -------------------------- | ------------------------------------------------------- | --------------- |
+| `Search`         | search                     | The folded search line's toggle                         | No              |
+| `Close`          | x                          | The station card's Close; the place box's Clear         | No              |
+| `ZoomIn`/`Out`   | plus, minus                | The map                                                 | No              |
+| `NewTab`         | arrow-up-right, after word | Directions (card and history)                           | Yes, always     |
+| `Star`           | star / star-filled         | Favourite: outline, filled when saved (`aria-pressed`)  | Yes, always     |
+| `Caret`          | chevron-down               | The folded line's fuel picker                           | The fuel's name |
+| `Disclosure`     | chevron-right, turns down  | Every `<details>` summary (`<Summary>`), not the marker | Yes             |
+| `Back`           | arrow-left                 | Back to results                                         | Yes             |
+| `ArrowUp`/`Down` | arrow-up, arrow-down       | Today's move ("2.0 today")                              | Yes             |
+
+**Icon alone only where everyone reads it the same way**: close, clear,
+zoom, search. Anything else keeps a short word beside it (Directions,
+Favourite), for clarity, for screen readers and speech input (the visible
+word is the name), and for translation. The legend's "Centre" ring is not
+an icon: it is drawn as the map draws the search origin, so the key matches
+the map.
+
+## Alignment
+
+Every row of controls is one row on purpose at every width from 320 to
+1440 px, in both themes, or breaks in one planned place:
+
+- **Search line (phone, folded):** fuel and place on one line when they
+  fit; otherwise they move under the fuel. The search button stays at the
+  right, centred on both lines. Never three lines; a place too long even for
+  its own line ends its suburb in an ellipsis and keeps "NSW 2444"; the
+  distance is never cut.
+- **Search form (wide):** "Use my location" sits on the controls' row, not
+  centred on labels and controls together.
+- **Toolbar:** one row from 360 px. Under 360 px, two rows on purpose:
+  List/Map across the width, then Sort at the left and Filters at the right.
+- **Station card:** `[Directions] [Favourite] … [×]` on one row at every
+  width; under 360 px the buttons' side padding drops from 12 to 8 px so
+  they fit. `check:browser` fails if the three are not on one row at 320,
+  360, 390 or 430 px.
+- **Keys and legends:** each swatch and its words are one unit that wraps
+  whole (the price chart's key at 320 px: two lines, each with its swatch).
+- **History actions, favourites rows, legend, footer:** one row (the map's
+  legend from 320 px); a long station name in a favourite wraps, its Remove stays
+  under it at the left.
+- Nothing scrolls sideways at any width (also in `check:browser`).
+
 ## Components
 
 ### Masthead
@@ -161,17 +235,24 @@ at the left, "NSW · ACT" (muted) at the right, then a 1.5 px rule. The
   "Use my location" (a text button). No hints or helper text. On wide
   screens it is one row.
 - **On phones after a search:** one line in place of the form:
-  `[Unleaded 91 ▾] · 2250 · 5 km [Change]`.
-  - The fuel is a native `<select>` styled as bold text, named "Fuel", with
-    the usual focus ring. Changing it searches again at once, as the form's
-    select does.
-  - **Change** is a disclosure button ("Change search", `aria-expanded`,
-    `aria-controls` the form). Opening keeps focus on it, so the next Tab is
-    the form. A successful search closes the form and moves focus to the
-    results heading. A failed one ("no such place") keeps it open with focus
-    in the place field, and the error announced.
-  - The place and distance are text (they are the Change button's
-    context).
+  `Unleaded 91 (caret)  5 km · 2250  [search]` (a long place on a second
+  line, see Alignment).
+  - The fuel is a native `<select>`, named "Fuel", laid invisibly over the
+    fuel's name and the icon set's caret, so the line is exactly as wide as
+    the name in every browser and a tap anywhere on it opens the phone's
+    picker. The focus ring is drawn round what is on show. Changing it
+    searches again at once, as the form's select does.
+  - **The search button** is the magnifier alone, a 44 px disclosure button
+    named "Change search" (`aria-expanded`, `aria-controls` the form,
+    tooltip "Change search"). Closed it is outlined; open it is filled ink,
+    like the pressed List/Map switch. Opening keeps focus on it, so the next
+    Tab is the form. A successful search closes the form and moves focus to
+    the results heading. A failed one ("no such place") keeps it open with
+    focus in the place field, and the error announced.
+  - The distance and place are text (they are the search button's
+    context), distance first: it is short and never cut. A place too long
+    for its line loses the end of its suburb, never its state and postcode:
+    "10 km · Port Macqu… NSW 2444" at 320 px.
 
 ### Favourites
 
@@ -221,15 +302,29 @@ Metro Petroleum Gosford ··········· 233.9
   returns to the row.
 - A long name wraps, and the leader and price sit on its last line.
 
+### Station names
+
+FuelCheck has about 130 of 2,400 names in capitals ("MOBIL HASTINGS
+RIVER"). The browser sets those in title case where answers come in
+(`src/lib/api.ts`, `formatStationName`), so every place a name is shown
+or read out agrees. Only a name with no lower-case letter is touched.
+Kept in capitals: known brands and initials (BP, EG, OTR, OPT, APW, METCO
+and others in `format.ts`), any word the station's brand writes in
+capitals beside lower case ("TEMCO Petroleum"), and words with no vowel
+("SG Chambers", "PK's"), except short forms like "Mt" and "St". A
+possessive stays small ("Yogi's").
+
 ### Station card
 
 Under its row in the list, at every width: brand · address (an
-all-capitals address set in title case in the browser; a capitals suburb
+all-capitals address set in title case in the browser, and an all-capitals
+name too, brand capitals kept (Station names, below); a capitals suburb
 in an otherwise careful address given the ABS gazetteer's spelling in the
 API), "down 1.0
-today" when it moved, a "Price history" link, then Directions (primary
-button, opens the phone's maps app), Favourite (toggle, `aria-pressed`),
-Close.
+today" when it moved, a "Price history" link, then one row of actions:
+Directions (primary button with the new-tab arrow, opens the phone's maps
+app), Favourite (bordered, a star that is filled when saved, `aria-pressed`)
+and, at the far end, Close as the × icon alone ("Close, <station>").
 
 On a phone in Map view, the same card sits under the map, with the station
 name and the price on a leader line at the top. It has no "List" button.
@@ -246,7 +341,16 @@ own glyphs would cost about 250 kB of PBFs and our bandwidth for little
 gain in this direction (docs/design-directions/README.md).
 
 Prices are boxed tags: paper with an ink edge, the cheapest inverted in
-the accent, the selected one with a heavier edge. The tag is fitted to its
+the accent, the selected one with a heavier edge. **One tag by the selected
+station:** a neighbour within 250 m at the same price gives up its price
+(not its dot) while that station is selected, because two equal tags side
+by side read as one station tagged twice (Cessnock, round 14).
+
+**Controls:** our own zoom buttons (the icon set's plus and minus, 44 px,
+in the top-right corner), not MapLibre's 29 px ones. **Attribution:** in
+full, as the tiles' licences ask, but in proportion: 10 px on a phone,
+`--step--2` from 40rem, one line in the bottom-right corner, clear of the
+zoom buttons and the legend (which is under the map). The tag is fitted to its
 price and takes no part in placement itself, so a price is placed (or
 dropped to make way for a dot) exactly as before. Dots stay on top.
 
@@ -275,6 +379,16 @@ chart keeps a comfortable width and the right half isn't empty.
 The chart is a thermal print: an ink trace of the day's last price, the
 low–high range as a pale band, quiet gridlines, mono axis labels, and the
 slider's day as a dotted accent cursor.
+
+**Missing days** are drawn as a thin dashed line in the muted colour from
+the last price before to the first after, so the trace is not cut off as
+if broken, with a note "No data, 1–22 Oct" at the top or bottom of the plot
+(whichever is further from the dashes) on a halo of paper. The dashes are
+plainly not the ink trace and carry no values: the slider moves only over
+days with prices, and nothing is interpolated. A gap of one or two days
+gets the dashes alone. In words, every gap is in the summary over the
+chart ("No data for 1 Oct 2026 to 22 Oct 2026."), in the credit under it,
+and as one row in the daily table ("1–22 Oct, No data") where it falls.
 
 ### Buttons and links
 
@@ -311,8 +425,11 @@ station (MapLibre's own). Ease-out, 150–250 ms. All of it is off under
 
 ## Budgets
 
-- Initial CSS: 22 kB raw. Raise it only in a commit that says why, with the
-  note in `scripts/check-bundle-budget.js`.
+- Initial CSS: 25 kB raw (24.1 kB at round 14). Raise it only in a commit
+  that says why, with the note in `scripts/check-bundle-budget.js`.
+- Icons: in the initial JavaScript (12 icons, about 2 kB), inside its
+  unchanged 350 kB budget, which would also catch the set's whole index
+  slipping in.
 - Fonts (`pnpm bundle:check`): every preloaded font together at most 56 kB,
   all files in `public/fonts/` at most 64 kB, and every preload must point at
   a file that exists.

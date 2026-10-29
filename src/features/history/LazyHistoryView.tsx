@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { lazy, Suspense, useLayoutEffect, useRef } from 'react';
 
 import { Button } from '@/components/Button/Button';
+import { Icon } from '@/components/Icon/Icon';
+import { Back } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { LoadingStations } from '@/features/prices/LoadingStations';
 import { ApiRequestError, fetchHistory } from '@/lib/api';
@@ -51,7 +53,8 @@ export function LazyHistoryView({ code, fuel, fuelName, now, onClose }: LazyHist
   return (
     <section className={styles.section} aria-labelledby="history-heading">
       <Button variant="quiet" className={styles.back} onClick={onClose}>
-        <span aria-hidden="true">←</span> Back to results
+        <Icon icon={Back} />
+        Back to results
       </Button>
       {/* The station's name on screen; "Price history:" before it for screen readers. */}
       <h2 id="history-heading" className={styles.heading} tabIndex={-1} ref={headingRef}>

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 
 import { Button } from '@/components/Button/Button';
+import { Summary } from '@/components/Disclosure/Summary';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { HistoryLink } from '@/features/history/HistoryLink';
 import { formatAge, formatPrice } from '@/lib/format';
@@ -81,9 +82,9 @@ export function FavouritesPanel({
 
   return (
     <details className={styles.panel} open={openByDefault}>
-      <summary className={styles.summary} ref={summaryRef}>
+      <Summary className={styles.summary} ref={summaryRef}>
         Favourites ({favourites.length})
-      </summary>
+      </Summary>
       <ul className={styles.list} ref={listRef} aria-label={`Favourites, ${fuelName}`}>
         {rows.map(({ favourite, station, price }) => (
           <li key={favourite.code} className={styles.row}>

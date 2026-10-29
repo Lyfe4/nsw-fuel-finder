@@ -72,15 +72,31 @@ describe('a station’s price history', () => {
     const { user, container } = setup('/?query=Erina&history=1');
     expect(
       await screen.findByText(
-        'Lowest in the last 26 days: 199.9 cents a litre on Wed, 30 Sept. Highest: 229.9 on Sat, 24 Oct.',
+        'Lowest in the last 26 days: 199.9 cents a litre on Wed, 30 Sept. Highest: 229.9 on Sat, 24 Oct. No data for 1 Oct 2026 to 22 Oct 2026.',
       ),
     ).toBeVisible();
     await user.click(screen.getByText('Daily prices as a table'));
     const table = screen.getByRole('table', { name: /Unleaded 91 at Ampol Foodary Erina/ });
     const rows = within(table).getAllByRole('row');
-    expect(rows).toHaveLength(5);
+    // Four days, and the gap named in one row of its own where it falls.
+    expect(rows).toHaveLength(6);
     expect(rows[1]).toHaveTextContent('Sat, 24 Oct224.9229.9229.9');
-    expect(screen.getByText(/No data for 1 Oct 2026 to 22 Oct 2026/)).toBeVisible();
+    expect(rows[2]).toHaveTextContent('Fri, 23 Oct');
+    expect(rows[3]).toHaveTextContent('1–22 OctNo data');
+    expect(rows[4]).toHaveTextContent('Wed, 30 Sept');
+    expect(screen.getAllByText(/No data for 1 Oct 2026 to 22 Oct 2026/)).toHaveLength(2);
+    // On the chart: named, and bridged by a dashed line from the price before
+    // to the price after, not a shaded block. No made-up prices: the slider
+    // still has only the four days there are.
+    const chart = screen.getByRole('slider');
+    const notes = [...chart.querySelectorAll('text')].map((text) => text.textContent);
+    expect(notes).toContain('No data, 1–22 Oct');
+    expect(chart.querySelector('rect')).toBeNull();
+    const bridges = [...chart.querySelectorAll('line')].filter((line) =>
+      line.getAttribute('class')?.includes('gapLine'),
+    );
+    expect(bridges).toHaveLength(1);
+    expect(chart).toHaveAttribute('aria-valuemax', '4');
     const view = screen.getByRole('region', { name: /^Price history/ });
     expect(within(view).getByRole('link', { name: 'NSW FuelCheck price history' })).toHaveAttribute(
       'href',

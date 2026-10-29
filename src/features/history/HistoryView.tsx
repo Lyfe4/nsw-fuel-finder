@@ -1,3 +1,6 @@
+import { Fragment } from 'react';
+
+import { Summary } from '@/components/Disclosure/Summary';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { DirectionsLink } from '@/features/prices/DirectionsLink';
 import { formatAge, formatPrice } from '@/lib/format';
@@ -5,7 +8,16 @@ import { useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
 import { HistoryChart } from './HistoryChart';
 import styles from './HistoryView.module.css';
-import { coverageText, formatDay, gaps, summarise, summaryText } from './summary';
+import {
+  coverageText,
+  daysBetween,
+  formatDay,
+  formatGap,
+  gaps,
+  gapsText,
+  summarise,
+  summaryText,
+} from './summary';
 import { FUEL_TYPES } from '../../../shared/fuelTypes';
 
 import type { HistoryResponse } from '../../../shared/api';
@@ -65,7 +77,9 @@ export function HistoryView({
         </div>
 
         {summary ? (
-          <p className={styles.summary}>{summaryText(summary)}</p>
+          <p className={styles.summary}>
+            {summaryText(summary)} {gapsText(gapList)}
+          </p>
         ) : (
           <p className={styles.summary}>
             No {fuelName} price history for this station yet. We add a day every morning.
@@ -84,7 +98,7 @@ export function HistoryView({
 
         {days.length > 0 && (
           <details className={styles.more}>
-            <summary className={styles.moreSummary}>Daily prices as a table</summary>
+            <Summary className={styles.moreSummary}>Daily prices as a table</Summary>
             <table className={styles.table}>
               <caption className={styles.caption}>
                 {fuelName} at {station.name}, cents a litre, newest first
@@ -98,14 +112,26 @@ export function HistoryView({
                 </tr>
               </thead>
               <tbody>
-                {[...days].reverse().map(([day, low, high, last]) => (
-                  <tr key={day}>
-                    <th scope="row">{formatDay(day)}</th>
-                    <td>{formatPrice(low)}</td>
-                    <td>{formatPrice(high)}</td>
-                    <td>{formatPrice(last)}</td>
-                  </tr>
-                ))}
+                {[...days].reverse().map(([day, low, high, last]) => {
+                  // Newest first, so a gap ends just before this day.
+                  const gap = gapList.find((g) => daysBetween(g.through, day) === 1);
+                  return (
+                    <Fragment key={day}>
+                      <tr>
+                        <th scope="row">{formatDay(day)}</th>
+                        <td>{formatPrice(low)}</td>
+                        <td>{formatPrice(high)}</td>
+                        <td>{formatPrice(last)}</td>
+                      </tr>
+                      {gap && (
+                        <tr className={styles.gapRow}>
+                          <th scope="row">{formatGap(gap)}</th>
+                          <td colSpan={3}>No data</td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </details>
@@ -113,7 +139,7 @@ export function HistoryView({
       </div>
 
       <details className={styles.side} open={wide}>
-        <summary className={styles.moreSummary}>Every fuel here now</summary>
+        <Summary className={styles.moreSummary}>Every fuel here now</Summary>
         <AllFuels data={data} now={now} />
       </details>
 

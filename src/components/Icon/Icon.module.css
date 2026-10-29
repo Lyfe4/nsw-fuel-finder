@@ -1,0 +1,10 @@
+/*
+ * 1.25em: a little taller than the cap height of the label beside it, so a
+ * 2 px stroke on the 24 px grid comes out near the stem of Atkinson's bold
+ * at every step. Never shrinks in a tight row.
+ */
+.icon {
+  flex: none;
+  width: 1.25em;
+  height: 1.25em;
+}
