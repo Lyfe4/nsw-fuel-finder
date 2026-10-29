@@ -4,6 +4,7 @@ import { Summary } from '@/components/Disclosure/Summary';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { DirectionsLink } from '@/features/prices/DirectionsLink';
 import { formatAge, formatPrice } from '@/lib/format';
+import { stationSource } from '@/lib/sources';
 import { useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
 import { HistoryChart } from './HistoryChart';
@@ -145,6 +146,8 @@ export function HistoryView({
 
       <p className={styles.credit}>
         {coverageText(sources, gapList)}{' '}
+        {/* Queensland's (round 15): its licence notice, from the API, word for word. */}
+        {stationSource(station.stationCode) === 'qld' && data.licence}
         {sources.some((source) => source.kind === 'fuelcheck-monthly') && (
           <>
             Published history from{' '}

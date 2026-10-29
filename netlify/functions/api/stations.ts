@@ -1,5 +1,5 @@
 import { ApiError } from './http';
-import { MAX_STATION_CODES } from '../../../shared/api';
+import { MAX_STATION_CODES, qldDataNotice, stationSource } from '../../../shared/api';
 import { FUEL_TYPE_CODES, type FuelTypeCode } from '../../../shared/fuelTypes';
 import {
   addDays,
@@ -9,7 +9,7 @@ import {
   stationHistorySchema,
 } from '../../lib/history/stationHistory';
 import { mendAddressCase } from '../../lib/places/addressCase';
-import { sydneyDay } from '../../lib/upstream/time';
+import { brisbaneDay, sydneyDay } from '../../lib/upstream/time';
 
 import type { HistoryResponse, StationSummary, StationsResponse } from '../../../shared/api';
 import type { Snapshot, SnapshotStation } from '../../lib/snapshot/format';
@@ -84,7 +84,7 @@ export function stationsBody(
 /** A station the snapshot no longer lists is a 404: there is nothing current to show beside its past. */
 export function assertListed(snapshot: Snapshot, code: string): void {
   if (!snapshot.stations.some((station) => station.code === code)) {
-    throw new ApiError('not_found', 'FuelCheck no longer lists that station.');
+    throw new ApiError('not_found', 'That station is no longer listed.');
   }
 }
 
@@ -100,13 +100,18 @@ export function historyBody(
   files: { backfill: unknown; live: unknown },
 ): HistoryResponse {
   const station = byCode(snapshot).get(code);
-  if (!station) throw new ApiError('not_found', 'FuelCheck no longer lists that station.');
+  if (!station) throw new ApiError('not_found', 'That station is no longer listed.');
   const parse = (value: unknown) => {
     const parsed = stationHistorySchema.safeParse(value);
     return parsed.success && parsed.data.code === code ? parsed.data : null;
   };
-  const today = sydneyDay(new Date(snapshot.fetchedAt));
+  // A Queensland station's days are Brisbane days, with its own licence.
+  const qld = stationSource(code) === 'qld';
+  const today = (qld ? brisbaneDay : sydneyDay)(new Date(snapshot.fetchedAt));
   const since = addDays(today, -(HISTORY_WINDOW_DAYS - 1));
   const { days, sources } = mergeHistory(parse(files.backfill), parse(files.live), fuel, since);
-  return { fuelType: fuel, station: toSummary(station), days, sources, licence: HISTORY_LICENCE };
+  const licence = qld
+    ? `Daily low, high and last price from our own snapshots. ${qldDataNotice(Number(today.slice(0, 4)))}`
+    : HISTORY_LICENCE;
+  return { fuelType: fuel, station: toSummary(station), days, sources, licence };
 }

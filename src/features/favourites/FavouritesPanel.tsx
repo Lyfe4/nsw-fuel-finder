@@ -5,6 +5,7 @@ import { Summary } from '@/components/Disclosure/Summary';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { HistoryLink } from '@/features/history/HistoryLink';
 import { formatAge, formatPrice } from '@/lib/format';
+import { SOURCE_NAMES, stationSource } from '@/lib/sources';
 
 import styles from './FavouritesPanel.module.css';
 import { useFavouritePrices, useFavourites } from './useFavourites';
@@ -94,7 +95,7 @@ export function FavouritesPanel({
             <span aria-hidden="true" className={styles.leader} />
             <p className={styles.detail}>
               {missing.has(favourite.code) ? (
-                'FuelCheck no longer lists this station.'
+                `${SOURCE_NAMES[stationSource(favourite.code)]} no longer lists this station.`
               ) : prices.isPending ? (
                 'Loading price…'
               ) : prices.isError ? (

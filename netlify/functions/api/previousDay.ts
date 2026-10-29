@@ -16,20 +16,24 @@ const RETRY_MS = 5 * 60_000;
  * change is just unknown (null). A failed or missing read is retried after
  * RETRY_MS rather than on every request.
  */
-export function createPreviousDaySource(deps: { store: KeyValueStore; now: () => number }) {
+export function createPreviousDaySource(deps: {
+  store: KeyValueStore;
+  now: () => number;
+  /** NSW's day files by default; Queensland's are `QLD_KEYS.historyDay` (round 15). */
+  dayKey?: (day: string) => string;
+}) {
+  const dayKey = deps.dayKey ?? KEYS.historyDay;
   let cached: { day: string; fuels: HistoryDay['fuels'] | null; readAt: number } | null = null;
   let pending: { day: string; promise: Promise<HistoryDay['fuels'] | null> } | null = null;
 
   async function read(day: string): Promise<HistoryDay['fuels'] | null> {
     try {
-      const parsed = historyDaySchema.safeParse(
-        await deps.store.getJSON(KEYS.historyDay(day), 'eventual'),
-      );
+      const parsed = historyDaySchema.safeParse(await deps.store.getJSON(dayKey(day), 'eventual'));
       if (parsed.success && parsed.data.day === day) return parsed.data.fuels;
-      if (!parsed.success) console.error(`history/v1/${day} has an unexpected shape`);
+      if (!parsed.success) console.error(`${dayKey(day)} has an unexpected shape`);
       return null;
     } catch (error) {
-      console.error(`Reading history/v1/${day} failed`, error);
+      console.error(`Reading ${dayKey(day)} failed`, error);
       return null;
     }
   }

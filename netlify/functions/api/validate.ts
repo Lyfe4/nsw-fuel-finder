@@ -11,6 +11,21 @@ import { roundTo } from '../../lib/geo';
  */
 export const NSW_BOUNDS = { minLat: -37.6, maxLat: -28.1, minLng: 140.9, maxLng: 153.7 };
 
+/**
+ * The same for Queensland (round 15), used only while it is public: its
+ * stations span -29.0 to -9.75 (the Torres Strait) and 138.1 to 153.5. Two
+ * boxes rather than one big one, so "outside" still means Victoria or the NT.
+ */
+export const QLD_BOUNDS = { minLat: -29.2, maxLat: -9.0, minLng: 137.9, maxLng: 153.7 };
+
+type Bounds = typeof NSW_BOUNDS;
+const inside = (b: Bounds, lat: number, lng: number) =>
+  lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
+
+/** What the API covers, in words, for its messages. */
+export const coverage = (withQld: boolean): string =>
+  withQld ? 'NSW, the ACT and Queensland' : 'NSW and the ACT';
+
 export const RADIUS_KM = { min: 1, max: 25, default: 5 };
 
 export interface NearbyQuery {
@@ -26,7 +41,7 @@ export type LocationQuery = (
       kind: 'suburb';
       /** The name, with any ABS qualifier: "Kingswood (Penrith)". */
       suburb: string;
-      state: 'NSW' | 'ACT' | null;
+      state: 'NSW' | 'ACT' | 'QLD' | null;
       postcode: string | null;
       /** The whole query, tidied, for matching a suggestion label exactly. */
       text: string;
@@ -68,14 +83,20 @@ function parseRadius(params: URLSearchParams): number {
   return Math.min(RADIUS_KM.max, Math.max(RADIUS_KM.min, Math.round(raw)));
 }
 
-export function parseNearbyQuery(params: URLSearchParams): NearbyQuery {
+export function parseNearbyQuery(params: URLSearchParams, withQld = false): NearbyQuery {
   const latitude = parseNumber(params, 'lat');
   const longitude = parseNumber(params, 'lng');
-  const { minLat, maxLat, minLng, maxLng } = NSW_BOUNDS;
 
   // Refused, not clamped: clamping would quietly search somewhere the user is not.
-  if (latitude < minLat || latitude > maxLat || longitude < minLng || longitude > maxLng) {
-    throw new ApiError('bad_request', 'That location is outside NSW.');
+  const covered =
+    inside(NSW_BOUNDS, latitude, longitude) || (withQld && inside(QLD_BOUNDS, latitude, longitude));
+  if (!covered) {
+    throw new ApiError(
+      'bad_request',
+      withQld
+        ? `That location is outside the area we cover. Fuel Finder covers ${coverage(true)}.`
+        : 'That location is outside NSW.',
+    );
   }
 
   return {
@@ -92,31 +113,42 @@ export function parseNearbyQuery(params: URLSearchParams): NearbyQuery {
  * that tells repeated names apart, "Kingswood (Penrith)", and be followed by
  * a state and/or postcode - which is exactly the shape of a suggestion label,
  * "Kingswood (Penrith) NSW 2747". A postcode alone is four digits; NSW and ACT
- * ones start with 1 or 2.
+ * ones start with 1 or 2, Queensland's (round 15, only while it is public)
+ * with 4.
  */
 const POSTCODE = /^[12]\d{3}$/;
 const SUBURB =
   /^(\p{L}[\p{L} .'-]{1,59}?(?:\s*\([\p{L} .'-]{1,40}\))?)(?:\s+(NSW|ACT))?(?:\s+([12]\d{3}))?$/iu;
+const POSTCODE_WITH_QLD = /^[124]\d{3}$/;
+const SUBURB_WITH_QLD =
+  /^(\p{L}[\p{L} .'-]{1,59}?(?:\s*\([\p{L} .'-]{1,40}\))?)(?:\s+(NSW|ACT|QLD))?(?:\s+([124]\d{3}))?$/iu;
 
-export function parseLocationQuery(params: URLSearchParams): LocationQuery {
+export function parseLocationQuery(params: URLSearchParams, withQld = false): LocationQuery {
   const query = required(params, 'query')
     // Phones autocorrect ' to a curly quote.
     .replace(/[‘’]/g, "'")
     .replace(/\s+/g, ' ');
   const common = { radiusKm: parseRadius(params), fuelType: parseFuelType(params) };
 
-  if (POSTCODE.test(query)) return { kind: 'postcode', postcode: query, ...common };
+  if ((withQld ? POSTCODE_WITH_QLD : POSTCODE).test(query)) {
+    return { kind: 'postcode', postcode: query, ...common };
+  }
 
-  const match = SUBURB.exec(query);
+  const match = (withQld ? SUBURB_WITH_QLD : SUBURB).exec(query);
   const suburb = match?.[1]?.trim();
   if (!match || !suburb) {
-    throw new ApiError('bad_request', 'Enter a NSW suburb name or a four-digit postcode.');
+    throw new ApiError(
+      'bad_request',
+      withQld
+        ? `Enter a suburb name or a four-digit postcode. Fuel Finder covers ${coverage(true)}.`
+        : 'Enter a NSW suburb name or a four-digit postcode.',
+    );
   }
   const state = match[2]?.toUpperCase();
   return {
     kind: 'suburb',
     suburb,
-    state: state === 'NSW' || state === 'ACT' ? state : null,
+    state: state === 'NSW' || state === 'ACT' || state === 'QLD' ? state : null,
     postcode: match[3] ?? null,
     text: query,
     ...common,

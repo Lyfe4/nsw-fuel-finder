@@ -1,7 +1,7 @@
 import { ApiError } from './http';
 import { centroid, cluster, haversineKm, type LatLng } from '../../lib/geo';
 import {
-  POSTCODES,
+  postcodeArea,
   SUGGESTION_LIMIT,
   suburbByLabel,
   suburbsNamed,
@@ -176,20 +176,20 @@ function splitQualifier(text: string): { name: string; qualifier: string | null 
  *    ("Wagga") resolves when there is one, offers choices when several;
  * 5. a name only station addresses know ("Dubbo North") falls back to them.
  */
-export function resolvePlace(index: PlaceIndex, query: LocationQuery): Place {
+export function resolvePlace(index: PlaceIndex, query: LocationQuery, withQld = false): Place {
   if (query.kind === 'postcode') {
     const stations = index.stationPlacesByPostcode.get(query.postcode);
     if (stations) return stations;
-    const area = POSTCODES.get(query.postcode);
+    const area = postcodeArea(query.postcode, withQld);
     if (area) return { ...area, label: query.postcode, stationCodes: new Set() };
     throw new ApiError('location_not_found', `We don't know the postcode ${query.postcode}.`);
   }
 
-  const exact = suburbByLabel(query.text);
+  const exact = suburbByLabel(query.text, withQld);
   if (exact) return fromSuburb(index, exact);
 
   const { name, qualifier } = splitQualifier(query.suburb);
-  const candidates = suburbsNamed(name).filter(
+  const candidates = suburbsNamed(name, withQld).filter(
     (suburb) =>
       (!qualifier || placeKey(suburb.qualifier ?? '').startsWith(placeKey(qualifier))) &&
       (!query.state || suburb.state === query.state) &&
@@ -205,7 +205,7 @@ export function resolvePlace(index: PlaceIndex, query: LocationQuery): Place {
   }
 
   if (!qualifier && !query.state && !query.postcode) {
-    const starting = suburbsStartingWith(name);
+    const starting = suburbsStartingWith(name, withQld);
     const [first, ...rest] = starting;
     if (first && rest.length === 0) return fromSuburb(index, first);
     if (first)
@@ -226,5 +226,8 @@ export function resolvePlace(index: PlaceIndex, query: LocationQuery): Place {
       fallback.map((p) => p.label),
     );
 
-  throw new ApiError('location_not_found', `We couldn't find ${query.text} in NSW or the ACT.`);
+  throw new ApiError(
+    'location_not_found',
+    `We couldn't find ${query.text} in ${withQld ? 'NSW, the ACT or Queensland' : 'NSW or the ACT'}.`,
+  );
 }

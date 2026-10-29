@@ -128,10 +128,47 @@ export function formatDistance(km: number): string {
   return km < 10 ? `${km.toFixed(1)} km` : `${String(Math.round(km))} km`;
 }
 
-/** "2:30 pm" today, "Thu, 22 Oct, 2:30 pm" on any other day. */
-export function formatAsOf(iso: string, now: Date): string {
+/** Queensland's prices are told in Queensland's time (round 15): no daylight saving. */
+const zoned = new Map<
+  string,
+  { clock: Intl.DateTimeFormat; dayAndClock: Intl.DateTimeFormat; dayKey: Intl.DateTimeFormat }
+>();
+function formattersFor(timeZone: string) {
+  if (timeZone === TIME_ZONE) return { clock, dayAndClock, dayKey };
+  let found = zoned.get(timeZone);
+  if (!found) {
+    found = {
+      clock: new Intl.DateTimeFormat('en-AU', { timeZone, hour: 'numeric', minute: '2-digit' }),
+      dayAndClock: new Intl.DateTimeFormat('en-AU', {
+        timeZone,
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      }),
+      dayKey: new Intl.DateTimeFormat('en-CA', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    };
+    zoned.set(timeZone, found);
+  }
+  return found;
+}
+
+/**
+ * "2:30 pm" today, "Thu, 22 Oct, 2:30 pm" on any other day. In Sydney time
+ * unless told otherwise; Queensland's in Brisbane's.
+ */
+export function formatAsOf(iso: string, now: Date, timeZone = TIME_ZONE): string {
+  const f = formattersFor(timeZone);
   const date = new Date(iso);
-  return dayKey.format(date) === dayKey.format(now) ? clock.format(date) : dayAndClock.format(date);
+  return f.dayKey.format(date) === f.dayKey.format(now)
+    ? f.clock.format(date)
+    : f.dayAndClock.format(date);
 }
 
 /** "5 minutes ago", "3 hours ago", "yesterday", "12 days ago", "8 years ago". */

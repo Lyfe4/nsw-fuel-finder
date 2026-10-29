@@ -7,6 +7,7 @@ import { Back } from '@/components/Icon/icons';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { LoadingStations } from '@/features/prices/LoadingStations';
 import { ApiRequestError, fetchHistory } from '@/lib/api';
+import { SOURCE_NAMES, stationSource } from '@/lib/sources';
 
 import styles from './LazyHistoryView.module.css';
 
@@ -70,7 +71,7 @@ export function LazyHistoryView({ code, fuel, fuelName, now, onClose }: LazyHist
       {history.isError && (
         <p role="alert" className={styles.problem}>
           {notListed
-            ? 'FuelCheck no longer lists this station, so it has no prices to show.'
+            ? `${SOURCE_NAMES[stationSource(code)]} no longer lists this station, so it has no prices to show.`
             : 'The price history couldn’t be loaded. Check your connection and try again.'}
         </p>
       )}

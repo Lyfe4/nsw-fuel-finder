@@ -232,7 +232,7 @@ describe('result states', () => {
     await screen.findByRole('list', { name: 'Stations, cheapest first' });
     await user.selectOptions(screen.getByRole('combobox', { name: 'Fuel' }), 'E10');
     await waitFor(() => {
-      expect(announced()).toMatch(/^2 stations found\. Cheapest Ethanol 94/);
+      expect(announced()).toMatch(/^2 stations found\. Cheapest E10/);
     });
   });
 });

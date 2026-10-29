@@ -2903,6 +2903,97 @@ exact string `true` turns it on.
 The same routes were probed on the local server above, with the real QLD
 data in its store: the same result.
 
+## 2026-10-29: Round 15, phase 1b (Queensland in search, behind the switch)
+
+Everything Queensland adds to what visitors see turns on with one setting,
+`QLD_PUBLIC=true` on the functions. It is not set. With it off, every route
+answers as before; the exposure tests from phase 1a still pass unchanged.
+
+### The API reads two snapshots
+
+`createCombinedSource` (`netlify/functions/api/combinedSource.ts`). Off: NSW's
+snapshot alone, Queensland's never read. On: both read independently, each
+with its own cache and 30-second recheck, and merged in memory, rebuilt only
+when either changes. If one cannot be read the other is still served, and
+`PricesResponse.unavailable` names the missing one; only both missing is a 503. Each answer lists its `sources` (only those with a station in it), each
+with its own `fetchedAt` and its own staleness (NSW after 90 minutes,
+Queensland after 30). The top-level `fetchedAt` is the older of them.
+
+"Since yesterday" reads each source's own day file for its own yesterday:
+Sydney's for NSW, Brisbane's for Queensland. `/api/status` checks NSW
+against NSW's part of a merged snapshot, not the merge.
+
+### Places: the gazetteer has Queensland, used only when public
+
+`scripts/build-gazetteer.js` now takes ABS state 3 and postcodes 4xxx. A
+suburb gets a postcode from its own state's range only, so the 4,678 NSW
+and ACT rows and the 2xxx postcodes are byte-identical to before (checked
+by diffing the old file). It adds 3,233 Queensland localities and 433
+postcodes: 482 kB (146 kB gzipped), bundled into the `api` function, not the
+browser; a test keeps it under 700 kB. A qualifier that only names the
+state ("Abbotsford (Qld)") is dropped; one that names a place stays
+("Albion (Brisbane) QLD 4010").
+
+Every lookup takes `withQld`, false by default: suggestions, labels, names,
+postcodes. Validation the same: the Queensland box, 4xxx postcodes and `QLD`
+in a label are accepted only when public, and the messages then say what
+Fuel Finder covers. A name both states have ("Coolangatta") is a 409 with
+both, as the owner chose.
+
+The address mender gives Queensland addresses Queensland's spelling of the
+suburb and leaves NSW and ACT ones exactly as before.
+
+### What the page shows when an answer has Queensland in it
+
+- "Unleaded 91 prices as of 2:00 pm (NSW) and 1:00 pm (Qld), from FuelCheck
+  and Fuel Prices Qld." Each state's time in its own clock; from October to
+  April they differ by an hour.
+- A stale notice per source ("Our last update from Fuel Prices Qld was 1
+  hour ago"), and one when a source could not be read.
+- Under the results, Queensland's licence notice (clause 4.3) word for word,
+  and "Queensland prices may not be republished" (clause 2.3).
+- A Queensland station's card: "· Price from Fuel Prices Qld" (clause 4.4).
+- A Queensland station's history: its licence text instead of the NSW
+  credit; its days are Brisbane days.
+- "No longer lists this station" names the right source.
+- E10 and E85 are called that for both states (the owner's choice), not
+  FuelCheck's "Ethanol 94" and "Ethanol 105".
+
+Answers without `sources` (from before this round, or with QLD off) render
+as they always did; a test checks the page with QLD off shows no trace of
+Queensland.
+
+### Left for phase 1c, with the switch
+
+Static text the API cannot switch: the masthead's "NSW · ACT", the footer's
+credits (it should credit Fuel Prices Qld and carry the notice
+permanently), `index.html`'s title and descriptions, the web manifest,
+`package.json`, the README, the privacy note ("may not be republished"),
+and the screenshots. A small pull request together with setting
+`QLD_PUBLIC`, after publisher approval.
+
+### Checked
+
+- Unit and integration tests: 885, including 15 with QLD on (merged border
+  results, either source missing, per-source staleness, Brisbane yesterday,
+  QLD history licence, same-name suburbs, status) and 8 for the page.
+- Locally, the built app with `QLD_PUBLIC=true` in the shell (never set on a
+  deploy preview: previews are public URLs and share production's Blobs),
+  over local Blobs with real QLD data from the approved run: a Tweed Heads
+  search lists both sides of the border by price, on the list and the map,
+  with "as of 7:52 pm (NSW) and 11:22 am (Qld)" and the notice;
+  `check:browser` passed every check up to the history view, which needs
+  history files the local store does not have.
+
+### Library behaviour this relies on
+
+| Call                                  | Behaviour relied on                                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Promise.allSettled`                  | Never rejects; each source's failure is seen on its own                                                                                                            |
+| `Intl.DateTimeFormat` with `timeZone` | Per-zone formatters, built once and kept; `Australia/Brisbane` has no daylight saving                                                                              |
+| Netlify CDN                           | A deploy purges it, so switching `QLD_PUBLIC` (which needs a deploy) never serves a cached answer from the other setting, suggestions included (a day at the edge) |
+| ABS ArcGIS `query`                    | `where` with `OR` on string ranges; paged at 2,000                                                                                                                 |
+
 ## 2026-10-25: Baseline (updated 29 October, round 14)
 
 The project as of `1dc55ab` (round 14, icons and alignment, pull request
