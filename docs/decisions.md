@@ -2757,10 +2757,30 @@ chart then has no gap, and needs no change.
 - The screenshots' fixtures were recorded again from production, so the
   README's history shows the gap as drawn now.
 
-## 2026-10-25: Baseline (updated 28 October, round 13)
+### Verified after the merge
 
-The project as of `5d87272` (round 13, the redesign, pull request #9; first
-written for round 10's `d6dc135`, updated for rounds 11 and 12). Future work
+Pull request #13, squash-merged as `1dc55ab` at 00:29 UTC on 29 October
+(11:29 in Sydney); production served it 35 seconds later, the same
+`index` bundle as the local build.
+
+- **On its deploy preview, in CI:** both required checks passed.
+- **Production:** `pnpm check:browser` 64 of 64 (CLS 0.000 at desktop and
+  phone size; the card's actions on one row at 320, 360, 390 and 430 px);
+  `pnpm check:a11y` 40 of 40; `/api/status` healthy, 234 API.NSW calls
+  counted this month.
+- **PageSpeed Insights**, `/?fuel=U91&query=2250`: mobile 99, 100, 100,
+  100 (FCP 1.4 s, LCP 1.7 s, TBT 0 ms, CLS 0, Speed Index 3.1 s), as after
+  round 13; desktop 99, 100, 100, 100 in two runs (FCP 0.4 s, LCP 0.4 s,
+  TBT 20 then 0 ms, CLS 0, Speed Index 1.2 s), one point under round 13's
+  100, with FCP 0.4 s against 0.3. Not chased further: the initial
+  JavaScript grew 3.2 kB raw (1.1 kB gzipped) for the icons and the CSS 0.8
+  kB, and one point at this end of the scale is within a run's variation;
+  the next round should compare a few runs if it matters.
+
+## 2026-10-25: Baseline (updated 29 October, round 14)
+
+The project as of `1dc55ab` (round 14, icons and alignment, pull request
+#13; first written for round 10's `d6dc135`, updated for rounds 11 to 13). Future work
 starts from here; this entry is the summary, and the rounds above have the
 reasons.
 
@@ -2783,7 +2803,11 @@ dotted leader, mono price, opening to its card; on a phone the search folds
 to one line after a search and the first price is at about 230 px. Atkinson
 Hyperlegible Next and Mono, self-hosted; one accent, carbon blue, for
 meaning only; the map restyled in the same tokens, the cheapest price never
-dropped. `docs/design-system.md` is the source of truth for the look.
+dropped. One icon set, Tabler, as inline SVG (round 14): no text characters
+as icons, icon-only only for close, clear, zoom and search. Every row of
+controls is one row, or breaks in one planned place, from 320 to 1440 px.
+Names and addresses in capitals are set in title case in the browser, brand
+capitals kept. `docs/design-system.md` is the source of truth for the look.
 
 **How it runs.** A scheduled function fetches every NSW price every 30
 minutes (about 1,500 API.NSW calls a month against 2,500) into Netlify
@@ -2815,18 +2839,19 @@ from Blobs only. Visitors never reach API.NSW.
 **Monitoring.**
 
 - `/api/status`: snapshot age, the last run, read errors and API.NSW calls
-  this month (196 counted by 28 October since 24 October 09:30 UTC, plus
+  this month (234 counted by 29 October since 24 October 09:30 UTC, plus
   about 70 before that). A 503 when anything is wrong or calls pass 2,000.
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 646 tests, the build
-  and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (60
-  checks, including CSP, CLS at desktop and phone size and touch gestures on
-  the map) and `pnpm check:a11y` (40) against its deploy preview, about two
+- CI on every pull request: typecheck, lint, format, 687 tests, the build
+  and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (64
+  checks, including CSP, CLS at desktop and phone size, touch gestures on
+  the map and the card's actions on one row at four phone widths) and `pnpm check:a11y` (40) against its deploy preview, about two
   minutes. Both required. The same checks by hand against production.
-- PageSpeed Insights, a results page: desktop 100, mobile 99, CLS 0, and 100
-  for accessibility, best practices and SEO (28 October, after round 13).
+- PageSpeed Insights, a results page: desktop 99, mobile 99, CLS 0, and 100
+  for accessibility, best practices and SEO (29 October, after round 14;
+  desktop was 100 after round 13).
   The desktop machine has no GPU, so it measures the "Show the map" page:
   the page a GPU-less visitor gets, not the map drawn faster. Visitors with
   a GPU see what they saw before (round 11).
@@ -2868,6 +2893,11 @@ from Blobs only. Visitors never reach API.NSW.
   after 15 minutes rather than passing untested: rerun it, or merge by hand
   after checking the preview. Netlify's bot protection could one day
   challenge GitHub's runners; the check would fail, not pass.
+- **A same-price neighbour's tag gives way to the selected one** (round
+  14): within 250 m of the selected station, a station at the same price
+  shows its dot but not its price, which is a tap away and in the list.
+- **An unknown brand in capitals is title-cased** (round 14): "GTORQUE"
+  becomes "Gtorque". Known ones are listed in `src/lib/format.ts`.
 - **Fewer prices in a dense map view** (round 12): a price that would cover
   any station's dot is dropped, and zooming in shows the rest. The cheapest
   is the exception (round 13): it is never dropped, so in a very dense spot
