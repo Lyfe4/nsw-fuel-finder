@@ -16,9 +16,9 @@ const healthy = {
 
 describe('qldStatusReport', () => {
   it('is healthy when the job is running and its data is fresh', () => {
-    expect(qldStatusReport(healthy, NOW, false)).toEqual({
+    expect(qldStatusReport(healthy, NOW, true)).toEqual({
       healthy: true,
-      public: false,
+      public: true,
       problems: [],
       lastRun: {
         ok: true,
@@ -44,7 +44,7 @@ describe('qldStatusReport', () => {
         reference: { fetchedAt: '2026-10-31T23:00:00Z' },
       },
       NOW,
-      false,
+      true,
     );
     expect(report.healthy).toBe(false);
     expect(report.problems).toEqual([
@@ -59,7 +59,7 @@ describe('qldStatusReport', () => {
     const report = qldStatusReport(
       { lastRun: null, written: null, calls: { ...healthy.calls, prices: 6_100 }, reference: null },
       NOW,
-      false,
+      true,
     );
     expect(report.problems).toEqual([
       'No scheduled run has been recorded.',
@@ -73,10 +73,45 @@ describe('qldStatusReport', () => {
     const report = qldStatusReport(
       { ...healthy, calls: { ...healthy.calls, month: '2026-10' } },
       at('2026-10-31T13:30:00Z'),
+      true,
+    );
+    expect(report.callsThisMonth?.month).toBe('2026-10');
+    expect(report.callsThisMonth?.calls).toBe(294);
+  });
+
+  it('publishes only health and general problems while Queensland is not served (round 16)', () => {
+    expect(qldStatusReport(healthy, NOW, false)).toEqual({
+      healthy: true,
+      public: false,
+      problems: [],
+    });
+    const report = qldStatusReport(
+      {
+        lastRun: {
+          ok: false,
+          startedAt: '2026-11-02T02:20:00Z',
+          error: { kind: 'credentials_rejected', message: 'x' },
+        },
+        written: { fetchedAt: '2026-11-02T02:20:00Z', stationCount: 1785 },
+        calls: { ...healthy.calls, prices: 6_100 },
+        reference: { fetchedAt: '2026-10-31T23:00:00Z' },
+      },
+      NOW,
       false,
     );
-    expect(report.callsThisMonth.month).toBe('2026-10');
-    expect(report.callsThisMonth.calls).toBe(294);
+    expect(report).toEqual({
+      healthy: false,
+      public: false,
+      problems: [
+        'The last scheduled run failed.',
+        'The scheduled job has not run recently.',
+        'The newest snapshot is out of date.',
+        'The site details are out of date.',
+        'More API calls than expected this month.',
+      ],
+    });
+    // No count, time or error kind in what is published.
+    expect(JSON.stringify(report)).not.toMatch(/\d|credentials/);
   });
 });
 
@@ -92,8 +127,11 @@ describe('/api/status with Queensland', () => {
     const report = statusReport({ ...nsw, qld: broken, qldPublic: false });
     expect(report.healthy).toBe(true);
     expect(report.problems).toEqual([]);
-    expect(report.sources.qld.healthy).toBe(false);
-    expect(report.sources.qld.problems).toContain('No snapshot has been written.');
+    expect(report.sources.qld).toEqual({
+      healthy: false,
+      public: false,
+      problems: ['No scheduled run has been recorded.', 'No snapshot has been written.'],
+    });
   });
 
   it('fails the status on a QLD problem once QLD is public, saying which state', () => {

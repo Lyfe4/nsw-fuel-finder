@@ -64,6 +64,8 @@ export function FavouritesPanel({
 
   const byCode = new Map(prices.data?.stations.map((s) => [s.stationCode, s]));
   const missing = new Set(prices.data?.missing);
+  // A source that could not be served just now: its stations are not gone (round 16).
+  const unavailable = new Set(prices.data?.unavailable);
   const rows = favourites
     .map((favourite) => {
       const station = byCode.get(favourite.code);
@@ -94,7 +96,9 @@ export function FavouritesPanel({
             </HistoryLink>
             <span aria-hidden="true" className={styles.leader} />
             <p className={styles.detail}>
-              {missing.has(favourite.code) ? (
+              {missing.has(favourite.code) && unavailable.has(stationSource(favourite.code)) ? (
+                `${SOURCE_NAMES[stationSource(favourite.code)]} prices are unavailable right now.`
+              ) : missing.has(favourite.code) ? (
                 `${SOURCE_NAMES[stationSource(favourite.code)]} no longer lists this station.`
               ) : prices.isPending ? (
                 'Loading price…'
@@ -104,6 +108,8 @@ export function FavouritesPanel({
                 <>
                   <span className={styles.amount}>{formatPrice(price.priceCents)}</span> cents a
                   litre, updated {formatAge(price.updatedAt, now)}
+                  {/* Queensland's licence, clause 4.4: its prices told apart. */}
+                  {stationSource(favourite.code) === 'qld' && `, from ${SOURCE_NAMES.qld}`}
                 </>
               ) : (
                 `Does not sell ${fuelName}.`
@@ -122,6 +128,12 @@ export function FavouritesPanel({
           </li>
         ))}
       </ul>
+      {/* Licence notices for these prices, word for word from the API (round 16). */}
+      {prices.data?.notices?.map((notice) => (
+        <p key={notice} className={styles.notice}>
+          {notice}
+        </p>
+      ))}
     </details>
   );
 }

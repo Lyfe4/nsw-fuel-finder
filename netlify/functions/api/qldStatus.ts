@@ -10,9 +10,10 @@ import type { QldSourceStatus } from '../../../shared/api';
  * Queensland's half of /api/status: the QLD job's own run record, the newest
  * snapshot it wrote, its call count and the age of its reference data.
  *
- * Until QLD_PUBLIC is on, these problems are reported here but do not make
- * /api/status unhealthy, so building and running the job dark cannot page
- * the owner (docs/qld-plan.md, "/api/status per source").
+ * Until Queensland is served (the gate in deps.ts), these problems are
+ * reported here, in general words, but do not make /api/status unhealthy,
+ * so running the job dark cannot page the owner (docs/qld-plan.md,
+ * "/api/status per source"), and nothing else about it is published.
  */
 
 /**
@@ -53,23 +54,34 @@ export function qldStatusReport(
   now: number,
   isPublic: boolean,
 ): QldSourceStatus {
-  const problems: string[] = [];
+  /*
+   * Each problem twice: in full for the owner once Queensland is served, and
+   * in general words (no counts, no times) while it is not, when /api/status
+   * publishes nothing else about it.
+   */
+  const problems: { full: string; general: string }[] = [];
   const parsed = lastRunSchema.safeParse(input.lastRun);
   const lastRun = parsed.success ? parsed.data : null;
 
   if (input.lastRunError) {
-    problems.push('Could not read the last run record.');
+    const text = 'Could not read the last run record.';
+    problems.push({ full: text, general: text });
   } else if (!lastRun) {
-    problems.push('No scheduled run has been recorded.');
+    const text = 'No scheduled run has been recorded.';
+    problems.push({ full: text, general: text });
   } else {
     if (!lastRun.ok) {
-      problems.push(`The last scheduled run failed (${lastRun.error?.kind ?? 'unknown'}).`);
+      problems.push({
+        full: `The last scheduled run failed (${lastRun.error?.kind ?? 'unknown'}).`,
+        general: 'The last scheduled run failed.',
+      });
     }
     const sinceRun = now - Date.parse(lastRun.startedAt);
     if (sinceRun > QLD_STALE_AFTER_MS) {
-      problems.push(
-        `No scheduled run for ${String(minutes(sinceRun))} minutes (expected every ${String(QLD_SNAPSHOT_INTERVAL_MINUTES)}).`,
-      );
+      problems.push({
+        full: `No scheduled run for ${String(minutes(sinceRun))} minutes (expected every ${String(QLD_SNAPSHOT_INTERVAL_MINUTES)}).`,
+        general: 'The scheduled job has not run recently.',
+      });
     }
   }
 
@@ -78,33 +90,43 @@ export function qldStatusReport(
     ? { fetchedAt: writtenMeta.data.fetchedAt, stations: writtenMeta.data.stationCount }
     : null;
   if (!written) {
-    problems.push('No snapshot has been written.');
+    const text = 'No snapshot has been written.';
+    problems.push({ full: text, general: text });
   } else if (now - Date.parse(written.fetchedAt) > QLD_STALE_AFTER_MS) {
-    problems.push(
-      `The newest snapshot is ${String(minutes(now - Date.parse(written.fetchedAt)))} minutes old.`,
-    );
+    problems.push({
+      full: `The newest snapshot is ${String(minutes(now - Date.parse(written.fetchedAt)))} minutes old.`,
+      general: 'The newest snapshot is out of date.',
+    });
   }
 
   const referenceMeta = fetchedAtSchema.safeParse(input.reference);
   const referenceFetchedAt = referenceMeta.success ? referenceMeta.data.fetchedAt : null;
   if (referenceFetchedAt && now - Date.parse(referenceFetchedAt) > REFERENCE_MAX_AGE_MS) {
     const hours = Math.round((now - Date.parse(referenceFetchedAt)) / 3_600_000);
-    problems.push(`The site details are ${String(hours)} hours old (the licence allows 24).`);
+    problems.push({
+      full: `The site details are ${String(hours)} hours old (the licence allows 24).`,
+      general: 'The site details are out of date.',
+    });
   }
 
   const month = brisbaneDay(new Date(now)).slice(0, 7);
   const record = anyCallsRecordSchema.safeParse(input.calls);
   const calls = record.success && record.data.month === month ? totalCalls(record.data) : 0;
   if (calls > QLD_MONTHLY_ALERT) {
-    problems.push(
-      `${String(calls)} QLD API calls so far in ${month}, over the ${String(QLD_MONTHLY_ALERT)} expected at most.`,
-    );
+    problems.push({
+      full: `${String(calls)} QLD API calls so far in ${month}, over the ${String(QLD_MONTHLY_ALERT)} expected at most.`,
+      general: 'More API calls than expected this month.',
+    });
   }
 
+  const healthy = problems.length === 0;
+  if (!isPublic) {
+    return { healthy, public: false, problems: problems.map((problem) => problem.general) };
+  }
   return {
-    healthy: problems.length === 0,
-    public: isPublic,
-    problems,
+    healthy,
+    public: true,
+    problems: problems.map((problem) => problem.full),
     lastRun: lastRun
       ? {
           ok: lastRun.ok,

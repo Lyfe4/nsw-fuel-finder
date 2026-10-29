@@ -33,6 +33,16 @@ export const QLD_SNAPSHOT_INTERVAL_MINUTES = 10;
 /** Three missed runs, which is also the licence's 30 minutes. */
 export const QLD_STALE_AFTER_MS = 3 * QLD_SNAPSHOT_INTERVAL_MINUTES * 60_000;
 
+/**
+ * Older than this, Queensland's snapshot is not served at all: its stations
+ * are left out and `qld` is listed as unavailable (combinedSource.ts). A
+ * publisher must show a price change within 30 minutes (clause 2.3), and an
+ * answer can sit up to two minutes at the CDN and one in the browser, so 25
+ * keeps what a visitor sees under 30. NSW has no such rule: its old
+ * snapshot is still served, flagged stale (STALE_AFTER_MS).
+ */
+export const QLD_SERVE_MAX_MS = 25 * 60_000;
+
 const priceTuple = z.tuple([z.number(), z.string()]);
 const fuelCodes = FUEL_TYPE_CODES as [FuelTypeCode, ...FuelTypeCode[]];
 

@@ -1,3 +1,14 @@
+import {
+  cached,
+  CACHE,
+  ERROR_CDN_CACHE,
+  HISTORY_CACHE,
+  ROUTES,
+  STATUS_CACHE,
+  SUGGESTION_CACHE,
+  VARY,
+  type Route,
+} from './cache';
 import { ApiError, errorResponse, json } from './http';
 import { resolvePlace } from './places';
 import { searchNearby, searchNearest, searchPlace, type YesterdayPrices } from './search';
@@ -11,7 +22,7 @@ import {
 } from './stations';
 import { statusReport } from './status';
 import { parseFuelType, parseLocationQuery, parseNearbyQuery } from './validate';
-import { stationSource } from '../../../shared/api';
+import { qldPriceNotices, stationSource } from '../../../shared/api';
 import { addDays } from '../../lib/history/stationHistory';
 import { suggestPlaces } from '../../lib/places/gazetteer';
 import { sydneyMonth } from '../../lib/snapshot/calls';
@@ -28,62 +39,8 @@ import type {
   StationPrice,
 } from '../../../shared/api';
 import type { FuelTypeCode } from '../../../shared/fuelTypes';
+import type { InvocationContext } from '../../lib/snapshot/context';
 import type { HistoryDay } from '../../lib/snapshot/history';
-
-/*
- * CACHING. Answers come from a snapshot that changes every 30 minutes and cost
- * no upstream calls, so the CDN is now about speed and function invocations,
- * not quota. A minute at the edge (plus a minute of stale-while-revalidate)
- * means a new snapshot is visible within about two minutes of being written,
- * and a burst of identical requests runs the function about once a minute.
- *
- * `Netlify-CDN-Cache-Control` is for Netlify's edge only and is stripped
- * before the response leaves it; `durable` shares one edge node's miss with
- * the rest. `Cache-Control` is the browser's, kept equally short.
- */
-const CACHE = {
-  browser: 'public, max-age=60',
-  cdn: 'public, durable, s-maxage=60, stale-while-revalidate=60',
-} as const;
-
-/**
- * Suggestions come from the bundled ABS list, which only changes with a
- * deploy - and a deploy purges Netlify's CDN - so they can be cached for a
- * day at the edge and an hour in the browser.
- */
-const SUGGESTION_CACHE = {
-  browser: 'public, max-age=3600',
-  cdn: 'public, durable, s-maxage=86400',
-} as const;
-
-/**
- * History changes once a day, when the scheduled job folds yesterday in, so
- * ten minutes at the edge costs nothing in freshness.
- */
-const HISTORY_CACHE = {
-  browser: 'public, max-age=600',
-  cdn: 'public, durable, s-maxage=600, stale-while-revalidate=600',
-} as const;
-
-const ROUTES = ['nearby', 'location', 'places', 'status', 'stations', 'history'] as const;
-type Route = (typeof ROUTES)[number];
-
-/*
- * CACHE KEYS. Netlify's CDN keys a function's response on every query
- * parameter by default (`Netlify-Vary: query`), so `?query=gos&x=1` would
- * miss the cache and run the function each time: a cheap way to spend the
- * team's monthly invocations. Each route names the parameters its answer
- * depends on; requests that differ only in anything else share an entry.
- * Parameter order is already ignored by the CDN. Names and values stay
- * case-sensitive, which is why the client sends them in one canonical form.
- */
-const VARY: Record<Exclude<Route, 'status'>, string> = {
-  nearby: 'query=fuel|lat|lng|radius',
-  location: 'query=fuel|query|radius',
-  places: 'query=query',
-  stations: 'query=codes',
-  history: 'query=fuel|station',
-};
 
 // The function's only path (its config in api.ts), in production and `netlify dev` alike.
 const PREFIX = /^\/api\/([^/]+)\/?$/;
@@ -98,33 +55,47 @@ export interface HandlerDeps {
   getLastRun: () => Promise<unknown>;
   /** This Sydney month's API.NSW call count (meta/calls/YYYY-MM), or null. */
   getCalls: (month: string) => Promise<unknown>;
-  getSnapshot: () => Promise<LoadedSnapshot>;
+  /** What the routes search; Queensland's snapshot only when `withQld` (the gate). */
+  getSnapshot: (withQld: boolean) => Promise<LoadedSnapshot>;
   /** One station's two history files (published, and our own); each null when absent. */
   getHistory: (code: string) => Promise<{ backfill: unknown; live: unknown }>;
   /** A finished day's prices (history/v1/DAY), or null; never throws. */
   getDay: (day: string) => Promise<HistoryDay['fuels'] | null>;
-  /** The same from Queensland's day files (qld/history/v1/DAY, Brisbane days); null while it is not public. */
+  /** The same from Queensland's day files (qld/history/v1/DAY, Brisbane days); read only through the gate. */
   getQldDay?: (day: string) => Promise<HistoryDay['fuels'] | null>;
   /** Queensland's run record, newest snapshot, calls and reference metadata, for /api/status. */
   getQldStatus?: () => Promise<QldStatusInput>;
-  /** QLD_PUBLIC (round 15): whether Queensland is served and can make /api/status unhealthy. */
-  qldPublic?: boolean;
+  /** QLD_PUBLIC === 'true' as this deploy was built: the first of the gate's three conditions. */
+  qldEnv?: boolean;
+  /** The owner's kill switch in Blobs, the third (deps.ts). Never throws; off when unreadable. */
+  qldSwitch?: () => Promise<boolean>;
   now: () => number;
-}
-
-function cached(
-  body: unknown,
-  cache: { browser: string; cdn: string },
-  route: keyof typeof VARY,
-): Response {
-  const response = json(body, 200, cache.browser);
-  response.headers.set('Netlify-CDN-Cache-Control', cache.cdn);
-  response.headers.set('Netlify-Vary', VARY[route]);
-  return response;
 }
 
 /** Each source's own snapshot is stale after three of its own missed runs. */
 const STALE_AFTER: Record<SourceId, number> = { nsw: STALE_AFTER_MS, qld: QLD_STALE_AFTER_MS };
+
+/** The sources with a station in an answer, each with its own time and staleness. */
+function shownSources(loaded: LoadedSnapshot, codes: readonly string[], now: number) {
+  const shown = new Set(codes.map((code) => stationSource(code)));
+  const all = loaded.sources ?? [{ id: 'nsw' as const, fetchedAt: loaded.snapshot.fetchedAt }];
+  return all
+    .filter((source) => shown.has(source.id))
+    .map((source): PriceSource => ({
+      ...source,
+      stale: now - Date.parse(source.fetchedAt) > STALE_AFTER[source.id],
+    }));
+}
+
+/**
+ * Licence notices for an answer (round 16): Queensland's, word for word,
+ * when a Queensland station is in it, in the year of its snapshot.
+ */
+function noticesFor(sources: readonly PriceSource[]): { notices?: string[] } {
+  const qld = sources.find((source) => source.id === 'qld');
+  if (!qld) return {};
+  return { notices: qldPriceNotices(Number(brisbaneDay(new Date(qld.fetchedAt)).slice(0, 4))) };
+}
 
 function respond(
   route: 'nearby' | 'location',
@@ -138,14 +109,11 @@ function respond(
   const { snapshot } = loaded;
   const nearest =
     stations.length === 0 ? searchNearest(snapshot.stations, origin, fuelType, yesterday) : [];
-  // The sources with a station in this answer, each with its own time.
-  const shown = new Set([...stations, ...nearest].map((s) => stationSource(s.stationCode)));
-  const sources: PriceSource[] = (loaded.sources ?? [{ id: 'nsw', fetchedAt: snapshot.fetchedAt }])
-    .filter((source) => shown.has(source.id))
-    .map((source) => ({
-      ...source,
-      stale: now - Date.parse(source.fetchedAt) > STALE_AFTER[source.id],
-    }));
+  const sources = shownSources(
+    loaded,
+    [...stations, ...nearest].map((s) => s.stationCode),
+    now,
+  );
   const body: PricesResponse = {
     fuelType,
     fetchedAt: snapshot.fetchedAt,
@@ -158,6 +126,7 @@ function respond(
     nearest,
     sources,
     unavailable: [...(loaded.unavailable ?? [])],
+    ...noticesFor(sources),
   };
   return cached(body, CACHE, route);
 }
@@ -174,13 +143,14 @@ function suggestions(params: URLSearchParams, withQld: boolean): Response {
 
 /**
  * NSW's own part of what is served, for /api/status's NSW checks: a merged
- * snapshot's time is the older of the two, which is not when NSW's was taken.
+ * snapshot's time is the older of the two, which is not when NSW's was
+ * taken. Null when NSW could not be read (round 16): Queensland alone is
+ * not a snapshot NSW's checks can pass on.
  */
-function nswPart(loaded: LoadedSnapshot): Snapshot {
+function nswPart(loaded: LoadedSnapshot): Snapshot | null {
   const nsw = loaded.sources?.find((source) => source.id === 'nsw');
-  if (!loaded.sources || loaded.sources.length === 1) {
-    return nsw ? loaded.snapshot : { ...loaded.snapshot, stations: [] };
-  }
+  if (loaded.sources && !nsw) return null;
+  if (!loaded.sources || loaded.sources.length === 1) return loaded.snapshot;
   return {
     ...loaded.snapshot,
     fetchedAt: nsw?.fetchedAt ?? loaded.snapshot.fetchedAt,
@@ -188,12 +158,18 @@ function nswPart(loaded: LoadedSnapshot): Snapshot {
   };
 }
 
-async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps) {
-  if (route === 'places') return suggestions(params, deps.qldPublic ?? false);
+async function dispatch(
+  route: Route,
+  params: URLSearchParams,
+  deps: HandlerDeps,
+  qld: boolean,
+  context: InvocationContext | undefined,
+) {
+  if (route === 'places') return suggestions(params, qld);
   if (route === 'status') {
     const now = deps.now();
-    const [served, run, calls, qld] = await Promise.all([
-      deps.getSnapshot().then(
+    const [served, run, calls, qldRecords] = await Promise.all([
+      deps.getSnapshot(qld).then(
         (loaded) => nswPart(loaded),
         () => null,
       ),
@@ -228,33 +204,65 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
       served,
       ...run,
       calls,
-      ...(qld ? { qld } : {}),
-      qldPublic: deps.qldPublic ?? false,
+      ...(qldRecords ? { qld: qldRecords } : {}),
+      qldPublic: qld,
       now,
     });
-    return json(report, report.healthy ? 200 : 503, 'no-store');
+    const deploy = {
+      context: context?.deploy?.context ?? null,
+      published: context?.deploy?.published ?? null,
+    };
+    const response = json({ ...report, deploy }, report.healthy ? 200 : 503, STATUS_CACHE.browser);
+    response.headers.set('Netlify-CDN-Cache-Control', STATUS_CACHE.cdn);
+    response.headers.set('Netlify-Vary', VARY.status);
+    return response;
   }
 
   // Validate before touching the snapshot: bad input is a 400 even when the
   // snapshot is missing.
   if (route === 'stations') {
     const codes = parseStationCodes(params);
-    const { snapshot } = await deps.getSnapshot();
-    const stale = deps.now() - Date.parse(snapshot.fetchedAt) > STALE_AFTER_MS;
-    return cached(stationsBody(snapshot, codes, stale), CACHE, 'stations');
+    const loaded = await deps.getSnapshot(qld);
+    const body = stationsBody(loaded.snapshot, codes, false);
+    // Each source's own staleness, as in a search (round 16).
+    const sources = shownSources(
+      loaded,
+      body.stations.map((s) => s.stationCode),
+      deps.now(),
+    );
+    const unavailable = [...(loaded.unavailable ?? [])];
+    return cached(
+      {
+        ...body,
+        stale: sources.some((source) => source.stale),
+        ...(unavailable.length > 0 ? { unavailable } : {}),
+        ...noticesFor(sources),
+      },
+      CACHE,
+      'stations',
+    );
   }
   if (route === 'history') {
     const code = parseStationCode(params);
     const fuel = parseFuelType(params);
     // The snapshot first: a made-up code is a 404 that costs no Blobs reads.
-    const { snapshot } = await deps.getSnapshot();
-    assertListed(snapshot, code);
+    const loaded = await deps.getSnapshot(qld);
+    const source = stationSource(code);
+    // Its source served but too old to show (round 16): unavailable, not gone.
+    if (loaded.unavailable?.includes(source)) {
+      throw new SnapshotUnavailableError(`The ${source.toUpperCase()} snapshot is unavailable.`);
+    }
+    assertListed(loaded.snapshot, code);
     const files = await deps.getHistory(code);
-    return cached(historyBody(snapshot, code, fuel, files), HISTORY_CACHE, 'history');
+    // "Today" is the station's own source's: a merged snapshot's time is the older one.
+    const at = loaded.sources?.find((s) => s.id === source)?.fetchedAt ?? loaded.snapshot.fetchedAt;
+    const body = historyBody({ ...loaded.snapshot, fetchedAt: at }, code, fuel, files);
+    // Queensland's for a minute, as its prices are, so switching it off is quick everywhere.
+    return cached(body, source === 'qld' ? CACHE : HISTORY_CACHE, 'history');
   }
   if (route === 'nearby') {
-    const query = parseNearbyQuery(params, deps.qldPublic ?? false);
-    const loaded = await deps.getSnapshot();
+    const query = parseNearbyQuery(params, qld);
+    const loaded = await deps.getSnapshot(qld);
     const yesterday = await yesterdayFor(loaded, query.fuelType, deps);
     const origin = { latitude: query.latitude, longitude: query.longitude };
     const { stations: all } = loaded.snapshot;
@@ -263,9 +271,9 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
     return respond('nearby', loaded, deps.now(), query.fuelType, where, stations, yesterday);
   }
 
-  const query = parseLocationQuery(params, deps.qldPublic ?? false);
-  const loaded = await deps.getSnapshot();
-  const place = resolvePlace(loaded.places, query, deps.qldPublic ?? false);
+  const query = parseLocationQuery(params, qld);
+  const loaded = await deps.getSnapshot(qld);
+  const place = resolvePlace(loaded.places, query, qld);
   const yesterday = await yesterdayFor(loaded, query.fuelType, deps);
   const { stations: all } = loaded.snapshot;
   const stations = searchPlace(all, place, query.radiusKm, query.fuelType, yesterday);
@@ -276,7 +284,9 @@ async function dispatch(route: Route, params: URLSearchParams, deps: HandlerDeps
 /**
  * One fuel's prices on the day before each source's snapshot, for "since
  * yesterday": NSW's Sydney day from its own files, Queensland's Brisbane day
- * from its own. Codes cannot collide, so one map holds both.
+ * from its own. Codes cannot collide, so one map holds both. Queensland's
+ * day is read only when its snapshot is in the answer, which only the gate
+ * allows.
  */
 async function yesterdayFor(
   { snapshot, sources }: LoadedSnapshot,
@@ -297,18 +307,40 @@ async function yesterdayFor(
   return { ...nswFuel, ...qldFuel };
 }
 
-export function createHandler(deps: HandlerDeps): (request: Request) => Promise<Response> {
-  return async (request) => {
+/**
+ * THE QUEENSLAND GATE, per request: QLD_PUBLIC, the published production
+ * deploy, and the owner's kill switch, all three (deps.ts says why each).
+ * The switch is read only when the first two hold, so no other deploy, and
+ * no deploy built with QLD_PUBLIC off, reads it.
+ */
+async function qldFor(deps: HandlerDeps, context: InvocationContext | undefined) {
+  if (!deps.qldEnv || context?.deploy?.published !== true) return false;
+  return (await deps.qldSwitch?.()) ?? false;
+}
+
+export function createHandler(
+  deps: HandlerDeps,
+): (request: Request, context?: InvocationContext) => Promise<Response> {
+  return async (request, context) => {
+    let route: Route | null = null;
     try {
       const url = new URL(request.url);
-      const route = matchRoute(url.pathname);
+      route = matchRoute(url.pathname);
       if (!route) throw new ApiError('not_found', 'No such endpoint.');
       if (request.method !== 'GET') {
         throw new ApiError('method_not_allowed', 'Only GET is supported.');
       }
-      return await dispatch(route, url.searchParams, deps);
+      return await dispatch(route, url.searchParams, deps, await qldFor(deps, context), context);
     } catch (error) {
-      if (error instanceof ApiError) return errorResponse(error);
+      if (error instanceof ApiError) {
+        const response = errorResponse(error);
+        // A GET's 4xx waits a minute at the edge (round 16), keyed as its route's answers are.
+        if (error.status < 500 && request.method === 'GET') {
+          response.headers.set('Netlify-CDN-Cache-Control', ERROR_CDN_CACHE);
+          if (route) response.headers.set('Netlify-Vary', VARY[route]);
+        }
+        return response;
+      }
       if (error instanceof SnapshotUnavailableError) {
         return errorResponse(
           new ApiError('snapshot_unavailable', 'Fuel prices are not available right now.'),

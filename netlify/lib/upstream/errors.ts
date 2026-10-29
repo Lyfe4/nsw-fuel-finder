@@ -13,7 +13,9 @@ export type UpstreamErrorKind =
   | 'request_rejected'
   | 'bad_response'
   /** A well-formed answer missing most stations: kept out of the snapshot. */
-  | 'partial_response';
+  | 'partial_response'
+  /** Queensland's reference data: the last refresh failed under an hour ago (round 16). */
+  | 'backing_off';
 
 export class UpstreamError extends Error {
   readonly kind: UpstreamErrorKind;

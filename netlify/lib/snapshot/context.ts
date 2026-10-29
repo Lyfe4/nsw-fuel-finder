@@ -1,6 +1,14 @@
 /** The part of Netlify's per-invocation context the scheduled jobs read. */
 export interface InvocationContext {
-  deploy?: { context?: string };
+  deploy?: {
+    context?: string;
+    /**
+     * Whether the function belongs to the deploy published now (Netlify's
+     * Functions API, `context.deploy.published`). The API serves Queensland
+     * only when it is true (netlify/functions/api/deps.ts).
+     */
+    published?: boolean;
+  };
 }
 
 /**

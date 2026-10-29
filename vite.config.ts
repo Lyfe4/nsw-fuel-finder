@@ -36,6 +36,11 @@ export default defineConfig({
     // split further. It is only fetched when a map is first shown (see
     // src/features/map/LazyStationMap.tsx), so it is warned about for nothing.
     chunkSizeWarningLimit: 1100,
+    // The licences of every package in the bundle, MapLibre's BSD-3 and the
+    // MIT ones among them, served beside the app at /third-party-notices.txt:
+    // the minifier drops their comments, and their licences ask for the
+    // notice to go with the code (round 16). Linked from the privacy note.
+    license: { fileName: 'third-party-notices.txt' },
   },
 
   resolve: {

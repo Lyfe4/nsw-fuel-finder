@@ -74,7 +74,20 @@ const qldHistory = (code: string, source: 'snapshots' | 'fuelcheck-monthly') => 
   fuels: { U91: [['2026-10-20', 239.9, 241.9, 241.9]] },
 });
 
-async function seeded(env: Record<string, string | undefined>, now = NOW) {
+/**
+ * One way the gate can be shut (round 16): QLD_PUBLIC as the deploy was
+ * built, whether the request reached the published deploy, and the kill
+ * switch's record in Blobs (undefined: none).
+ */
+interface Gate {
+  env: Record<string, string | undefined>;
+  published: boolean;
+  killSwitch: unknown;
+}
+
+const SWITCH_ON = { version: 1, enabled: true, changedAt: '2026-10-29T00:00:00Z' };
+
+async function seeded(gate: Gate, now = NOW) {
   const { store, keys } = memoryStore();
   // NSW, as production has it.
   await store.setJSON(KEYS.snapshot, fixtureSnapshot, {
@@ -100,11 +113,13 @@ async function seeded(env: Record<string, string | undefined>, now = NOW) {
     fuels: { U91: { 'qld-61000001': [239.9, 241.9, 241.9] } },
   });
   expect(keys().filter((key) => key.startsWith('qld/') || key.includes('qld-')).length).toBe(12);
+  if (gate.killSwitch !== undefined) await store.setJSON(QLD_KEYS.enabled, gate.killSwitch);
 
   const recorded = recording(store);
-  const handler = createHandler(createApiDeps(recorded.store, () => now, env));
+  const handler = createHandler(createApiDeps(recorded.store, () => now, gate.env));
+  const context = { deploy: { context: 'production', published: gate.published } };
   const get = async (path: string) => {
-    const response = await handler(new Request(`http://localhost:8888${path}`));
+    const response = await handler(new Request(`http://localhost:8888${path}`), context);
     return { status: response.status, text: await response.text() };
   };
   return { get, reads: recorded.reads };
@@ -135,21 +150,55 @@ const PUBLIC_ROUTES = [
   `/api/history?station=${nswStation.code}&fuel=U91`,
 ];
 
-describe.each([
-  ['unset', undefined],
-  ['"false"', 'false'],
-  ['"1"', '1'],
-  ['"TRUE"', 'TRUE'],
-  ['" true"', ' true'],
-])('with QLD_PUBLIC %s', (_label, value) => {
-  const env = { QLD_PUBLIC: value };
+/**
+ * Every way the gate can be shut. QLD_PUBLIC in any form but exactly
+ * "true" (with the other two open); and "true" with either of the others
+ * shut (round 16): an old deploy or a preview, and the kill switch off,
+ * missing or unreadable.
+ */
+const SHUT: [string, Gate][] = [
+  ...(
+    [
+      ['unset', undefined],
+      ['"false"', 'false'],
+      ['"1"', '1'],
+      ['"TRUE"', 'TRUE'],
+      ['" true"', ' true'],
+    ] as const
+  ).map(([label, value]): [string, Gate] => [
+    `QLD_PUBLIC ${label}`,
+    { env: { QLD_PUBLIC: value }, published: true, killSwitch: SWITCH_ON },
+  ]),
+  [
+    'QLD_PUBLIC "true" on a deploy that is not the published one',
+    { env: { QLD_PUBLIC: 'true' }, published: false, killSwitch: SWITCH_ON },
+  ],
+  [
+    'QLD_PUBLIC "true" with no kill switch',
+    { env: { QLD_PUBLIC: 'true' }, published: true, killSwitch: undefined },
+  ],
+  [
+    'QLD_PUBLIC "true" with the kill switch off',
+    { env: { QLD_PUBLIC: 'true' }, published: true, killSwitch: { ...SWITCH_ON, enabled: false } },
+  ],
+  [
+    'QLD_PUBLIC "true" with a kill switch in an unknown shape',
+    { env: { QLD_PUBLIC: 'true' }, published: true, killSwitch: 'on' },
+  ],
+];
 
-  it('is off', () => {
-    expect(isQldPublic(env)).toBe(false);
+/** The kill switch is read only once QLD_PUBLIC is on and the deploy is published. */
+const readsSwitch = (gate: Gate) => gate.env.QLD_PUBLIC === 'true' && gate.published;
+
+describe.each(SHUT)('with %s', (_label, gate) => {
+  const env = gate.env;
+
+  it('QLD_PUBLIC alone is as expected', () => {
+    expect(isQldPublic(env)).toBe(env.QLD_PUBLIC === 'true');
   });
 
   it.each(PUBLIC_ROUTES)('%s returns no Queensland station, price or place', async (path) => {
-    const { get } = await seeded(env);
+    const { get } = await seeded(gate);
     const { status, text } = await get(path);
     expect(status).toBeLessThan(500);
     for (const fragment of QLD_TEXT) expect(text).not.toContain(fragment);
@@ -167,34 +216,41 @@ describe.each([
   });
 
   it('no route but /api/status reads anything from Queensland', async () => {
-    const { get, reads } = await seeded(env);
+    const { get, reads } = await seeded(gate);
     for (const path of PUBLIC_ROUTES) await get(path);
-    expect(reads.filter((read) => read.includes('qld/') || read.includes('qld-'))).toEqual([]);
+    const qldReads = reads.filter((read) => read.includes('qld/') || read.includes('qld-'));
+    // At most the kill switch, which is not Queensland's data.
+    expect([...new Set(qldReads)]).toEqual(
+      readsSwitch(gate) ? [`getJSON ${QLD_KEYS.enabled}`] : [],
+    );
   });
 
-  it('/api/status reports QLD run health, from records and metadata only', async () => {
-    const { get, reads } = await seeded(env);
+  it('/api/status reports QLD health only, read from records and metadata', async () => {
+    const { get, reads } = await seeded(gate);
     const { text } = await get('/api/status');
     const body = JSON.parse(text) as StatusResponse;
 
-    expect(body.sources.qld).toMatchObject({ public: false });
-    expect(body.sources.qld.lastRun?.ok).toBe(true);
-    expect(body.sources.qld.written?.stations).toBe(3);
+    // Round 16: no counts or times while Queensland is not served.
+    expect(Object.keys(body.sources.qld).sort()).toEqual(['healthy', 'problems', 'public']);
+    expect(body.sources.qld.public).toBe(false);
 
     for (const fragment of [...QLD_TEXT, 'qld-', 'priceCents', '"prices"', '239.9']) {
       expect(text).not.toContain(fragment);
     }
-    expect(reads.filter((read) => read.includes('qld/') || read.includes('qld-')).sort()).toEqual([
-      'getJSON qld/meta/calls/2026-10',
-      'getJSON qld/meta/last-run',
-      'getMetadata qld/reference/v1',
-      'getMetadata qld/snapshot/v1/latest',
-    ]);
+    expect(reads.filter((read) => read.includes('qld/') || read.includes('qld-')).sort()).toEqual(
+      [
+        ...(readsSwitch(gate) ? [`getJSON ${QLD_KEYS.enabled}`] : []),
+        'getJSON qld/meta/calls/2026-10',
+        'getJSON qld/meta/last-run',
+        'getMetadata qld/reference/v1',
+        'getMetadata qld/snapshot/v1/latest',
+      ].sort(),
+    );
   });
 
   it('/api/status does not fail on a stalled QLD job while QLD is not public', async () => {
     // A day after the last QLD run: a problem in sources.qld, none at the top.
-    const { get } = await seeded(env, QLD_FIXTURE_AT + 24 * 60 * 60_000);
+    const { get } = await seeded(gate, QLD_FIXTURE_AT + 24 * 60 * 60_000);
     const body = JSON.parse((await get('/api/status')).text) as StatusResponse;
     expect(body.sources.qld.healthy).toBe(false);
     expect(body.sources.qld.problems.length).toBeGreaterThan(0);

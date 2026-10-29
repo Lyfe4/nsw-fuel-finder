@@ -2994,10 +2994,156 @@ and the screenshots. A small pull request together with setting
 | Netlify CDN                           | A deploy purges it, so switching `QLD_PUBLIC` (which needs a deploy) never serves a cached answer from the other setting, suggestions included (a day at the edge) |
 | ABS ArcGIS `query`                    | `where` with `OR` on string ranges; paged at 2,000                                                                                                                 |
 
-## 2026-10-25: Baseline (updated 29 October, round 14)
+## 2026-10-29: Round 16 (audit round 2 fixes)
 
-The project as of `1dc55ab` (round 14, icons and alignment, pull request
-#13; first written for round 10's `d6dc135`, updated for rounds 11 to 13). Future work
+A second independent, read-only audit came before this round, scoped to
+everything since round 9 (Queensland, the redesign, the merged code paths,
+cost). The owner accepted it and chose what to fix:
+
+| ID  | Finding                                                                                              | Call                           |
+| --- | ---------------------------------------------------------------------------------------------------- | ------------------------------ |
+| H1  | `QLD_PUBLIC` is fixed per deploy, and old deploys stay live on production's Blobs: not an off switch | Fixed, strengthened            |
+| H2  | An old Queensland snapshot was served, flagged, for ever (clause 2.3: within 30 minutes)             | Fixed                          |
+| H3  | One address, uncached routes and every preview's own rate-limit bucket can spend the month's runs    | Code part fixed; risk restated |
+| M1  | A failing reference refresh was retried every run; a thin one was kept for a day                     | Fixed                          |
+| M2  | No source or notice on Queensland favourites, the list rows, or the JSON answers                     | Fixed                          |
+| M3  | With Queensland on, an unreadable NSW snapshot read as healthy                                       | Fixed                          |
+| M4  | The licence's own text was not in hand                                                               | Checked (qld-plan.md)          |
+| L1  | `/api/status` described the dark Queensland dataset (count, times)                                   | Fixed                          |
+| L2  | The bundle carried no third-party licence notices (MapLibre's BSD-3, the MIT ones)                   | Fixed                          |
+| L3  | `OFL.txt` lacked Atkinson Mono's copyright line                                                      | Fixed                          |
+| L4  | Queensland coordinates were not checked                                                              | Fixed                          |
+| L5  | History day files are never pruned (about 170 MB a year)                                             | Accepted                       |
+| N1  | 1c order: set `QLD_PUBLIC` before the merge, production context only                                 | Noted in qld-plan.md           |
+| N2  | A 403 on prices stops the QLD job until a reset                                                      | Accepted                       |
+
+### Queensland behind three gates
+
+**The finding, seen live:** deploy previews 1 and 17 still answered
+`/api/status` from production's Blobs. Every deploy stays reachable at its
+own address until Netlify deletes it (30 days on this plan, not
+adjustable), runs its own code, and keeps the environment it was built
+with. So once a deploy was built with `QLD_PUBLIC=true`, unsetting it and
+redeploying would have stopped only the new deploy.
+
+**Decision** (`netlify/functions/api/deps.ts`, `router.ts` `qldFor`): the
+API serves Queensland only when all three hold, per request:
+
+1. `QLD_PUBLIC === 'true'`, as the deploy was built.
+2. `context.deploy.published === true`: Netlify's Functions API documents
+   it as "whether or not the function belongs to the current published
+   deploy". Previews, branch deploys and older production deploys are
+   never published, so none of them serves Queensland, whatever they were
+   built with.
+3. The owner's kill switch, `config/qld-enabled` in Blobs, is on. Every
+   deploy reads it (strongly, cached 15 s per instance), so off is
+   immediate everywhere without a redeploy. Missing, unreadable or in an
+   unknown shape is off. Only `pnpm qld:switch on|off` writes it, after
+   typing the word, as `auth:reset` does.
+
+The switch is read only when the first two hold, so the exposure test's
+promise stands: with any gate shut, no route reads anything from
+Queensland except `/api/status`'s run health. The test now runs every
+route under nine shut gates (five `QLD_PUBLIC` values; "true" on an
+unpublished deploy; the switch missing, off and malformed).
+
+**What "off" takes:** 15 s in a warm instance, then the CDN's minute plus
+its minute of stale-while-revalidate, and the browser's minute: within
+about three minutes for a visitor mid-search. Queensland history is now
+cached a minute, like its prices, rather than ten. Not covered: place
+suggestions, cached a day at the edge. They are the ABS's suburbs (CC BY),
+not licensed data, and a Queensland one picked while off is a 400.
+
+### An old Queensland snapshot is not served
+
+**Decision** (`combinedSource.ts`, `QLD_SERVE_MAX_MS`): older than 25
+minutes, Queensland's snapshot counts as unavailable: its stations are
+left out, `qld` is in `unavailable`, `/api/stations` says so (favourites
+then read "Fuel Prices Qld prices are unavailable right now.", not "no
+longer lists"), and `/api/history` for a Queensland station is a 503. 25,
+because an answer can wait two minutes at the CDN and one in the browser,
+which keeps what a visitor sees under the licence's 30. It also makes the
+job itself a kill switch: stop it, and Queensland leaves every deploy in
+25 minutes. NSW is unchanged: served, flagged stale after 90.
+
+`/api/stations` now gives each source its own staleness, as searches do,
+and `/api/history` uses the station's own source's time for "today".
+
+### Notices with the data
+
+**Decision:** the API puts `notices` on any answer with a Queensland
+station: the clause 4.2 notice and "Queensland prices may not be
+republished." (2.3), word for word, in the year of its snapshot. The page
+shows what the API sent, under the results and under favourites, so the
+JSON and the page cannot drift. A Queensland row says "· Qld" (and, to a
+screen reader, "price from Fuel Prices Qld") and a favourite "from Fuel
+Prices Qld", for clause 4.4; the card already said so.
+
+**Why 4.2 and not 4.3, as in round 15:** the licence's text (checked this
+round, `docs/qld-plan.md` 1.5) has two notices: 4.2 for copies of the data
+"however altered, reformatted or redisplayed", 4.3 for products built from
+it. A station's price as shown is the former; history (daily low, high and
+last) the latter, and keeps 4.3. Which a merged list needs is for the
+Licensor to confirm with publisher approval.
+
+### `/api/status`
+
+- **NSW unreadable is unhealthy, Queensland on or off** (`nswPart` returns
+  null when NSW is not among the sources). Before, Queensland's fresh time
+  stood in for NSW's.
+- **While Queensland is not served,** `sources.qld` is only `healthy`,
+  `public` and `problems` in general words ("The newest snapshot is out of
+  date."): no counts, times or error kinds. Once served, the full detail.
+
+### The reference data, politely
+
+- **A failed refresh waits an hour** (`qld/reference/attempt`) before the
+  next try, with or without a stored copy: the manual asks for reference
+  data once a day, and a refresh failing every run cost three calls each
+  time. Without a stored copy the run fails (`backing_off`, 200, so
+  Netlify does not retry) and prices wait too.
+- **A thin reference is refused:** under half the stored sites, it is not
+  stored, and the old copy serves.
+- **A site outside Queensland's box is dropped and counted**
+  (`outsideBounds`), so a coordinate typo cannot put it in an NSW search.
+
+### Cost: the code part of H3, and the risk restated
+
+- **`/api/status` is cached 30 seconds at the edge** (`Netlify-Vary:
+query=status`, a parameter it never reads, so junk queries share it),
+  `no-store` in the browser. UptimeRobot, every 15 minutes, loses nothing.
+- **A GET's 4xx is cached a minute at the edge** with its route's
+  `Netlify-Vary`, `no-store` in the browser. 5xx never.
+- **Rate limits cannot be keyed on the address alone.** Netlify's rate
+  limiting docs offer two modes, "per domain and IP address" (all plans)
+  and "per domain" (Enterprise); `aggregateBy: ['ip']` is not among them.
+  So each deploy preview and permalink is its own 120-a-minute bucket.
+
+The accepted risk, in numbers, is in the Baseline below.
+
+### Licences shipped
+
+- `vite build` writes `dist/third-party-notices.txt` (Vite's
+  `build.license`): every package in the browser bundle, with its licence
+  text, MapLibre's BSD-3 among the 12. Linked from the privacy note.
+- `public/fonts/OFL.txt` names both fonts' copyright holders.
+
+### Library behaviour this relies on
+
+| Call                                 | Behaviour relied on                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Netlify Functions `context.deploy`   | `published`: whether the function belongs to the current published deploy; read per request               |
+| Netlify deploys                      | Each stays at its own address with its own code and build-time environment until deleted (30 days here)   |
+| Netlify rate limiting `aggregateBy`  | Per domain and IP, or per domain (Enterprise); not per IP alone. Each deploy's domain is its own bucket   |
+| `Netlify-Vary: query=a`              | Keys on `a` only; any other parameter shares the entry. A parameter the route never reads gives one entry |
+| `Netlify-CDN-Cache-Control` on a 4xx | Cached as any response; the browser's `Cache-Control: no-store` stays separate (to verify on the preview) |
+| Vite `build.license`                 | Writes the bundled packages' licences to the named file in `dist`                                         |
+| `@netlify/blobs` strong reads        | See every write at once: the kill switch is read strongly                                                 |
+
+## 2026-10-25: Baseline (updated 29 October, round 16)
+
+The project as of round 16 (audit round 2 fixes; first written for round
+10's `d6dc135`, updated for rounds 11 to 15). Future work
 starts from here; this entry is the summary, and the rounds above have the
 reasons.
 
@@ -3029,7 +3175,11 @@ capitals kept. `docs/design-system.md` is the source of truth for the look.
 **How it runs.** A scheduled function fetches every NSW price every 30
 minutes (about 1,500 API.NSW calls a month against 2,500) into Netlify
 Blobs, and folds a slice of history each run. The `/api` function answers
-from Blobs only. Visitors never reach API.NSW.
+from Blobs only. Visitors never reach API.NSW. A second job fetches
+Queensland's prices every 10 minutes into `qld/` keys (round 15), not
+served until phase 1c: the API serves them only through three gates
+(`QLD_PUBLIC`, the published deploy, the owner's kill switch in Blobs) and
+never when over 25 minutes old (round 16).
 
 **Security posture.**
 
@@ -3038,8 +3188,17 @@ from Blobs only. Visitors never reach API.NSW.
   Permissions policies, `nosniff`, `DENY` framing, COOP.
 - Rate limits, both code-based rules Legacy Free allows: `/api/*` 120 a
   minute per address (in the function's config), and the whole site 600 a
-  minute (in `netlify.toml`). `Netlify-Vary` cache keys, so junk parameters
-  cannot force function runs. The function is reachable only at `/api/*`.
+  minute (in `netlify.toml`), each per address and per domain (Netlify
+  offers no per-address-only mode). `Netlify-Vary` cache keys, so junk
+  parameters cannot force function runs; `/api/status` and a GET's 4xx are
+  cached at the edge too (round 16). The function is reachable only at
+  `/api/*` in deploys since round 9.
+- Queensland: the token only in the production context; nothing served
+  unless `QLD_PUBLIC`, the published deploy and the kill switch all say so,
+  and the snapshot is under 25 minutes old; its licence notices travel
+  with every answer that has its prices (round 16).
+- Third-party licences shipped at `/third-party-notices.txt`, the fonts'
+  at `/fonts/OFL.txt` (round 16).
 - API.NSW credentials only in the production context, scoped to functions.
   The lockout guard stops after one refusal (or two unknown outcomes), fails
   closed, and is reset only by a person (`pnpm auth:reset`). Every call is
@@ -3061,7 +3220,7 @@ from Blobs only. Visitors never reach API.NSW.
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 687 tests, the build
+- CI on every pull request: typecheck, lint, format, 1,012 tests, the build
   and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (64
   checks, including CSP, CLS at desktop and phone size, touch gestures on
   the map and the card's actions on one row at four phone widths) and `pnpm check:a11y` (40) against its deploy preview, about two
@@ -3083,6 +3242,33 @@ from Blobs only. Visitors never reach API.NSW.
   address at the static limit could still pull about 37 GB an hour of the
   1 MB map chunk, so the month's 100 GB in under three hours; the usage
   emails are the warning.
+- **One address can spend the month's function runs** (restated in round
+  16, with numbers). Legacy Free allows 125,000 a month, and reaching it
+  pauses all 16 sites. `/api` allows 120 requests a minute per address
+  _and per domain_, and an uncached request is a run: a new position, or
+  a new junk path. That is 172,800 a day, so one address on one domain
+  spends the month in about 17 hours. Every live deploy has its own domain,
+  so its own 120 a minute: with 40 deploys live on 29 October that was
+  about 26 minutes, and production deploys from before round 9, still
+  live, have no limit at all. Netlify deletes deploys after 30 days on this
+  plan (not adjustable), and the owner can delete old ones sooner. With a
+  handful live, it is a few hours. Netlify's own bot protection met paced
+  bursts at about 600 a minute from one address (round 10), which may stop
+  it sooner, and is not ours to rely on. The 50% usage email is the
+  warning, at most hours ahead. Accepted: there is no per-address-only
+  limit on this plan, and a paid plan or a team of its own is ruled out.
+- **Old deploys stay live for 30 days** with their own code, environment
+  and rate-limit bucket, reading production's Blobs. Queensland is safe
+  from them (the published-deploy gate and the kill switch), and NSW data
+  is public anyway; the cost above is the risk.
+- **Place suggestions are cached a day at the edge**, so a Queensland
+  suburb can still be suggested for up to a day after Queensland is
+  switched off; picking it is a 400. They are ABS data, not Queensland's.
+- **History day files are never pruned** (round 16, L5): about 170 MB a
+  year for both states; prune when it matters.
+- **A refused QLD prices call stops the job until a reset** (round 16,
+  N2), even though the manual lists 403 as "refuses to respond". Cautious
+  on purpose; once Queensland is served, `/api/status` pages the owner.
 - **The site-wide limit also counts `/api` requests** (Netlify cannot exclude
   a path); harmless below 480 other requests a minute.
 - **Netlify's bot challenge** can answer heavy automated use from one address

@@ -2,6 +2,7 @@ import { ApiError } from './http';
 import { COORDINATE_DECIMALS } from '../../../shared/api';
 import { FUEL_TYPE_CODES, isFuelTypeCode, type FuelTypeCode } from '../../../shared/fuelTypes';
 import { roundTo } from '../../lib/geo';
+import { QLD_BOUNDS } from '../../lib/qld/mapping';
 
 /**
  * A rough box around NSW and the ACT, a little generous at the borders. Every
@@ -12,13 +13,18 @@ import { roundTo } from '../../lib/geo';
 export const NSW_BOUNDS = { minLat: -37.6, maxLat: -28.1, minLng: 140.9, maxLng: 153.7 };
 
 /**
- * The same for Queensland (round 15), used only while it is public: its
- * stations span -29.0 to -9.75 (the Torres Strait) and 138.1 to 153.5. Two
- * boxes rather than one big one, so "outside" still means Victoria or the NT.
+ * The same for Queensland (round 15, lib/qld/mapping.ts), used only while it
+ * is served. Two boxes rather than one big one, so "outside" still means
+ * Victoria or the NT.
  */
-export const QLD_BOUNDS = { minLat: -29.2, maxLat: -9.0, minLng: 137.9, maxLng: 153.7 };
+export { QLD_BOUNDS };
 
-type Bounds = typeof NSW_BOUNDS;
+interface Bounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
 const inside = (b: Bounds, lat: number, lng: number) =>
   lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
 
