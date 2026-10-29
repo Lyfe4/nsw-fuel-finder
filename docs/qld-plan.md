@@ -1,8 +1,42 @@
 # Queensland: research and plan (round 15)
 
-Researched 2026-10-29. Planning only: nothing here is built yet. The aim is to
-add Queensland's live prices, and later its history, without the two states
-being able to break each other.
+Researched 2026-10-29. The aim is to add Queensland's live prices, and later
+its history, without the two states being able to break each other.
+
+## Status (updated 29 October 2026, after phases 1a and 1b)
+
+| Phase                                | State                                                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 0: licence                           | **Waiting.** The owner submitted the publisher sign-up on 29 October; nothing public until it is confirmed |
+| 1a: pipeline, dark                   | **Live** since 29 October (pull request #16, `6ca2719`). First good production run 02:00 UTC               |
+| 1b: search and UI, behind QLD_PUBLIC | **Merged** (pull request #17, `b3e159f`). `QLD_PUBLIC` is unset, so nothing from Queensland is served      |
+| 1c: switch on                        | Not started. Only with the owner's explicit go-ahead, after phase 0                                        |
+| 2: history                           | Not started                                                                                                |
+
+The rest of this document is the research and plan as written before the
+build, corrected where the build found otherwise. The reasons for each
+choice made while building are in `docs/decisions.md`, round 15. What
+differs from the plan below:
+
+- **The snapshot is 639 kB** (1,773 stations), not the estimated 350 kB;
+  the reference data 299 kB, a Brisbane day's history 234 kB.
+- **`/api/status`** has `sources.qld` only; the existing top-level fields
+  stay NSW's rather than being repeated as `sources.nsw` (2.7).
+- **Test fixtures for Queensland are synthetic**, not trimmed recordings:
+  committing real QLD data to a public repository would be distributing it
+  (licence clause 3.1).
+- **QLD_PUBLIC must never be set on a deploy preview:** preview URLs are
+  public and read production's Blobs. QLD-on checks are done locally.
+- **The QLD token only took effect after a redeploy:** a deploy gets the
+  environment variables that existed when it was built.
+- **The first production run needed Netlify's retry:** the 853 kB region
+  list came back unreadable once (`bad_response`, 502, retried 14 s later),
+  costing 3 extra calls. Since then a failed daily refresh falls back to the
+  stored copy, so it no longer fails a run.
+- **Both decisions in 4.3 are made:** keep the "which one?" answer for
+  same-name suburbs; call E10 and E85 that for both states (done in 1b).
+- QLD API calls by the time 1b merged: 17 (5 research, 4 approved local, 8
+  production), then 1 per 10-minute run plus 3 a day.
 
 Sources, tagged as in `docs/api-notes.md`:
 
@@ -20,18 +54,18 @@ Sources, tagged as in `docs/api-notes.md`:
 
 ## Summary
 
-| Question            | Answer                                                                                                                                                                     |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Can we publish?** | **Not as things stand.** The licence lets a _data consumer_ use the data for its own purposes only. Publishing prices on a public site needs _publisher_ status (see 1.6). |
-| Auth                | One static token in a header, `Authorization: FPDAPI SubscriberToken=<GUID>`. No token exchange, no documented lockout                                                     |
-| Endpoints we'd use  | `GetSitesPrices` (prices, every run) and `GetFullSiteDetails`, `GetCountryBrands`, `GetCountryGeographicRegions` (reference, once a day)                                   |
-| Size and speed      | Prices 804 kB raw (6,986 rows), 381 ms. Sites 628 kB (1,807 sites), 127 ms. Regions 853 kB. All gzipped on the wire **[live]**                                             |
-| Limits              | Prices "not more often than once per minute"; reference data once a day **[manual]**. No monthly quota is published, no rate-limit headers were sent **[live]**            |
-| Freshness rule      | Retailers report within 30 minutes; a **publisher** must show a change within 30 minutes **[licence 2.3]**                                                                 |
-| Prices              | Tenths of a cent: `2399` is 239.9 c/L. `9999` means unavailable at that site **[manual] [live]**                                                                           |
-| Timestamps          | `TransactionDateUtc` is UTC but has **no `Z`**: `2026-09-19T21:09:50.913` **[live]**                                                                                       |
-| Station IDs         | 8-digit integers (61290151–61678190); the same IDs as the open-data CSVs **[live] [open data]**                                                                            |
-| History             | Monthly CSVs on data.qld.gov.au, CC BY 4.0, changes only. August 2026 is the newest (published 2 September); September is not out on 29 October                            |
+| Question            | Answer                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Can we publish?** | **Not yet.** The licence lets a _data consumer_ use the data for its own purposes only. Publishing needs _publisher_ status (see 1.6), applied for on 29 October. |
+| Auth                | One static token in a header, `Authorization: FPDAPI SubscriberToken=<GUID>`. No token exchange, no documented lockout                                            |
+| Endpoints we'd use  | `GetSitesPrices` (prices, every run) and `GetFullSiteDetails`, `GetCountryBrands`, `GetCountryGeographicRegions` (reference, once a day)                          |
+| Size and speed      | Prices 804 kB raw (6,986 rows), 381 ms. Sites 628 kB (1,807 sites), 127 ms. Regions 853 kB. All gzipped on the wire **[live]**                                    |
+| Limits              | Prices "not more often than once per minute"; reference data once a day **[manual]**. No monthly quota is published, no rate-limit headers were sent **[live]**   |
+| Freshness rule      | Retailers report within 30 minutes; a **publisher** must show a change within 30 minutes **[licence 2.3]**                                                        |
+| Prices              | Tenths of a cent: `2399` is 239.9 c/L. `9999` means unavailable at that site **[manual] [live]**                                                                  |
+| Timestamps          | `TransactionDateUtc` is UTC but has **no `Z`**: `2026-09-19T21:09:50.913` **[live]**                                                                              |
+| Station IDs         | 8-digit integers (61290151–61678190); the same IDs as the open-data CSVs **[live] [open data]**                                                                   |
+| History             | Monthly CSVs on data.qld.gov.au, CC BY 4.0, changes only. August 2026 is the newest (published 2 September); September is not out on 29 October                   |
 
 ## Live verification (2026-10-29)
 
@@ -315,8 +349,8 @@ over plan), which can only mean a loop or a retry storm.
 Netlify (Legacy Free, 125,000 invocations per site a month): today about
 1,488 snapshot runs, about 2,900 UptimeRobot checks and the visitors' `/api`
 calls. QLD adds 4,464 runs. Comfortable. Blobs writes per QLD run: the
-snapshot (about 350 kB for 1,785 stations, estimated from NSW's 875 kB for
-2,397 stations with more fuels each), the day file, a 200-station fold slice.
+snapshot (639 kB for 1,773 stations, measured; the estimate here was 350 kB),
+the day file (234 kB), a 200-station fold slice.
 
 ### 2.5 Blobs layout
 
@@ -372,18 +406,18 @@ stay unprefixed, so no NSW favourite or shared link changes.
 
 ### 2.7 `/api/status` per source
 
-Today `StatusResponse` (`shared/api.ts:86-100`) has one `lastRun`, one
-`served` and one `callsThisMonth`. Add:
+`StatusResponse` (`shared/api.ts`) had one `lastRun`, one `served` and one
+`callsThisMonth`. As built (phase 1a), it gains:
 
 ```ts
 sources: {
-  nsw: SourceStatus; // the same fields as today
-  qld: SourceStatus & { referenceFetchedAt: string | null };
-}
+  qld: QldSourceStatus;
+} // healthy, public, problems, lastRun,
+// written, referenceFetchedAt, callsThisMonth
 ```
 
-and keep the existing top-level fields as NSW's, so nothing reading them
-breaks. Each problem is prefixed with its state ("QLD: the last scheduled
+and the existing top-level fields stay NSW's, so nothing reading them
+breaks. (The plan had a `sources.nsw` repeating them; it was left out.) Each problem is prefixed with its state ("QLD: the last scheduled
 run failed (timeout)."). **Any source's problem still makes the status 503**:
 that is a monitoring signal, not a broken search, and a QLD outage is a
 licence risk (1.5), so it should email the owner. Until QLD is switched on
@@ -458,13 +492,13 @@ building it cannot page anyone.
 | QLD `FuelId` | QLD name (API)                      | CSV name       | Rows today | Ours  | Note                                         |
 | ------------ | ----------------------------------- | -------------- | ---------- | ----- | -------------------------------------------- |
 | 2            | Unleaded                            | Unleaded       | 1,596      | `U91` |                                              |
-| 12           | e10                                 | e10            | 992        | `E10` | Our label is FuelCheck's "Ethanol 94" (4.3)  |
+| 12           | e10                                 | e10            | 992        | `E10` | Shown as "E10" for both states (4.3, done)   |
 | 5            | Premium Unleaded 95                 | PULP 95/96 RON | 936        | `P95` |                                              |
 | 8            | Premium Unleaded 98                 | PULP 98 RON    | 1,301      | `P98` |                                              |
 | 3            | Diesel                              | Diesel         | 1,056      | `DL`  |                                              |
 | 14           | Premium Diesel                      | Premium Diesel | 971        | `PDL` |                                              |
 | 4            | LPG                                 | LPG            | 86         | `LPG` |                                              |
-| 19           | e85                                 | e85            | 46         | `E85` | FuelCheck calls it "Ethanol 105"             |
+| 19           | e85                                 | e85            | 46         | `E85` | Shown as "E85" for both states (done)        |
 | 16           | Bio-Diesel 20                       |                | 0          | `B20` | Map it; no prices today                      |
 | 21           | OPAL                                | OPAL           | 2          | none  | Low-aromatic fuel at 2 remote sites; dropped |
 | 6, 11, 13    | ULSD, LRP, Premium e5               |                | 0          | none  | Dropped; logged if they ever appear          |
@@ -528,11 +562,15 @@ its source (licence 4.4).
 2000–2999. QLD is state code 3 and postcodes 4000–4999 (checked on the ABS
 service today):
 
-|                      | NSW + ACT (today)  | QLD added     | Total                    |
-| -------------------- | ------------------ | ------------- | ------------------------ |
-| Suburbs (SAL 2021)   | 4,682 (4,678 kept) | 3,235         | about 7,900              |
-| Postcodes (POA 2021) | 638 (637 kept)     | 433           | about 1,070              |
-| `gazetteer.json`     | 293 kB (88 kB gz)  | about +200 kB | about 500 kB (150 kB gz) |
+|                      | NSW + ACT (before) | QLD added | Total, as built (1b) |
+| -------------------- | ------------------ | --------- | -------------------- |
+| Suburbs (SAL 2021)   | 4,682 (4,678 kept) | 3,233     | 7,911                |
+| Postcodes (POA 2021) | 638 (637 kept)     | 433       | 1,070                |
+| `gazetteer.json`     | 293 kB (88 kB gz)  | +189 kB   | 482 kB (146 kB gz)   |
+
+As built, a suburb takes a postcode from its own state's range only, so the
+NSW and ACT rows are byte-identical to before, and Queensland's entries are
+used only while `QLD_PUBLIC` is on.
 
 - It is **server-only**, bundled into the `api` function (`gazetteer.ts:1`), so
   the browser bundle does not change and no client budget applies. No check
@@ -563,15 +601,13 @@ postcode groups (`:99`) accept `QLD` and `4\d{3}`; the error texts (`:78`,
 The map has no bounds of its own: it fits the results (`mapData.ts:105-125`).
 Nothing to change.
 
-### 4.3 Decisions for the owner
+### 4.3 Decisions for the owner (both made, 29 October)
 
-- **Same-name suburbs.** 247 names exist in both. Keep today's rule (a 409
-  with the choices, as Griffith NSW/ACT already does) or prefer one state?
-  Recommendation: keep the 409; it is honest, and the suggestions resolve it
-  before Enter for most people.
-- **"Ethanol 94".** FuelCheck's name for E10. Queenslanders say "E10". Show
-  "E10" for both? Recommendation: yes, it is the more widely understood name;
-  same for "E85" over "Ethanol 105". A small change to `shared/fuelTypes.ts`.
+- **Same-name suburbs.** 247 names exist in both. **Decided: keep the 409**
+  with the choices, as Griffith NSW/ACT already does. Built in 1b; only
+  while Queensland is public.
+- **"Ethanol 94".** FuelCheck's name for E10. **Decided: "E10" and "E85"
+  for both states.** Done in 1b, so NSW shows the new names already.
 
 ---
 
@@ -630,6 +666,13 @@ per-file sources and licences (`shared/api.ts:159`); it gains a
 ## 6. UI and naming
 
 ### 6.1 What changes on screen
+
+As built: everything the API's answers can switch was done in 1b and shows
+only when an answer has Queensland in it (the "as of" line, the notices,
+the out-of-area message, the station card's source line, and the licence
+notice under the results). The static text cannot follow the switch, so it
+is left for 1c: the masthead, the footer, `index.html`, the manifest,
+`package.json`, the README, the privacy note and the screenshots.
 
 - **Masthead region:** "NSW · ACT · QLD" (`App.tsx:25-28`), screen-reader text
   "NSW, ACT and QLD". `docs/design-system.md` already treats the region as
@@ -690,43 +733,60 @@ per-file sources and licences (`shared/api.ts:159`); it gains a
   and a note to support@fuelpricesqld.com.au about a 10-minute schedule.
 - **Effort:** an email or form; the wait is theirs. **Blocks** phase 1c.
 
-### Phase 1a: QLD pipeline, dark (one round)
+### Phase 1a: QLD pipeline, dark (one round): done, pull request #16
 
 - Refactor `runSnapshot` to take a source definition; NSW behaviour and keys
   identical (its tests unchanged).
 - QLD client, schemas (with the `Z` fix), reference refresh, builder, fuel and
   brand maps, `qld/` keys, `snapshot-qld` on `*/10`, call counting,
   `auth:reset --source qld`, `/api/status` per source with QLD non-paging.
-- Fixtures: trimmed copies of today's five responses (a few dozen sites,
-  including Coolangatta and a `9999`, an implausible price and a null `M`),
-  replayed through `fakeUpstream.ts`, which routes by path.
+- Fixtures: synthetic responses in the live shapes (a Coolangatta site, a
+  `9999`, an implausible price, a null `M`, a future stamp), in
+  `netlify/lib/__fixtures__/fakeQld.ts`. Not recordings: the licence forbids
+  distributing the real data, and the repository is public.
 - **Production write:** once merged, `snapshot-qld` writes `qld/…` keys in
   production every 10 minutes. That is a standing production Blobs write, so
   merging needs the owner's explicit go-ahead.
 - **Effort:** medium-large. **Risk:** the refactor touching NSW; mitigated by
   NSW's existing tests and by comparing `meta/last-run` before and after.
 
-### Phase 1b: search, merged results, UI (one round)
+### Phase 1b: search, merged results, UI (one round): done, pull request #17
 
 - Two snapshot sources in `/api`; `sources` and `unavailable` in
   `PricesResponse`; prefixed codes through stations and history routes.
-- Gazetteer with QLD; boxes; query parsing; per-state time zones; the copy in
-  6.1; footer notice.
-- Behind a production switch (an env var, `QLD_PUBLIC`, read by `/api`): off,
-  `/api` ignores QLD entirely, so a deploy preview can be tested with it on.
+- Gazetteer with QLD; boxes; query parsing; per-state time zones; the
+  answer-driven copy in 6.1 (the static copy moved to 1c).
+- Behind a production switch (an env var, `QLD_PUBLIC`, read by `/api`):
+  off, `/api` ignores QLD entirely. **Not testable on a deploy preview**:
+  previews are public and read production's Blobs, so QLD-on is checked
+  locally only.
 - **Effort:** medium-large (much of it text, tests and fixtures).
 
-### Phase 1c: switch on (after phase 0)
+### Phase 1c: switch on (after phase 0, with the owner's go-ahead)
 
-- Set `QLD_PUBLIC`, make QLD problems page, update README, decisions and
-  Baseline, screenshots. Then the domain (6.2), if the owner wants it.
+- A small pull request with the static copy (6.1): masthead, footer credit
+  and notice, `index.html`, manifest, `package.json`, README, privacy note
+  ("Queensland prices may not be republished"), screenshots, and the
+  Baseline in `docs/decisions.md`.
+- Set `QLD_PUBLIC=true` (production, Functions scope), then **redeploy**:
+  a deploy only gets variables that existed when it was built. The deploy
+  also purges the CDN, so no answer cached with the switch off survives.
+  QLD problems then make `/api/status` unhealthy and page the owner.
+- Then the domain (6.2), if the owner wants it.
 
 ### Phase 2: history (one round, any time after 1a)
 
 - `scripts/build-qld-history-backfill.mjs` (CKAN, CSV, ID matching, same
-  per-station format, `qld-open-data` source), the QLD live fold, the history
-  view's credits.
+  per-station format, `qld-open-data` source) and the history view's
+  credits. The QLD live fold already runs (since 1a; its first day is 30
+  October, folded from the 31st).
 - Upload: owner's go-ahead, short-lived token, about 27 MB.
+- **Licence:** the CSVs are CC BY 4.0, separate from the API licence, so
+  history built from them alone could be published without publisher
+  status (with credit, implying no endorsement). History from our own QLD
+  snapshots is API data and could not. Either way, the owner's rule is
+  nothing public before 1c. The newest CSV is still August 2026 (checked
+  29 October, after 1b).
 - **Effort:** medium. Simpler than NSW's (no matching), but the first time a
   second licence appears in one chart.
 
