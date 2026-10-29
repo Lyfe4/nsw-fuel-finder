@@ -1,5 +1,7 @@
 /**
- * The fuels we offer, with the names FuelCheck uses for them.
+ * The fuels we offer, with the names FuelCheck uses for them, except E10 and
+ * E85 (round 15): FuelCheck says "Ethanol 94" and "Ethanol 105", but E10 and
+ * E85 are what both states' drivers know them as (the owner's choice).
  *
  * Verified against live data on 2026-10-21 (see docs/api-notes.md). FuelCheck's
  * reference list has 16 entries; the ones left out are:
@@ -16,13 +18,13 @@
  */
 export const FUEL_TYPES = [
   { code: 'U91', name: 'Unleaded 91' },
-  { code: 'E10', name: 'Ethanol 94' },
+  { code: 'E10', name: 'E10' },
   { code: 'P98', name: 'Premium 98' },
   { code: 'P95', name: 'Premium 95' },
   { code: 'DL', name: 'Diesel' },
   { code: 'PDL', name: 'Premium Diesel' },
   { code: 'LPG', name: 'LPG' },
-  { code: 'E85', name: 'Ethanol 105' },
+  { code: 'E85', name: 'E85' },
   { code: 'B20', name: 'Biodiesel 20' },
 ] as const;
 

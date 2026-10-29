@@ -1,6 +1,7 @@
 /**
- * Builds netlify/lib/places/gazetteer.json: every NSW and ACT suburb/locality
- * with a point to search from and its postcode, plus every NSW/ACT postcode.
+ * Builds netlify/lib/places/gazetteer.json: every NSW, ACT and Queensland
+ * suburb/locality with a point to search from and its postcode, plus every
+ * NSW/ACT (2xxx) and Queensland (4xxx) postcode.
  *
  *   node scripts/build-gazetteer.js
  *
@@ -21,7 +22,13 @@ import { fileURLToPath } from 'node:url';
 
 const BASE = 'https://geo.abs.gov.au/arcgis/rest/services/ASGS2021';
 const OUTPUT = fileURLToPath(new URL('../netlify/lib/places/gazetteer.json', import.meta.url));
-const STATES = { 1: 'NSW', 8: 'ACT' };
+const STATES = { 1: 'NSW', 8: 'ACT', 3: 'QLD' };
+/**
+ * A suburb takes a postcode only from its own state's range (round 15), so
+ * adding Queensland's postal areas cannot give a NSW border locality a QLD
+ * postcode: the NSW and ACT rows stay exactly as they were.
+ */
+const POSTCODE_RANGE = { NSW: '2', ACT: '2', QLD: '4' };
 const PAGE = 2000;
 
 async function query(service, params) {
@@ -75,11 +82,11 @@ function bbox(rings) {
  * postcode outline (Malabar, Narrabeen, Whale Beach). For those, the postcode
  * with a boundary point within 3 km. Rough degrees-to-km is fine at this scale.
  */
-function nearest(x, y) {
+function nearest(x, y, candidates) {
   const KM_PER_DEG = 111;
   let best = null;
   let bestKm = 3;
-  for (const poa of poas) {
+  for (const poa of candidates) {
     for (const ring of poa.rings) {
       for (const [px, py] of ring) {
         const km = Math.hypot((px - x) * Math.cos((y * Math.PI) / 180), py - y) * KM_PER_DEG;
@@ -93,18 +100,24 @@ function nearest(x, y) {
   return best;
 }
 
-/** "Kingswood (Penrith - NSW)" -> { name: "Kingswood", qualifier: "Penrith" } */
+/**
+ * "Kingswood (Penrith - NSW)" -> { name: "Kingswood", qualifier: "Penrith" }.
+ * A qualifier that is only the state ("Abbotsford (Qld)") goes: the label
+ * already names the state.
+ */
 function splitName(raw) {
   const match = /^(.*?)\s*\((.*)\)$/.exec(raw);
   if (!match) return { name: raw, qualifier: null };
-  const qualifier = match[2].replace(/\s*-?\s*\b(NSW|ACT)$/, '').trim();
+  const qualifier = match[2].replace(/\s*-?\s*\b(NSW|ACT|Qld)$/, '').trim();
   return { name: match[1], qualifier: qualifier || null };
 }
 
 console.warn('Fetching postal areas...');
 const poas = (
   await query('POA', {
-    where: "poa_code_2021 >= '2000' AND poa_code_2021 <= '2999'",
+    where:
+      "(poa_code_2021 >= '2000' AND poa_code_2021 <= '2999') OR " +
+      "(poa_code_2021 >= '4000' AND poa_code_2021 <= '4999')",
     outFields: 'poa_code_2021',
     returnGeometry: true,
     returnCentroid: true,
@@ -128,7 +141,7 @@ const poas = (
 console.warn('Fetching suburbs and localities...');
 const sals = (
   await query('SAL', {
-    where: "state_code_2021 IN ('1', '8')",
+    where: "state_code_2021 IN ('1', '8', '3')",
     outFields: 'sal_code_2021,sal_name_2021,state_code_2021',
     returnGeometry: false,
     returnCentroid: true,
@@ -144,7 +157,9 @@ const sals = (
 let unmatched = 0;
 const suburbs = sals.map((f) => {
   const { x, y } = f.centroid;
-  const poa = poas.find(
+  const state = STATES[f.attributes.state_code_2021];
+  const ownPoas = poas.filter((p) => p.postcode.startsWith(POSTCODE_RANGE[state]));
+  const poa = ownPoas.find(
     (p) =>
       x >= p.box.minX &&
       x <= p.box.maxX &&
@@ -152,14 +167,14 @@ const suburbs = sals.map((f) => {
       y <= p.box.maxY &&
       contains(p.rings, x, y),
   );
-  const postcodeArea = poa ?? nearest(x, y);
+  const postcodeArea = poa ?? nearest(x, y, ownPoas);
   if (!postcodeArea) unmatched++;
   const { name, qualifier } = splitName(f.attributes.sal_name_2021);
   return [
     f.attributes.sal_code_2021,
     name,
     qualifier,
-    STATES[f.attributes.state_code_2021],
+    state,
     postcodeArea?.postcode ?? null,
     round(y),
     round(x),

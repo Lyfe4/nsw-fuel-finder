@@ -2,12 +2,20 @@ import { buildPlaceIndex, type PlaceIndex } from './places';
 import { snapshotSchema, type Snapshot } from '../../lib/snapshot/format';
 import { KEYS, type KeyValueStore } from '../../lib/store';
 
+import type { SourceId } from '../../../shared/api';
+
 /** How long a warm instance trusts its copy before asking Blobs if it changed. */
 const RECHECK_MS = 30_000;
 
 export interface LoadedSnapshot {
   snapshot: Snapshot;
   places: PlaceIndex;
+  /**
+   * Round 15: which sources this holds, each with its own snapshot time, and
+   * which could not be read. Absent means NSW alone (see combinedSource.ts).
+   */
+  sources?: readonly { id: SourceId; fetchedAt: string }[];
+  unavailable?: readonly SourceId[];
 }
 
 export class SnapshotUnavailableError extends Error {
@@ -34,7 +42,13 @@ export class SnapshotUnavailableError extends Error {
  * already has a snapshot keeps serving it (its age still drives `stale`);
  * one that has never loaded one reports unavailable.
  */
-export function createSnapshotSource(deps: { store: KeyValueStore; now: () => number }) {
+export function createSnapshotSource(deps: {
+  store: KeyValueStore;
+  now: () => number;
+  /** NSW's snapshot by default; Queensland's is `QLD_KEYS.snapshot` (round 15). */
+  key?: string;
+}) {
+  const key = deps.key ?? KEYS.snapshot;
   let cached: (LoadedSnapshot & { version: string; checkedAt: number }) | null = null;
   let pending: Promise<LoadedSnapshot> | null = null;
 
@@ -44,7 +58,7 @@ export function createSnapshotSource(deps: { store: KeyValueStore; now: () => nu
       // The version is the snapshot's own fetchedAt, which the job writes into
       // the blob's metadata. Not the etag: a HEAD response is not guaranteed
       // to carry one (the local Blobs server sends none).
-      const metadata = await deps.store.getMetadata(KEYS.snapshot, 'strong');
+      const metadata = await deps.store.getMetadata(key, 'strong');
       const version = typeof metadata?.fetchedAt === 'string' ? metadata.fetchedAt : null;
       if (version !== null && cached?.version === version) {
         cached.checkedAt = deps.now();
@@ -52,8 +66,7 @@ export function createSnapshotSource(deps: { store: KeyValueStore; now: () => nu
       }
       // No fetchedAt in the metadata (an older writer): fall back to the
       // etag, which at worst means re-reading the body on every check.
-      const body =
-        metadata === null ? null : await deps.store.getJSONWithEtag(KEYS.snapshot, 'strong');
+      const body = metadata === null ? null : await deps.store.getJSONWithEtag(key, 'strong');
       result = body && { data: body.data, version: version ?? body.etag };
     } catch (error) {
       console.error('Reading the snapshot from Blobs failed', error);

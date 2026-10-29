@@ -86,9 +86,16 @@ export function ErrorNotice({
         </Problem>
       );
     case 'bad_request':
-      // Most often "That location is outside NSW." from a nearby search.
+      // Most often "That location is outside NSW." from a nearby search. With
+      // Queensland public (round 15) the API's message says what it covers.
       return (
-        <Problem message={`${error.message} Fuel Finder covers NSW and the ACT.`}>
+        <Problem
+          message={
+            error.message.includes('Fuel Finder covers')
+              ? error.message
+              : `${error.message} Fuel Finder covers NSW and the ACT.`
+          }
+        >
           <Button onClick={onSearchInstead}>Search by suburb or postcode</Button>
         </Problem>
       );
@@ -119,11 +126,27 @@ export function ErrorNotice({
   }
 }
 
-/** Not an error: the snapshot is old but still the best answer there is. */
-export function StaleNotice({ age }: { age: string }) {
+/**
+ * Not an error: the snapshot is old but still the best answer there is.
+ * `source` names whose (round 15): FuelCheck unless said otherwise.
+ */
+export function StaleNotice({ age, source = 'FuelCheck' }: { age: string; source?: string }) {
   return (
     <p className={styles.stale}>
-      <strong>These prices may be out of date.</strong> Our last update from FuelCheck was {age}.
+      <strong>These prices may be out of date.</strong> Our last update from {source} was {age}.
+    </p>
+  );
+}
+
+/**
+ * Not an error either: one source could not be read just now (round 15), so
+ * the answer is from the other and may be missing that state's stations.
+ */
+export function UnavailableNotice({ sources }: { sources: readonly string[] }) {
+  return (
+    <p className={styles.stale}>
+      <strong>Some prices could not be loaded.</strong> Stations from {sources.join(' and ')} may be
+      missing; try again in a few minutes.
     </p>
   );
 }

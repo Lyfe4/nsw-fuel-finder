@@ -8,6 +8,7 @@ import { HistoryLink } from '@/features/history/HistoryLink';
 import { DirectionsLink } from '@/features/prices/DirectionsLink';
 import { PriceChange } from '@/features/prices/PriceChange';
 import { formatAddress, formatAge, formatDistance, formatPrice } from '@/lib/format';
+import { SOURCE_NAMES, stationSource } from '@/lib/sources';
 
 import styles from './SelectedStation.module.css';
 
@@ -96,6 +97,13 @@ export function SelectedStation({
             {' '}
             <span aria-hidden="true">·</span>{' '}
             <PriceChange cents={station.changeCents} className={styles.change} />
+          </>
+        )}
+        {/* Queensland's licence asks for its data to be told apart (clause 4.4). */}
+        {stationSource(station.stationCode) === 'qld' && (
+          <>
+            {' '}
+            <span aria-hidden="true">·</span> Price from {SOURCE_NAMES.qld}
           </>
         )}
       </p>

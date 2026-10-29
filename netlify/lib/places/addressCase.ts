@@ -16,7 +16,7 @@ import { suburbsNamed } from './gazetteer';
  */
 
 /** The state, the postcode and what follows (", AU"), and what comes before. */
-const TAIL = /^(.*?)([,\s]+)(NSW|ACT|NEW SOUTH WALES)(\s+\d{4}.*)$/i;
+const TAIL = /^(.*?)([,\s]+)(NSW|ACT|NEW SOUTH WALES|QLD)(\s+\d{4}.*)$/i;
 
 const memo = new Map<string, string>();
 
@@ -35,11 +35,14 @@ function mend(address: string): string {
   const match = TAIL.exec(address);
   if (!match) return address;
   const [, body = '', separator = '', state = '', rest = ''] = match;
+  // Queensland's addresses (round 15, built by netlify/lib/qld/build.ts) take
+  // Queensland's spellings; NSW and ACT ones, exactly what they always did.
+  const qld = state.toUpperCase() === 'QLD';
 
   const comma = body.lastIndexOf(',');
   if (comma >= 0) {
     const suburb = body.slice(comma + 1).trim();
-    const fixed = gazetteerName(suburb);
+    const fixed = gazetteerName(suburb, qld);
     if (!fixed) return address;
     const space = /^\s*/.exec(body.slice(comma + 1))?.[0] ?? '';
     const lead = `${body.slice(0, comma + 1)}${space}`;
@@ -50,15 +53,16 @@ function mend(address: string): string {
   // capital words at the end that the gazetteer knows.
   const words = body.split(' ');
   for (let start = 0; start < words.length; start++) {
-    const fixed = gazetteerName(words.slice(start).join(' '));
+    const fixed = gazetteerName(words.slice(start).join(' '), qld);
     if (fixed) return `${[...words.slice(0, start), fixed].join(' ')}${separator}${state}${rest}`;
   }
   return address;
 }
 
 /** The gazetteer's spelling of a suburb written in capitals, if it knows it. */
-function gazetteerName(written: string): string | null {
+function gazetteerName(written: string, qld: boolean): string | null {
   // Capitals, allowing for the "Mc" some write in front ("McGRATHS HILL").
   if (!/[A-Z]/.test(written) || written.replace(/Mc/g, 'MC') !== written.toUpperCase()) return null;
-  return suburbsNamed(written)[0]?.name ?? null;
+  const named = suburbsNamed(written, qld).filter((suburb) => (suburb.state === 'QLD') === qld);
+  return named[0]?.name ?? null;
 }

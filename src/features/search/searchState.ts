@@ -156,6 +156,6 @@ export function roundPosition(lat: number, lng: number): { lat: number; lng: num
 
 /** "Port Macquarie NSW 2444" -> ["Port Macquarie", "NSW 2444"]; anything else whole. */
 export function splitPlace(place: string): [string, string] {
-  const match = /^(.+?)\s+((?:NSW|ACT)\s+\d{4})$/.exec(place);
+  const match = /^(.+?)\s+((?:NSW|ACT|QLD)\s+\d{4})$/.exec(place);
   return match ? [match[1] ?? place, match[2] ?? ''] : [place, ''];
 }

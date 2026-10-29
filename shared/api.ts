@@ -61,6 +61,50 @@ export interface PricesResponse {
    * empty state, rather than listing stations 60 km away as "within 5 km".
    */
   nearest: StationPrice[];
+  /**
+   * Round 15: the sources whose stations are in `stations` or `nearest`,
+   * each with its own time, so the page can say "prices as of" per state.
+   * `fetchedAt` and `stale` above stay, as the oldest and any of these.
+   */
+  sources?: PriceSource[];
+  /**
+   * Sources that could have had stations here but could not be read: the
+   * answer is from the others. Empty or absent when everything was read.
+   */
+  unavailable?: SourceId[];
+}
+
+/**
+ * Where prices come from (round 15): NSW FuelCheck (NSW and the ACT) or
+ * Fuel Prices Qld. Queensland's station codes start with `qld-`.
+ */
+export type SourceId = 'nsw' | 'qld';
+
+export function stationSource(stationCode: string): SourceId {
+  return stationCode.startsWith('qld-') ? 'qld' : 'nsw';
+}
+
+/**
+ * The notice Queensland's licence requires on anything built from its data
+ * (Fuel Price Data Licence Terms and Conditions 2024, clause 4.3), word for
+ * word, with the year. Shown wherever Queensland's prices or history are.
+ */
+export function qldDataNotice(year: number): string {
+  return (
+    `Based on or contains data provided by the State of Queensland (Department of Energy and Climate) ${String(year)}. ` +
+    'In consideration of the State permitting use of this data you acknowledge and agree that the State gives no ' +
+    'warranty in relation to the data (including accuracy, reliability, completeness, currency or suitability) and ' +
+    'accepts no liability (including without limitation, liability in negligence) for any loss, damage or costs ' +
+    '(including consequential damage) relating to any use of the data. Data must not be used for direct marketing ' +
+    'or be used in breach of the privacy laws.'
+  );
+}
+
+/** One source in a PricesResponse: its own snapshot time and staleness. */
+export interface PriceSource {
+  id: SourceId;
+  fetchedAt: string;
+  stale: boolean;
 }
 
 /** How many stations `nearest` lists, and how far it looks. */

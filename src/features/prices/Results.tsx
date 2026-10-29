@@ -4,10 +4,17 @@ import { Button } from '@/components/Button/Button';
 import { VisuallyHidden } from '@/components/VisuallyHidden/VisuallyHidden';
 import { ViewSwitch } from '@/features/map/ViewSwitch';
 import { formatAge, formatAsOf } from '@/lib/format';
+import {
+  asOfSentence,
+  hasQldStation,
+  qldDataNotice,
+  qldNoticeYear,
+  SOURCE_NAMES,
+} from '@/lib/sources';
 import { useMediaQuery, WIDE_SCREEN } from '@/lib/useMediaQuery';
 
 import { LoadingStations } from './LoadingStations';
-import { ErrorNotice, LocationProblemNotice, StaleNotice } from './Notices';
+import { ErrorNotice, LocationProblemNotice, StaleNotice, UnavailableNotice } from './Notices';
 import { PriceSummaryLine } from './PriceSummaryLine';
 import styles from './Results.module.css';
 import { ResultsTools, type ResultsToolsProps } from './ResultsTools';
@@ -137,9 +144,7 @@ export function Results({
       {view.kind === 'results' && <PriceSummaryLine stations={view.stations} />}
     </div>
   );
-  const stale = 'data' in view && view.data.stale && (
-    <StaleNotice age={formatAge(view.data.fetchedAt, now)} />
-  );
+  const stale = 'data' in view && <SourceNotices data={view.data} now={now} />;
   const nearest = view.kind === 'nearest' && (
     <p className={styles.nearest}>
       None sell {fuelName} within {radius} km {where(view.data)}, so these are the nearest{' '}
@@ -262,11 +267,36 @@ export function Results({
       )}
 
       {/* When the prices are from: after the list, where it does not push the prices down. */}
-      {'data' in view && (
+      {'data' in view && <p className={styles.asOf}>{asOfSentence(view.data, fuelName, now)}</p>}
+      {/* Queensland's licence (clause 4.3): its notice wherever its prices are shown. */}
+      {'data' in view && hasQldStation([...view.data.stations, ...view.data.nearest]) && (
         <p className={styles.asOf}>
-          {fuelName} prices as of {formatAsOf(view.data.fetchedAt, now)}, from FuelCheck.
+          {qldDataNotice(qldNoticeYear(view.data))} Queensland prices may not be republished.
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * Old prices, said per source (round 15), and a source that could not be
+ * read. Answers from before round 15 have neither list: NSW, as before.
+ */
+function SourceNotices({ data, now }: { data: PricesResponse; now: Date }) {
+  const stale = data.sources ? data.sources.filter((s) => s.stale) : [];
+  return (
+    <>
+      {!data.sources && data.stale && <StaleNotice age={formatAge(data.fetchedAt, now)} />}
+      {stale.map((source) => (
+        <StaleNotice
+          key={source.id}
+          age={formatAge(source.fetchedAt, now)}
+          source={SOURCE_NAMES[source.id]}
+        />
+      ))}
+      {data.unavailable && data.unavailable.length > 0 && (
+        <UnavailableNotice sources={data.unavailable.map((id) => SOURCE_NAMES[id])} />
+      )}
+    </>
   );
 }
