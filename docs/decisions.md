@@ -3140,6 +3140,28 @@ The accepted risk, in numbers, is in the Baseline below.
 | Vite `build.license`                 | Writes the bundled packages' licences to the named file in `dist`                                         |
 | `@netlify/blobs` strong reads        | See every write at once: the kill switch is read strongly                                                 |
 
+### Verified after the merge
+
+Pull request #18, squash-merged as `d6ba564` at 06:03 UTC on 29 October
+(17:03 in Sydney).
+
+- **On its deploy preview:** both required checks passed. `/api/status`
+  answered `deploy: { context: "deploy-preview", published: false }`, the
+  proof that the published-deploy gate reads a real field, and a second
+  request was a `Netlify Durable` hit. No Queensland data: a search at
+  Coolangatta (-28.17, 153.54, 25 km) had NSW stations only, "brisb" and
+  "coolang" suggested NSW places only, a `qld-` code was missing from
+  `/api/stations` and a 404 from `/api/history`.
+- **Production:** `/api/status` healthy, `deploy: { context: "production",
+published: true }`, Queensland `public: false`; the same Coolangatta
+  search NSW only; `/third-party-notices.txt` served. `pnpm check:browser`
+  64 of 64, `pnpm check:a11y` 40 of 40.
+- **Old deploys:** the owner approved deleting 34 (10 production deploys
+  from before round 14, 24 previews of closed pull requests). All 34
+  deleted through Netlify's API; the 9 pre-round-9 production deploys'
+  `/.netlify/functions/api/status` and deploy-preview-1 now answer 404,
+  and a kept deploy still answers. 8 deploys remain.
+
 ## 2026-10-25: Baseline (updated 29 October, round 16)
 
 The project as of round 16 (audit round 2 fixes; first written for round
@@ -3220,7 +3242,7 @@ never when over 25 minutes old (round 16).
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 1,012 tests, the build
+- CI on every pull request: typecheck, lint, format, 1,014 tests, the build
   and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (64
   checks, including CSP, CLS at desktop and phone size, touch gestures on
   the map and the card's actions on one row at four phone widths) and `pnpm check:a11y` (40) against its deploy preview, about two
@@ -3249,10 +3271,12 @@ never when over 25 minutes old (round 16).
   a new junk path. That is 172,800 a day, so one address on one domain
   spends the month in about 17 hours. Every live deploy has its own domain,
   so its own 120 a minute: with 40 deploys live on 29 October that was
-  about 26 minutes, and production deploys from before round 9, still
-  live, have no limit at all. Netlify deletes deploys after 30 days on this
-  plan (not adjustable), and the owner can delete old ones sooner. With a
-  handful live, it is a few hours. Netlify's own bot protection met paced
+  about 26 minutes, and the production deploys from before round 9 had no
+  limit at all. The owner deleted 34 old deploys the same day, those among
+  them; 8 remain (production for rollback, and the previews of open pull
+  requests), so about 2 hours. Netlify deletes deploys after 30 days on
+  this plan (not adjustable); delete closed pull requests' previews and
+  all but the last few production deploys sooner. Netlify's own bot protection met paced
   bursts at about 600 a minute from one address (round 10), which may stop
   it sooner, and is not ours to rely on. The 50% usage email is the
   warning, at most hours ahead. Accepted: there is no per-address-only
