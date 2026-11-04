@@ -3342,6 +3342,25 @@ and the other station is one tap away on its price. The owner deferred it
 - **`:focus-visible` after a programmatic focus** follows the last input: a
   tap or click does not show it, a key does (Chromium, Safari, Firefox).
 
+### Verified after the merge
+
+Pull request #21, squash-merged as `19f1a73` at 00:46:50 UTC on 4
+November; production published it at 00:47:26 UTC.
+
+- **On its deploy preview, in CI:** every check passed on the final commit
+  (`877928d`), including the browser checks; the owner tried the preview
+  on a phone.
+- **Production:** `pnpm check:browser` 69 of 69, including the new ones (a
+  click on a price tag on a wide screen; on a 390 × 844 phone a tap on one
+  selects it, the card scrolls 149 px fully into view, focus on its name,
+  the price still on screen); `pnpm check:a11y` 50 of 50, including the
+  privacy and 404 pages under the real CSP.
+- **PageSpeed Insights:** mobile 100, desktop 100, CLS 0, and 100 for
+  accessibility, best practices and SEO.
+- **`/api/status`:** 200, healthy, Queensland not public. The first
+  scheduled snapshot after the deploy ran at 01:00:36 UTC, ok, one API.NSW
+  call (177 counted this month), 2,388 stations served.
+
 ## 2026-10-25: Baseline (updated 4 November, round 17)
 
 The project as of round 17 (phone UX; first written for round 10's
@@ -3432,9 +3451,9 @@ never when over 25 minutes old (round 16).
   the map, a tap on a price, and the card's actions on one row at four
   phone widths) and `pnpm check:a11y` (50) against its deploy preview, about two
   minutes. Both required. The same checks by hand against production.
-- PageSpeed Insights, a results page: desktop 99, mobile 99, CLS 0, and 100
-  for accessibility, best practices and SEO (29 October, after round 14;
-  desktop was 100 after round 13).
+- PageSpeed Insights, a results page: desktop 100, mobile 100, CLS 0, and
+  100 for accessibility, best practices and SEO (4 November, after round
+  17; 99 and 99 after round 14).
   The desktop machine has no GPU, so it measures the "Show the map" page:
   the page a GPU-less visitor gets, not the map drawn faster. Visitors with
   a GPU see what they saw before (round 11).
