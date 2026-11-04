@@ -3180,8 +3180,9 @@ in the select and is now stored as `system`; no value means "never chose".
   stored `light` or `dark` means what it did. No migration is needed.
 - **One group changes, and cannot be told apart:** someone who chose "Match
   device" before this round left nothing stored, exactly like a new visitor,
-  so they get light now and choose "Match device" again once. Accepted:
-  there is no way to recognise them, and that choice was a single step.
+  so they get light now and choose "Match device" again once. Accepted by
+  the owner (4 November): there is no way to recognise them, and that
+  choice was a single step.
 - **No flash.** The first-paint script in `index.html` makes the same
   decision before the stylesheet applies (`system` follows the device; junk,
   nothing or throwing storage means light). The CSP hash in `netlify.toml`
@@ -3189,6 +3190,25 @@ in the select and is now stored as `system`; no value means "never chose".
   `check:a11y` paints the page with the app's scripts blocked under the real
   CSP in six combinations (device light or dark, nothing / light / dark /
   system stored): all as expected.
+
+**The privacy and 404 pages** are static and had followed the device in
+CSS alone, so a new visitor on a dark phone saw a light app and a dark
+privacy page. Now `public/static-theme.js`, the first thing in their
+`<head>`, makes the same decision from the same key before they paint, and
+`static-page.css` keys its dark colours on `[data-theme='dark']`.
+
+- A file, not inline: the CSP's `script-src 'self'` allows it, so the CSP
+  is unchanged and has still one hash, the app's. Inline would have needed
+  a second hash and the same script in two pages.
+- Not shared with `index.html`: there the script stays inline so the
+  app's first paint waits on no request (PageSpeed). The two are kept
+  alike by `theme.test.ts`, which runs both through the same cases.
+- Render-blocking, on purpose: under 1 kB from the same host, and it is what
+  stops a flash. Without it (blocked or missing) the pages are light, the
+  default, and still work, which is what 404.html is for.
+- `check:a11y` paints both pages (a missing path for the 404) under the
+  real CSP in four device and stored-choice combinations, and fails on any
+  CSP report.
 
 **Considered:** a new key (`v2`) with a migration. Rejected: it changes
 nothing for anyone with a stored choice and cannot help the one group above.
@@ -3283,12 +3303,14 @@ stations at the fitted zoom, ask which one ("2 stations here: Shell 239.9,
 Lowes 242.9"), or zoom to them. It is a new pattern, with its own focus and
 screen reader rules, so it is for the owner to decide. Today a wrong pick
 shows the wrong name and price at once in the card, now brought into view,
-and the other station is one tap away on its price.
+and the other station is one tap away on its price. The owner deferred it
+(4 November); it is in the Baseline's open items, with these notes.
 
 ### Tests
 
-- 16 more unit tests (1,030): the default and every saved theme, the first
-  paint script on a dark device; a tap on each kind of price tag, the
+- 23 more unit tests (1,037): the default and every saved theme, both
+  first-paint scripts (the app's and the static pages') through the same
+  cases, the static pages running only that file and nothing inline; a tap on each kind of price tag, the
   topmost of overlapping things winning, the tag slop after the dot radius,
   a tap on the selected marker; the dot sort key and the selected space; on
   a phone a map pick focusing the card's heading and scrolling it into view
@@ -3299,7 +3321,8 @@ and the other station is one tap away on its price.
   below the screen), focuses its name, and the price tapped stays on screen.
   The tag is found by its colour in a screenshot (the map is a canvas). Run
   against production, the three tap checks fail ("nothing selected").
-- `check:a11y`: the first-paint matrix is six combinations (42 checks).
+- `check:a11y`: the first-paint matrix is six combinations, and the
+  privacy and 404 pages four each (50 checks).
 
 ### Library behaviour this relies on
 
@@ -3403,11 +3426,11 @@ never when over 25 minutes old (round 16).
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 1,030 tests, the build
+- CI on every pull request: typecheck, lint, format, 1,037 tests, the build
   and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (69
   checks, including CSP, CLS at desktop and phone size, touch gestures on
   the map, a tap on a price, and the card's actions on one row at four
-  phone widths) and `pnpm check:a11y` (42) against its deploy preview, about two
+  phone widths) and `pnpm check:a11y` (50) against its deploy preview, about two
   minutes. Both required. The same checks by hand against production.
 - PageSpeed Insights, a results page: desktop 99, mobile 99, CLS 0, and 100
   for accessibility, best practices and SEO (29 October, after round 14;
@@ -3500,8 +3523,8 @@ never when over 25 minutes old (round 16).
   recommended, not built.
 - **A "Match device" chosen before round 17 is forgotten**: it was stored
   as nothing, like a new visitor, so it is light until chosen again.
-- **The privacy and 404 pages follow the device**, not the stored choice:
-  they are static, with no script to read it.
+- **The privacy and 404 pages without script** (blocked, or the file
+  missing) are light whatever the stored choice; with it, they follow it.
 - **A tap on empty map clears the selection 300 ms later**, so a double-tap
   can zoom without clearing it. A double-tap slower than that both zooms and
   clears. A tap within 12 px of a dot picks that station instead, so in a
@@ -3517,6 +3540,19 @@ never when over 25 minutes old (round 16).
   as a dashed line with "No data, 1–22 Oct" (round 14).
 - **November 2026:** `/api/status`'s call count covers the whole month from
   then on; until then the API.NSW dashboard is the authority for October.
+- **Optional: "which station?" for overlapping stations** (round 17,
+  deferred by the owner). Where a tap is within reach of two or more
+  stations (dots within about 12 px of each other at the current zoom),
+  offer a small chooser listing them by name and price, or zoom to fit
+  them. Notes: about 29 pairs of stations are within 60 m in the snapshot,
+  Armidale's Shell and Lowes (90 m) the reported case; today the cheaper
+  dot is on top and every station's price is its own target, and a wrong
+  pick shows its name at once in the card. To decide: chooser or zoom;
+  where it sits on a phone (the card already goes under the map); focus
+  into the chooser and back, Escape, and what a screen reader hears; how a
+  tap on a price (unambiguous) skips it; tests in `StationMap.test.tsx`
+  with overlapping `rendered` features, and a `check:browser` tap on a
+  known pair.
 - **Optional:** see our 429 on production once Netlify no longer challenges
   the test address; space bursts out and keep them short.
 - Then: watch the quota and Netlify's usage page; merge Dependabot's pull

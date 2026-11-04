@@ -111,6 +111,36 @@ try {
     await context.close();
   }
 
+  // --- The static pages: the app's theme, under the real CSP (round 17) -----
+  // Their theme file is a script from the site itself; a stored Dark that
+  // painted light would mean the CSP or a missing file stopped it.
+  for (const path of ['/privacy.html', '/no-such-page']) {
+    for (const [scheme, stored, expected] of [
+      ['dark', null, 'light'],
+      ['light', 'dark', 'dark'],
+      ['dark', 'light', 'light'],
+      ['dark', 'system', 'dark'],
+    ]) {
+      const { context, page } = await open(browser, { scheme, stored, keepCsp: true });
+      const blocked = [];
+      page.on('console', (message) => {
+        if (/Content.Security.Policy/i.test(message.text())) blocked.push(message.text());
+      });
+      await page.goto(`${BASE}${path}`);
+      const painted = await page.evaluate(() => ({
+        theme: document.documentElement.dataset.theme,
+        background: getComputedStyle(document.body).backgroundColor,
+      }));
+      const dark = painted.background === 'rgb(14, 15, 17)';
+      check(
+        `${path}, device ${scheme}, stored ${stored ?? 'nothing'}: ${expected}, nothing blocked`,
+        painted.theme === expected && dark === (expected === 'dark') && blocked.length === 0,
+        `${String(painted.theme)}, ${painted.background}${blocked.length ? `, ${blocked.join(' | ')}` : ''}`,
+      );
+      await context.close();
+    }
+  }
+
   // --- axe in both themes, on every state worth seeing ----------------------
   for (const theme of ['light', 'dark']) {
     const { context, page } = await open(browser, { stored: theme });

@@ -10,15 +10,22 @@ import {
   THEME_STORAGE_KEY,
 } from './theme';
 import indexHtml from '../../../index.html?raw';
+import staticTheme from '../../../public/static-theme.js?raw';
 
-/** Runs index.html's inline theme script, as the browser does before first paint. */
-function runBootScript(): void {
-  const script = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)?.[1];
-  if (!script) throw new Error('index.html has no inline theme script');
-  // The script under test is index.html's own, run as the browser runs it.
+const appScript = /<script>([\s\S]*?)<\/script>/.exec(indexHtml)?.[1];
+if (!appScript) throw new Error('index.html has no inline theme script');
+
+/**
+ * The two first-paint scripts: index.html's inline one, and the static
+ * pages' file (privacy, 404). They must decide alike.
+ */
+const BOOT_SCRIPTS = { 'index.html': appScript, 'static-theme.js': staticTheme };
+
+/** Runs a first-paint script, as the browser does before first paint. */
+function run(script: string): void {
+  // The script under test is the page's own, run as the browser runs it.
   // eslint-disable-next-line no-new-func, @typescript-eslint/no-implied-eval
-  const run = new Function(script) as () => void;
-  run();
+  (new Function(script) as () => void)();
 }
 
 describe('reading the stored theme', () => {
@@ -73,7 +80,11 @@ describe('choosing a theme', () => {
   });
 });
 
-describe("index.html's first-paint script", () => {
+describe.each(Object.entries(BOOT_SCRIPTS))('the first-paint script in %s', (_, script) => {
+  const runBootScript = () => {
+    run(script);
+  };
+
   it('uses the stored choice, with the same key as the app', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'dark');
     runBootScript();

@@ -3,9 +3,9 @@
  * docket look (docs/design-system.md). They cannot share the app's bundle
  * (its file names are hashed per build), so the few colours they need are
  * copied from src/styles/tokens.css: the counter and the paper, ink, muted
- * ink. netlify/lib/securityHeaders.test.ts fails if they drift. They follow
- * the device setting only: without script they cannot read the theme stored
- * by the app. The fonts are the app's own files, not preloaded: the text
+ * ink. netlify/lib/securityHeaders.test.ts fails if they drift. The theme is
+ * the app's: /static-theme.js sets data-theme before they paint, from the
+ * stored choice, light by default (round 17). The fonts are the app's own files, not preloaded: the text
  * shows at once in the fallback.
  */
 @font-face {
@@ -23,7 +23,7 @@
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #e8e5dc;
   --paper: #fbfaf6;
   --text: #1c1c1a;
@@ -31,14 +31,13 @@
   --rule: #8e8b83;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e0f11;
-    --paper: #17181b;
-    --text: #edebe4;
-    --muted: #a8a59c;
-    --rule: #5c5a55;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0e0f11;
+  --paper: #17181b;
+  --text: #edebe4;
+  --muted: #a8a59c;
+  --rule: #5c5a55;
 }
 
 body {
