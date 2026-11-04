@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@netlify/blobs':
-        specifier: ^11.1.6
-        version: 11.1.6
+        specifier: ^11.1.7
+        version: 11.1.7
       '@tabler/icons-react':
         specifier: ^3.50.0
         version: 3.50.0(react@19.3.1)
       '@tanstack/react-query':
-        specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.1)
       downshift:
         specifier: ^9.4.0
         version: 9.4.0(react@19.3.1)
@@ -397,8 +397,8 @@ packages:
       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
 
-  '@netlify/blobs@11.1.6':
-    resolution: {integrity: sha512-7CKpZs4WbMqMvHRxXpQw395X4YBw9keGy3yDr7+pXjAgHlDO7kdYv3chkBYRc78K6delj7Mrmn2NB1HK2E5DxQ==}
+  '@netlify/blobs@11.1.7':
+    resolution: {integrity: sha512-iOOQSC990P5JtvBGfPMngRxId9H7FWJWAZrzGyYWanCreYElkU5VjoTBt0DgJE859ukNGHAwULZlOdiYHESHfA==}
     engines: {node: '>=22.12.0'}
 
   '@netlify/dev-utils@6.0.4':
@@ -579,11 +579,11 @@ packages:
   '@tabler/icons@3.50.0':
     resolution: {integrity: sha512-HflLxyrH1cqC7s7jzQGSjpsTAVIoaf7+/yHjbdM59rJQBMjliibp+LYhDPFxOMcwa1M8DNpOk6ENzQiWn9a1Dg==}
 
-  '@tanstack/query-core@5.104.5':
-    resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
+  '@tanstack/query-core@5.105.0':
+    resolution: {integrity: sha512-7p56vRmT/z4UJ6sctGIdl5WRUQyUv53IUpUwEKi2g97zMbO7zh8ZsCLffGAvCPBR4xD72e3VXsDyLwXHhoNTMQ==}
 
-  '@tanstack/react-query@5.104.5':
-    resolution: {integrity: sha512-RORgFe052U+93weaNuqg7qHq7vNVNzXN/VrXqD4bbAuQCWUqOl2lV5Ui9flWk5CVvMyL/Bh27QWhzwH0aaOx9g==}
+  '@tanstack/react-query@5.105.0':
+    resolution: {integrity: sha512-y+hMuDERvgg6ay1da0V1a6ZC0ZONt7dELxSFkqRZuwm7p1TTZs0MoXrPlBRflIpRoYjvzQVYxycnLImpFLhWrw==}
     peerDependencies:
       '@types/react': ^18 || ^19
       react: ^18 || ^19
@@ -2645,7 +2645,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.4
     optional: true
 
-  '@netlify/blobs@11.1.6':
+  '@netlify/blobs@11.1.7':
     dependencies:
       '@netlify/dev-utils': 6.0.4
       '@netlify/otel': 7.0.6
@@ -2789,11 +2789,11 @@ snapshots:
 
   '@tabler/icons@3.50.0': {}
 
-  '@tanstack/query-core@5.104.5': {}
+  '@tanstack/query-core@5.105.0': {}
 
-  '@tanstack/react-query@5.104.5(@types/react@19.3.0)(react@19.3.1)':
+  '@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.104.5
+      '@tanstack/query-core': 5.105.0
       react: 19.3.1
     optionalDependencies:
       '@types/react': 19.3.0
