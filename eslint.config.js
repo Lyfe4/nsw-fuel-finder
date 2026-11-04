@@ -179,6 +179,12 @@ export default tseslint.config(
     extends: [tseslint.configs.disableTypeChecked],
   },
 
+  // --- Plain scripts served as they are, to browsers ----------------------------
+  {
+    files: ['public/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+  },
+
   // Must stay last: switches off every rule Prettier already handles, so the
   // formatter and the linter can never disagree about the same line.
   prettierConfig,

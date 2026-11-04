@@ -4,6 +4,7 @@ import { useMediaQuery } from '@/lib/useMediaQuery';
 
 import {
   DARK_SCHEME,
+  DEFAULT_PREFERENCE,
   getPreference,
   resolveTheme,
   setPreference,
@@ -24,7 +25,7 @@ export function useTheme(): ThemeState {
   const preference = useSyncExternalStore<ThemePreference>(
     subscribePreference,
     getPreference,
-    () => 'system',
+    () => DEFAULT_PREFERENCE,
   );
   const deviceDark = useMediaQuery(DARK_SCHEME);
   return { preference, theme: resolveTheme(preference, deviceDark), setPreference };

@@ -84,11 +84,15 @@ async function axe(page, label) {
 const browser = await chromium.launch();
 try {
   // --- The theme on first paint: before any of the app's JavaScript runs ----
+  // A new visitor gets light whatever the device (round 17); a saved choice
+  // is kept, and a saved "Match device" follows the device.
   for (const [scheme, stored, expected] of [
-    ['dark', null, 'dark'],
+    ['dark', null, 'light'],
+    ['light', null, 'light'],
     ['light', 'dark', 'dark'],
     ['dark', 'light', 'light'],
-    ['light', null, 'light'],
+    ['dark', 'system', 'dark'],
+    ['light', 'system', 'light'],
   ]) {
     const { context, page } = await open(browser, { scheme, stored, keepCsp: true });
     // Refuse the app's own scripts: what is left is what paints first.
@@ -105,6 +109,36 @@ try {
       `${String(painted.theme)}, ${painted.background}`,
     );
     await context.close();
+  }
+
+  // --- The static pages: the app's theme, under the real CSP (round 17) -----
+  // Their theme file is a script from the site itself; a stored Dark that
+  // painted light would mean the CSP or a missing file stopped it.
+  for (const path of ['/privacy.html', '/no-such-page']) {
+    for (const [scheme, stored, expected] of [
+      ['dark', null, 'light'],
+      ['light', 'dark', 'dark'],
+      ['dark', 'light', 'light'],
+      ['dark', 'system', 'dark'],
+    ]) {
+      const { context, page } = await open(browser, { scheme, stored, keepCsp: true });
+      const blocked = [];
+      page.on('console', (message) => {
+        if (/Content.Security.Policy/i.test(message.text())) blocked.push(message.text());
+      });
+      await page.goto(`${BASE}${path}`);
+      const painted = await page.evaluate(() => ({
+        theme: document.documentElement.dataset.theme,
+        background: getComputedStyle(document.body).backgroundColor,
+      }));
+      const dark = painted.background === 'rgb(14, 15, 17)';
+      check(
+        `${path}, device ${scheme}, stored ${stored ?? 'nothing'}: ${expected}, nothing blocked`,
+        painted.theme === expected && dark === (expected === 'dark') && blocked.length === 0,
+        `${String(painted.theme)}, ${painted.background}${blocked.length ? `, ${blocked.join(' | ')}` : ''}`,
+      );
+      await context.close();
+    }
   }
 
   // --- axe in both themes, on every state worth seeing ----------------------

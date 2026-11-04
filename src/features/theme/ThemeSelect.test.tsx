@@ -16,9 +16,20 @@ function renderApp() {
 const theme = () => document.documentElement.dataset.theme;
 
 describe('the theme select', () => {
-  it('follows the device by default, and as the device changes', () => {
+  it('is light for a new visitor, whatever the device', () => {
+    setScreen({ dark: true });
     renderApp();
-    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveValue('system');
+    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveValue('light');
+    expect(theme()).toBe('light');
+    // Nothing is stored until the visitor chooses.
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+  });
+
+  it('follows the device on "Match device", and as the device changes', async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Theme' }), 'Match device');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system');
     expect(theme()).toBe('light');
 
     setScreen({ dark: true });
@@ -38,14 +49,20 @@ describe('the theme select', () => {
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Theme' }), 'Match device');
     expect(theme()).toBe('light');
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system');
   });
 
-  it('starts from a stored choice', () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+  it.each([
+    ['dark', false, 'dark'],
+    ['light', true, 'light'],
+    ['system', true, 'dark'],
+  ] as const)('keeps a saved "%s" (device dark: %s)', (stored, dark, shown) => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, stored);
+    setScreen({ dark });
     renderApp();
-    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveValue('dark');
-    expect(theme()).toBe('dark');
+    expect(screen.getByRole('combobox', { name: 'Theme' })).toHaveValue(stored);
+    expect(theme()).toBe(shown);
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe(stored);
   });
 
   it('picks up a choice made in another tab', () => {

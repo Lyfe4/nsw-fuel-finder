@@ -94,12 +94,20 @@ describe('colours written outside the token file', () => {
     );
   });
 
-  it('the privacy page the footer links to exists, and runs no script', () => {
-    const page = readFileSync('public/privacy.html', 'utf8');
+  it('the privacy page the footer links to exists', () => {
     expect(readFileSync('src/app/App.tsx', 'utf8')).toContain('href="/privacy.html"');
-    expect(page).toContain('<h1>Privacy</h1>');
-    expect(page).not.toMatch(/<script|style="/);
+    expect(readFileSync('public/privacy.html', 'utf8')).toContain('<h1>Privacy</h1>');
   });
+
+  it.each(['privacy.html', '404.html'])(
+    '%s runs only the theme file, before its stylesheet: nothing inline for the CSP',
+    (file) => {
+      const page = readFileSync(`public/${file}`, 'utf8');
+      expect(page.match(/<script[^>]*>/g)).toEqual(['<script src="/static-theme.js">']);
+      expect(page).not.toMatch(/style="|<style/);
+      expect(page.indexOf('static-theme.js')).toBeLessThan(page.indexOf('static-page.css'));
+    },
+  );
 
   it('the static pages (404, privacy) use the tokens’ colours', () => {
     const css = readFileSync('public/static-page.css', 'utf8');

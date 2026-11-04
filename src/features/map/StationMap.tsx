@@ -91,20 +91,70 @@ function visibleCentreOffset(container: HTMLElement): [number, number] {
   return [0, y];
 }
 
-/** The station dot nearest to a click, within PICK_RADIUS. */
+/**
+ * How far past a price tag's edge a tap still picks it. A tag is about 17 px
+ * tall, so this makes it a 25 px target (WCAG 2.5.8) without reaching far
+ * into its neighbours.
+ */
+const TAG_SLOP = 4;
+const DOT_LAYERS = [LAYER.dots, LAYER.selectedDot];
+const TAG_LAYERS = [LAYER.labels, LAYER.cheapestLabel, LAYER.selectedLabel];
+
+function codeOf(feature: { properties: Record<string, unknown> }): string | null {
+  const code = feature.properties.code;
+  return typeof code === 'string' ? code : null;
+}
+
+/**
+ * The station a click or tap means (round 17), in this order:
+ * 1. What is drawn under the point itself, the topmost first: a dot, the
+ *    selected marker or a price tag. So a tap on "241.9" picks that station
+ *    even where another station's dot is nearer, and where dots overlap the
+ *    one on top, the one that can be seen, wins.
+ * 2. The nearest dot within PICK_RADIUS.
+ * 3. A price tag within TAG_SLOP.
+ * MapLibre returns only the prices it placed, so a dropped price is never
+ * picked, and a tag counts as well as its text.
+ */
 function stationAt(map: MapLibreMap, event: MapMouseEvent): string | null {
   const { x, y } = event.point;
+  for (const feature of map.queryRenderedFeatures(event.point, {
+    layers: [...DOT_LAYERS, ...TAG_LAYERS],
+  })) {
+    const code = codeOf(feature);
+    if (code !== null) return code;
+  }
+  return nearestDot(map, x, y) ?? tagNear(map, x, y);
+}
+
+function tagNear(map: MapLibreMap, x: number, y: number): string | null {
+  const features = map.queryRenderedFeatures(
+    [
+      [x - TAG_SLOP, y - TAG_SLOP],
+      [x + TAG_SLOP, y + TAG_SLOP],
+    ],
+    { layers: TAG_LAYERS },
+  );
+  for (const feature of features) {
+    const code = codeOf(feature);
+    if (code !== null) return code;
+  }
+  return null;
+}
+
+/** The station dot nearest to a point, within PICK_RADIUS. */
+function nearestDot(map: MapLibreMap, x: number, y: number): string | null {
   const features = map.queryRenderedFeatures(
     [
       [x - PICK_RADIUS, y - PICK_RADIUS],
       [x + PICK_RADIUS, y + PICK_RADIUS],
     ],
-    { layers: [LAYER.dots] },
+    { layers: DOT_LAYERS },
   );
   let best: { code: string; distance: number } | null = null;
   for (const feature of features) {
-    const code: unknown = feature.properties.code;
-    if (feature.geometry.type !== 'Point' || typeof code !== 'string') continue;
+    const code = codeOf(feature);
+    if (feature.geometry.type !== 'Point' || code === null) continue;
     const [lng = 0, lat = 0] = feature.geometry.coordinates;
     const point = map.project([lng, lat]);
     const distance = Math.hypot(point.x - x, point.y - y);
@@ -301,6 +351,7 @@ export function StationMap({
     if (!map || !layersReady.current) return;
     const filter: ExpressionSpecification = ['==', ['get', 'code'], selected ?? ''];
     map.setFilter(LAYER.selectedDot, filter);
+    map.setFilter(LAYER.selectedSpace, filter);
     map.setFilter(LAYER.selectedLabel, filter);
     // Its ordinary label would repeat the price beside the bold one, and its
     // ordinary dot would draw a second ring inside its marker. A neighbour at

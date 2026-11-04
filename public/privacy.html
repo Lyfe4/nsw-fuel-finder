@@ -10,11 +10,13 @@
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!--
-      Plain HTML and the static pages' stylesheet, like 404.html: no script,
-      no inline styles, the same Content-Security-Policy as the app. Kept in
+      Plain HTML and the static pages' stylesheet, like 404.html: no inline
+      script or styles, the same Content-Security-Policy as the app. One
+      script file, first, sets the app's theme before the page paints. Kept in
       step with the code by hand; the README has the same note. Each point
       names what makes it true, for whoever changes that code next.
     -->
+    <script src="/static-theme.js"></script>
     <link rel="stylesheet" href="/static-page.css" />
   </head>
   <body>

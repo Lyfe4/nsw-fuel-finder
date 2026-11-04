@@ -8,10 +8,12 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!--
       Netlify serves this for any path with nothing at it. Plain HTML and one
-      stylesheet, no script: it has to work even if the app's own code is the
-      thing that is missing. No inline styles either, so the same
-      Content-Security-Policy applies here as everywhere.
+      stylesheet: it has to work even if the app's own code is the thing that
+      is missing. One small script file sets the app's theme before it
+      paints; without it the page is light, the default. No inline script or
+      styles, so the same Content-Security-Policy applies here as everywhere.
     -->
+    <script src="/static-theme.js"></script>
     <link rel="stylesheet" href="/static-page.css" />
   </head>
   <body>

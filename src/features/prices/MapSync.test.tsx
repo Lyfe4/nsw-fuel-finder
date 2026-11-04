@@ -170,6 +170,47 @@ describe('list and map, on a phone', () => {
     expect(canvas()).toHaveFocus();
   });
 
+  it('a station picked on the map brings its card into view and focuses its heading', async () => {
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const { user, container } = setup('/?query=Erina&view=map');
+    await screen.findByTestId('map');
+    expect(scrolled).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Dot for Metro Gosford' }));
+    const heading = screen.getByRole('heading', { level: 3, name: 'Metro Gosford' });
+    expect(heading).toHaveFocus();
+    expect(scrolled.mock.contexts.at(-1)).toBe(heading.closest('[data-card="map"]'));
+    expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest', behavior: 'smooth' });
+    expect(window.location.search).toBe('?fuel=U91&query=Erina&view=map&station=2');
+    await expectNoAxeViolations(container);
+
+    // Another station, picked with the card open: the same again.
+    await user.click(screen.getByRole('button', { name: 'Dot for Shell Wyoming' }));
+    expect(screen.getByRole('heading', { level: 3, name: 'Shell Wyoming' })).toHaveFocus();
+    expect(scrolled).toHaveBeenCalledTimes(2);
+
+    // Tab carries on into the card's actions.
+    await user.tab();
+    expect(screen.getByRole('link', { name: /Price history/ })).toHaveFocus();
+  });
+
+  it('jumps rather than glides to the card when the user prefers reduced motion', async () => {
+    setScreen({ reducedMotion: true });
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    const { user } = setup('/?query=Erina&view=map');
+    await screen.findByTestId('map');
+    await user.click(screen.getByRole('button', { name: 'Dot for Metro Gosford' }));
+    expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest', behavior: 'auto' });
+  });
+
+  it('does not scroll or move focus for a station opened from a link', async () => {
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    setup('/?query=Erina&view=map&station=3');
+    await screen.findByTestId('map');
+    expect(screen.getByRole('heading', { level: 3, name: 'Shell Wyoming' })).not.toHaveFocus();
+    expect(scrolled).not.toHaveBeenCalled();
+  });
+
   it('Escape in the card is its Close: focus to the Map switch', async () => {
     const { user } = setup('/?query=Erina&view=map&station=3');
     await screen.findByTestId('map');
