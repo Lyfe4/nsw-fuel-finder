@@ -67,11 +67,19 @@ export function SelectedStation({
 
   const isCheapest = station.priceCents === cheapest;
   return (
-    <div className={place === 'list' ? styles.inList : styles.onMap} id={id} ref={card}>
+    <div
+      className={place === 'list' ? styles.inList : styles.onMap}
+      id={id}
+      ref={card}
+      data-card={place}
+    >
       {place === 'map' && (
         <>
           <div className={styles.top}>
-            <h3 className={styles.name}>{station.name}</h3>
+            {/* Focused when the station is picked on the map (selection.ts, pickOnMap). */}
+            <h3 className={styles.name} tabIndex={-1}>
+              {station.name}
+            </h3>
             <span aria-hidden="true" className={styles.leader} />
             <p className={isCheapest ? styles.cheapest : styles.amount}>
               {formatPrice(station.priceCents)}{' '}

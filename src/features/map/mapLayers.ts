@@ -26,12 +26,17 @@ export const LAYER = {
   originRing: 'origin-ring',
   originDot: 'origin-dot',
   dotSpace: 'station-dot-space',
+  selectedSpace: 'selected-dot-space',
 } as const;
 
 /** The dot's radius and outline, and the space a price must leave around it. */
 const DOT_RADIUS = 6;
 const DOT_OUTLINE = 1.5;
 const DOT_SPACE_IMAGE = 'dot-space';
+/** The selected marker's radius and edge: bigger than a dot, so it needs more space. */
+const SELECTED_RADIUS = 10;
+const SELECTED_OUTLINE = 3;
+const SELECTED_SPACE_IMAGE = 'selected-dot-space';
 const TAG = { plain: 'tag', cheapest: 'tag-cheapest', selected: 'tag-selected' } as const;
 
 /** Map colours from the design tokens: the map draws on a canvas, out of CSS's reach. */
@@ -161,9 +166,9 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
     source: SOURCE.stations,
     filter: nothingSelected,
     paint: {
-      'circle-radius': 10,
+      'circle-radius': SELECTED_RADIUS,
       'circle-color': bandColour,
-      'circle-stroke-width': 3,
+      'circle-stroke-width': SELECTED_OUTLINE,
       'circle-stroke-color': colours.selected,
     },
   });
@@ -246,10 +251,17 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
     },
     paint: { 'text-color': ['case', isCheapest, colours.onAccent, colours.text] },
   });
+  /*
+   * Where dots overlap (two stations a street apart), the cheaper is drawn
+   * on top, as the cheaper price wins where prices collide (round 17: in
+   * Armidale a dearer neighbour hid most of a 239.9). MapLibre's queries
+   * follow the same order, so a tap picks the dot that can be seen.
+   */
   map.addLayer({
     id: LAYER.dots,
     type: 'circle',
     source: SOURCE.stations,
+    layout: { 'circle-sort-key': ['-', ['get', 'priority']] },
     paint: {
       'circle-radius': DOT_RADIUS,
       'circle-color': bandColour,
@@ -288,26 +300,39 @@ export function addLayers(map: MapLibreMap, colours: MarkerColours): void {
    * prices would be placed straight over other stations' dots. This layer
    * puts an invisible, dot-sized icon on every station into the placement:
    * always placed (allow-overlap), and in the way of every price (no
-   * ignore-placement). It is the top layer, so it is placed first. A price
+   * ignore-placement). The top layers, so placed first. A price
    * is offset far enough from its own dot to clear it.
    */
-  const side = 2 * (DOT_RADIUS + DOT_OUTLINE);
-  if (!map.hasImage(DOT_SPACE_IMAGE)) {
-    map.addImage(DOT_SPACE_IMAGE, {
-      width: side,
-      height: side,
-      data: new Uint8Array(side * side * 4),
+  for (const [id, image, radius, filter] of [
+    [LAYER.dotSpace, DOT_SPACE_IMAGE, DOT_RADIUS + DOT_OUTLINE, null],
+    /*
+     * The selected marker is bigger than a dot, and the space above would
+     * let a neighbour's price sit on its edge (Armidale, round 17): this
+     * one is the marker's size, on the selected station only (StationMap
+     * sets the filter with the marker's).
+     */
+    [
+      LAYER.selectedSpace,
+      SELECTED_SPACE_IMAGE,
+      SELECTED_RADIUS + SELECTED_OUTLINE,
+      nothingSelected,
+    ],
+  ] as const) {
+    const side = 2 * radius;
+    if (!map.hasImage(image)) {
+      map.addImage(image, { width: side, height: side, data: new Uint8Array(side * side * 4) });
+    }
+    map.addLayer({
+      id,
+      type: 'symbol',
+      source: SOURCE.stations,
+      ...(filter ? { filter } : {}),
+      layout: {
+        'icon-image': image,
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': false,
+        'icon-padding': 0,
+      },
     });
   }
-  map.addLayer({
-    id: LAYER.dotSpace,
-    type: 'symbol',
-    source: SOURCE.stations,
-    layout: {
-      'icon-image': DOT_SPACE_IMAGE,
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': false,
-      'icon-padding': 0,
-    },
-  });
 }

@@ -38,8 +38,13 @@ const { FakeMap, maps } = vi.hoisted(() => {
     filters = new Map<string, unknown>();
     canvas: HTMLCanvasElement = document.createElement('canvas');
     zoom = 11;
-    /** What queryRenderedFeatures finds, as the test arranges it. */
-    rendered: { code: string; lng: number; lat: number }[] = [];
+    /**
+     * What queryRenderedFeatures finds, as the test arranges it, topmost
+     * first: a station's dot unless `layer` says otherwise. `under` marks
+     * what is drawn under the point of a click (a point query); a box query
+     * finds everything in the layers asked for.
+     */
+    rendered: { code: string; lng: number; lat: number; layer?: string; under?: boolean }[] = [];
     easeTo = vi.fn();
     resize = vi.fn();
     fitBounds = vi.fn();
@@ -112,11 +117,17 @@ const { FakeMap, maps } = vi.hoisted(() => {
     project([lng, lat]: [number, number]) {
       return { x: lng * 1000, y: lat * 1000 };
     }
-    queryRenderedFeatures() {
-      return this.rendered.map(({ code, lng, lat }) => ({
-        properties: { code },
-        geometry: { type: 'Point', coordinates: [lng, lat] },
-      }));
+    queryRenderedFeatures(geometry: unknown, options: { layers: string[] }) {
+      const point = !Array.isArray(geometry);
+      return this.rendered
+        .filter(({ layer = 'station-dots', under = false }) => {
+          if (!options.layers.includes(layer)) return false;
+          return point ? under : true;
+        })
+        .map(({ code, lng, lat }) => ({
+          properties: { code },
+          geometry: { type: 'Point', coordinates: [lng, lat] },
+        }));
     }
   }
   return { FakeMap, maps };
@@ -198,6 +209,7 @@ describe('StationMap', () => {
       'origin-ring',
       'origin-dot',
       'station-dot-space',
+      'selected-dot-space',
     ]);
     const data = map.sources.get('stations')?.setData.mock.lastCall?.[0] as {
       features: { properties: { code: string; band: string } }[];
@@ -248,6 +260,52 @@ describe('StationMap', () => {
     expect(map.easeTo).not.toHaveBeenCalled();
   });
 
+  it('a tap on a price picks its station, even with another station’s dot nearer', () => {
+    const { map, onPick } = setup();
+    fire(map, 'style.load');
+    map.rendered = [
+      // The dot of b, 3 px from the tap, under no part of it.
+      { code: 'b', lng: 0.003, lat: 0 },
+      // The price tag of a, under the tap.
+      { code: 'a', lng: 0.02, lat: 0, layer: 'station-labels', under: true },
+    ];
+    fire(map, 'click', { x: 0, y: 0 });
+    expect(onPick).toHaveBeenCalledWith('a');
+  });
+
+  it.each(['cheapest-label', 'selected-label'])('a tap on the %s picks its station', (layer) => {
+    const { map, onPick } = setup({ selected: 'b' });
+    fire(map, 'style.load');
+    map.rendered = [{ code: 'a', lng: 0.02, lat: 0, layer, under: true }];
+    fire(map, 'click', { x: 0, y: 0 });
+    expect(onPick).toHaveBeenCalledWith('a');
+  });
+
+  it('where things overlap, the one drawn on top wins', () => {
+    const { map, onPick } = setup();
+    fire(map, 'style.load');
+    // MapLibre lists what is under the point topmost first: a dot drawn
+    // over a price tag is what the tap meant.
+    map.rendered = [
+      { code: 'b', lng: 0.005, lat: 0, under: true },
+      { code: 'a', lng: 0.02, lat: 0, layer: 'station-labels', under: true },
+    ];
+    fire(map, 'click', { x: 0, y: 0 });
+    expect(onPick).toHaveBeenCalledWith('b');
+  });
+
+  it('a tap just off a price tag still picks it; a dot in reach comes first', () => {
+    const { map, onPick } = setup();
+    fire(map, 'style.load');
+    map.rendered = [{ code: 'a', lng: 0.03, lat: 0, layer: 'station-labels' }];
+    fire(map, 'click', { x: 0, y: 0 });
+    expect(onPick).toHaveBeenLastCalledWith('a');
+
+    map.rendered.push({ code: 'b', lng: 0.008, lat: 0 });
+    fire(map, 'click', { x: 0, y: 0 });
+    expect(onPick).toHaveBeenLastCalledWith('b');
+  });
+
   it('a click away from every dot picks nothing', () => {
     const { map, onPick } = setup();
     fire(map, 'style.load');
@@ -265,17 +323,30 @@ describe('StationMap', () => {
     }
     // Every dot is in the way of every price: the top layer, placed first,
     // always placed, and never ignored by the prices placed after it.
-    const space = map.layers.at(-1);
-    expect(space?.id).toBe('station-dot-space');
-    expect(space?.layout).toMatchObject({
-      'icon-allow-overlap': true,
-      'icon-ignore-placement': false,
+    // Where dots overlap, the cheaper (lower priority) is drawn on top.
+    expect(map.layers.find((layer) => layer.id === 'station-dots')?.layout).toEqual({
+      'circle-sort-key': ['-', ['get', 'priority']],
     });
-    expect(map.images.has('dot-space')).toBe(true);
 
-    // The selected station's marker replaces its own dot, under the others.
+    // The selected marker, bigger, keeps a space of its own size clear too.
+    expect(map.layers.slice(-2).map((layer) => layer.id)).toEqual([
+      'station-dot-space',
+      'selected-dot-space',
+    ]);
+    for (const space of map.layers.slice(-2)) {
+      expect(space.layout).toMatchObject({
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': false,
+      });
+    }
+    expect(map.images.has('dot-space')).toBe(true);
+    expect(map.images.has('selected-dot-space')).toBe(true);
+
+    // The selected station's marker replaces its own dot, under the others,
+    // and only it has the bigger space.
     rerender({ selected: 'a' });
     expect(map.filters.get('station-dots')).toEqual(['!=', ['get', 'code'], 'a']);
+    expect(map.filters.get('selected-dot-space')).toEqual(['==', ['get', 'code'], 'a']);
   });
 
   it('always shows the cheapest price, at any zoom, before the others and never dropped', () => {
@@ -323,6 +394,16 @@ describe('StationMap', () => {
       expect(onClear).not.toHaveBeenCalled();
       waitOut();
       expect(onClear).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not a tap on the selected marker, which keeps the selection', () => {
+      const { map, onPick, onClear } = setup({ selected: 'a' });
+      fire(map, 'style.load');
+      map.rendered = [{ code: 'a', lng: 0, lat: 0, layer: 'selected-dot', under: true }];
+      fire(map, 'click');
+      waitOut();
+      expect(onPick).not.toHaveBeenCalled();
+      expect(onClear).not.toHaveBeenCalled();
     });
 
     it('does nothing when nothing is selected', () => {

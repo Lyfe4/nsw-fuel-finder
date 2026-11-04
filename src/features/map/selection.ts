@@ -22,7 +22,9 @@ export type FocusTarget =
   /** The "Map" button of the list/map switch (phones only). */
   | { kind: 'view-switch' }
   /** The map, but only if focus was lost with the card; otherwise it stays. */
-  | { kind: 'map' };
+  | { kind: 'map' }
+  /** The card under the map (phones): its heading, the card scrolled into view. */
+  | { kind: 'card' };
 
 export interface SelectionChange {
   station: string | null;
@@ -41,12 +43,20 @@ export function pickInList(station: string, selected: string | null): SelectionC
 }
 
 /**
- * A station clicked or tapped on the map. Pointer only (markers are not in
- * the Tab order), and focus is left alone: the list scrolls to the station
- * instead, which does not take focus from wherever it was.
+ * A station clicked or tapped on the map: its dot or its price. Pointer only
+ * (markers are not in the Tab order).
+ *
+ * On a wide screen focus is left alone: the list beside the map scrolls to
+ * the station instead, which does not take focus from wherever it was.
+ *
+ * On a phone the card opens under the map, often below the bottom of the
+ * screen, where nothing seemed to happen (round 17). So it is brought into
+ * view, and focus goes to its heading: a screen reader says which station
+ * was picked, and Tab carries on into its actions. A heading focused after a
+ * tap is not marked (:focus-visible), so a tap shows no focus ring.
  */
-export function pickOnMap(station: string): SelectionChange {
-  return { station, focus: { kind: 'stay' } };
+export function pickOnMap(station: string, place: CardPlace): SelectionChange {
+  return { station, focus: place === 'map' ? { kind: 'card' } : { kind: 'stay' } };
 }
 
 /**

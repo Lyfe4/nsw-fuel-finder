@@ -23,8 +23,14 @@ describe('list and map selection', () => {
     });
   });
 
-  it('a station picked on the map is selected without moving focus or changing view', () => {
-    expect(pickOnMap('42')).toEqual({ station: '42', focus: { kind: 'stay' } });
+  describe('a station picked on the map', () => {
+    it('on a wide screen, is selected without moving focus or changing view', () => {
+      expect(pickOnMap('42', 'list')).toEqual({ station: '42', focus: { kind: 'stay' } });
+    });
+
+    it('on a phone, takes focus to its card under the map, without changing view', () => {
+      expect(pickOnMap('42', 'map')).toEqual({ station: '42', focus: { kind: 'card' } });
+    });
   });
 
   describe('closing the card', () => {

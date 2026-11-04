@@ -71,9 +71,10 @@
       is about to show (warmMapResources in src/features/map/mapStyle.ts).
     -->
     <!--
-      THE THEME, BEFORE FIRST PAINT. The stored choice, or the device setting,
-      on <html> before the stylesheet applies, so a dark-mode visitor never
-      sees a white flash while the app loads. src/features/theme/theme.ts owns
+      THE THEME, BEFORE FIRST PAINT. The stored choice ("system" follows the
+      device), or light for a visitor who never chose, on <html> before the
+      stylesheet applies, so nobody sees a flash of the other theme while the
+      app loads. src/features/theme/theme.ts owns
       the key and keeps the attribute current afterwards; theme.test.ts runs
       this script to hold the two together.
 
@@ -90,10 +91,11 @@
         } catch (error) {
           theme = null;
         }
-        if (theme !== 'light' && theme !== 'dark') {
+        if (theme === 'system') {
           var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
           theme = dark ? 'dark' : 'light';
         }
+        if (theme !== 'dark') theme = 'light';
         document.documentElement.setAttribute('data-theme', theme);
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', theme === 'dark' ? '#0e0f11' : '#e8e5dc');

@@ -131,6 +131,14 @@ export function StationsPanel({
         mapPanelRef.current?.querySelector('canvas')?.focus({ preventScroll: true });
       }
     }
+    if (target.kind === 'card') {
+      // 'nearest': as little as it takes, and nothing if it is all in view.
+      // The map is short enough on a phone that the station tapped stays on
+      // screen above it.
+      const card = mapPanelRef.current?.querySelector<HTMLElement>('[data-card="map"]');
+      card?.querySelector('h3')?.focus({ preventScroll: true });
+      card?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
+    }
     if (target.kind === 'list-button') {
       const items = listRef.current?.querySelectorAll<HTMLElement>('[data-station]') ?? [];
       const item = [...items].find((element) => element.dataset.station === target.station);
@@ -217,7 +225,7 @@ export function StationsPanel({
                 reducedMotion={reducedMotion}
                 theme={theme}
                 onPick={(code) => {
-                  apply(pickOnMap(code));
+                  apply(pickOnMap(code, wide ? 'list' : 'map'));
                 }}
                 onClear={() => {
                   apply(clearOnMap());

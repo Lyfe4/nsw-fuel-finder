@@ -1,6 +1,6 @@
 /**
- * Light or dark. The device setting by default; a choice made here is
- * remembered on this device and wins over it.
+ * Light or dark. Light by default (round 17); "Match device" follows the
+ * device's setting. A choice made here is remembered on this device.
  *
  * The very first paint is index.html's job: a small inline script there reads
  * the same storage key and sets `data-theme` on <html> before the stylesheet
@@ -15,24 +15,30 @@ export type ThemePreference = Theme | 'system';
 
 export const THEME_STORAGE_KEY = 'fuel-finder:theme:v1';
 export const DARK_SCHEME = '(prefers-color-scheme: dark)';
+/** A visitor who has never chosen. */
+export const DEFAULT_PREFERENCE: ThemePreference = 'light';
 
 /**
  * Storage can throw (Safari private windows used to, and blocked site data
- * still does) or hold anything at all; both mean "follow the device".
+ * still does) or hold anything at all; both mean the default. Before round
+ * 17 "Match device" was stored as no value at all, so it cannot be told
+ * apart from never having chosen, and also becomes the default.
  */
 export function readPreference(): ThemePreference {
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return stored === 'light' || stored === 'dark' ? stored : 'system';
+    return stored === 'light' || stored === 'dark' || stored === 'system'
+      ? stored
+      : DEFAULT_PREFERENCE;
   } catch {
-    return 'system';
+    return DEFAULT_PREFERENCE;
   }
 }
 
+/** Every choice is stored, "Match device" too: no value means "never chose". */
 function writePreference(preference: ThemePreference): void {
   try {
-    if (preference === 'system') window.localStorage.removeItem(THEME_STORAGE_KEY);
-    else window.localStorage.setItem(THEME_STORAGE_KEY, preference);
+    window.localStorage.setItem(THEME_STORAGE_KEY, preference);
   } catch {
     // Not remembered, but still applied for this visit.
   }

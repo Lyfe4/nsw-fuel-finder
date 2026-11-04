@@ -22,7 +22,12 @@ function runBootScript(): void {
 }
 
 describe('reading the stored theme', () => {
-  it('is "follow the device" when nothing is stored', () => {
+  it('is light for a visitor who never chose', () => {
+    expect(readPreference()).toBe('light');
+  });
+
+  it('reads a stored "match device"', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system');
     expect(readPreference()).toBe('system');
   });
 
@@ -33,23 +38,23 @@ describe('reading the stored theme', () => {
 
   it('ignores anything else that is stored', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'purple');
-    expect(readPreference()).toBe('system');
+    expect(readPreference()).toBe('light');
   });
 
-  it('follows the device when storage throws', () => {
+  it('is light when storage throws', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('denied', 'SecurityError');
     });
-    expect(readPreference()).toBe('system');
+    expect(readPreference()).toBe('light');
   });
 });
 
 describe('choosing a theme', () => {
-  it('remembers a theme, and forgets it for "match device"', () => {
-    setPreference('light');
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light');
+  it('remembers every choice, "match device" included', () => {
+    setPreference('dark');
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
     setPreference('system');
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system');
     expect(getPreference()).toBe('system');
   });
 
@@ -75,7 +80,21 @@ describe("index.html's first-paint script", () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
   });
 
-  it('follows the device when nothing is stored', () => {
+  it('is light for a new visitor, even on a dark device', () => {
+    setScreen({ dark: true });
+    runBootScript();
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('keeps a stored light choice on a dark device', () => {
+    setScreen({ dark: true });
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+    runBootScript();
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('follows the device for a stored "match device"', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system');
     setScreen({ dark: true });
     runBootScript();
     expect(document.documentElement.dataset.theme).toBe('dark');
@@ -85,16 +104,16 @@ describe("index.html's first-paint script", () => {
     expect(document.documentElement.dataset.theme).toBe('light');
   });
 
-  it('follows the device when storage throws or holds junk', () => {
+  it('is light when storage throws or holds junk', () => {
     setScreen({ dark: true });
     window.localStorage.setItem(THEME_STORAGE_KEY, 'purple');
     runBootScript();
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('light');
 
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('denied', 'SecurityError');
     });
     runBootScript();
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 });

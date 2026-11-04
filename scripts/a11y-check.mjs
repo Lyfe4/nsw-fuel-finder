@@ -84,11 +84,15 @@ async function axe(page, label) {
 const browser = await chromium.launch();
 try {
   // --- The theme on first paint: before any of the app's JavaScript runs ----
+  // A new visitor gets light whatever the device (round 17); a saved choice
+  // is kept, and a saved "Match device" follows the device.
   for (const [scheme, stored, expected] of [
-    ['dark', null, 'dark'],
+    ['dark', null, 'light'],
+    ['light', null, 'light'],
     ['light', 'dark', 'dark'],
     ['dark', 'light', 'light'],
-    ['light', null, 'light'],
+    ['dark', 'system', 'dark'],
+    ['light', 'system', 'light'],
   ]) {
     const { context, page } = await open(browser, { scheme, stored, keepCsp: true });
     // Refuse the app's own scripts: what is left is what paints first.

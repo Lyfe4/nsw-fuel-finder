@@ -3162,10 +3162,167 @@ published: true }`, Queensland `public: false`; the same Coolangatta
   `/.netlify/functions/api/status` and deploy-preview-1 now answer 404,
   and a kept deploy still answers. 8 deploys remain.
 
-## 2026-10-25: Baseline (updated 29 October, round 16)
+## 2026-11-04: Round 17 (phone UX, from watching a real user)
 
-The project as of round 16 (audit round 2 fixes; first written for round
-10's `d6dc135`, updated for rounds 11 to 15). Future work
+Three changes and one investigation, all from watching someone use the site
+on a phone.
+
+### Light by default; "Match device" kept, and now remembered
+
+**What it did:** the default followed the device. Nothing stored meant
+"Match device", and choosing "Match device" removed the stored value. So a
+phone in dark mode got dark mode without anyone choosing it.
+
+**Decision:** a visitor who has never chosen gets light. "Match device" stays
+in the select and is now stored as `system`; no value means "never chose".
+
+- **Saved choices are kept.** The key stays `fuel-finder:theme:v1`, and a
+  stored `light` or `dark` means what it did. No migration is needed.
+- **One group changes, and cannot be told apart:** someone who chose "Match
+  device" before this round left nothing stored, exactly like a new visitor,
+  so they get light now and choose "Match device" again once. Accepted:
+  there is no way to recognise them, and that choice was a single step.
+- **No flash.** The first-paint script in `index.html` makes the same
+  decision before the stylesheet applies (`system` follows the device; junk,
+  nothing or throwing storage means light). The CSP hash in `netlify.toml`
+  is updated with it; `securityHeaders.test.ts` holds them together.
+  `check:a11y` paints the page with the app's scripts blocked under the real
+  CSP in six combinations (device light or dark, nothing / light / dark /
+  system stored): all as expected.
+
+**Considered:** a new key (`v2`) with a migration. Rejected: it changes
+nothing for anyone with a stored choice and cannot help the one group above.
+
+### A price on the map is as good as its dot
+
+**The cause:** a tap picked the nearest dot within 12 px, from the dots
+layer only. A price tag sits 12 px or more from its own dot, so a tap on
+"241.9" picked nothing (or a neighbour's dot, if one was within reach).
+
+**Decision:** `stationAt` in `StationMap.tsx` decides in three steps:
+
+1. What is drawn under the point, topmost first: a dot, the selected marker
+   or a price tag. MapLibre's `queryRenderedFeatures` returns features in
+   drawing order, so where things overlap, the one that can be seen wins.
+2. Otherwise the nearest dot within 12 px, as before (24 px target).
+3. Otherwise a price tag within 4 px of the tap. A tag is about 17 px tall,
+   so 25 px with the slop: the WCAG 2.5.8 minimum, without reaching into a
+   neighbour's tag (tags keep 2 px apart and never overlap a dot).
+
+The mouse pointer shows over tags as over dots. A tap on the selected
+marker or its price now keeps the selection; before, the marker was missing
+from the query, so a tap on it with no neighbour near counted as a tap on
+nothing and cleared it after 300 ms.
+
+**Keyboard and screen readers:** the dots and prices are drawn on a canvas,
+not elements, and stay out of the Tab order, as decided in round 4 ("Keyboard
+path to the map"): the list's rows are the same stations as buttons, and
+pressing one selects it on the map. A price tag as a focusable element would
+be hundreds of Tab stops on a dense search. What changes for them is the
+next section: a pick on a phone's map now takes focus to the card.
+
+### On a phone, a pick shows its card
+
+**The cause:** on a phone the card opens under the map, which is 65% of the
+screen tall, so the card started below the bottom edge and nothing seemed
+to happen. The 65% was chosen to leave room for the card; the page just
+never scrolled to it.
+
+**Decision:** a station picked on the map on a phone (not wide) brings its
+card into view and moves focus to its heading (`pickOnMap` in
+`selection.ts` returns the new focus target `card`; `StationsPanel` acts on
+it in its layout effect, like every other focus move).
+
+- **The scroll** is `scrollIntoView({ block: 'nearest' })`, the same call
+  the list uses for a station picked on a wide map: as little as it takes,
+  nothing if the card is already in view; smooth, or instant when the
+  visitor prefers reduced motion. At 390 × 844 it scrolls about 150 px.
+- **The station stays on screen.** The map is at most 65% of the screen
+  tall, so after the scroll its top is still on screen and so is the dot or
+  price that was tapped (`check:browser` measures this).
+- **Focus on the heading** (`tabindex="-1"`): a screen reader says which
+  station was picked, and Tab carries on into Price history, Directions,
+  Favourite and Close. A heading focused after a tap is not marked
+  (`:focus-visible`), so a touch shows no focus ring. Escape, Close and a
+  tap on nothing already handle focus leaving the card (round 12).
+- **Not** on a wide screen (the card is in the list beside the map, which
+  already scrolls to it, and focus stays put), **not** for a station opened
+  from a link, and **not** when switching to the Map view with a station
+  already selected: only after a pick.
+
+**Considered:** a bottom sheet (the card fixed over the bottom of the map).
+No scroll at all, but it would cover part of the map, sometimes the station
+just tapped and the map's attribution, and it needs its own rules for
+scrolling and focus. The scroll uses the layout as designed.
+
+### Overlapping dots and prices (investigated)
+
+**What was found** (Armidale, Unleaded 91, 5 km): Shell Reddy Express
+(239.9) and Lowes (242.9) are about 90 m apart, 5 px at the fitted zoom, so
+their 12 px dots overlap; Lowes, the dearer, was drawn on top (the data's
+order) and hid most of the 239.9. With the 239.9 selected and the map zoomed
+out a step, Lowes's price sat on the selected marker's edge: the invisible
+icon that keeps prices off dots was dot-sized, 7.5 px, and the marker is
+13 px. Prices otherwise never covered a dot. The snapshot has about 29 pairs
+of stations within 60 m, so this is common.
+
+**Decision, built (small):**
+
+- **The cheaper dot is drawn on top** (`circle-sort-key`, minus the price),
+  as the cheaper price wins where prices collide. MapLibre's queries follow
+  the same order (the circle bucket sorts its features by key before
+  indexing them), so a tap still picks the dot that can be seen.
+- **The selected marker keeps its own size clear**: a second invisible icon
+  layer, 26 px, filtered to the selected station like the marker. Prices
+  move away from it or give way, as they do for dots.
+- **Price tags are tap targets** (above), so where dots overlap, each
+  station still has a target of its own: its price.
+
+**Recommended, not built:** where a tap is within reach of two or more
+stations at the fitted zoom, ask which one ("2 stations here: Shell 239.9,
+Lowes 242.9"), or zoom to them. It is a new pattern, with its own focus and
+screen reader rules, so it is for the owner to decide. Today a wrong pick
+shows the wrong name and price at once in the card, now brought into view,
+and the other station is one tap away on its price.
+
+### Tests
+
+- 16 more unit tests (1,030): the default and every saved theme, the first
+  paint script on a dark device; a tap on each kind of price tag, the
+  topmost of overlapping things winning, the tag slop after the dot radius,
+  a tap on the selected marker; the dot sort key and the selected space; on
+  a phone a map pick focusing the card's heading and scrolling it into view
+  (smooth, or instant with reduced motion), and not for a link.
+- `check:browser` gains 5 (69): a click on the cheapest price's tag selects
+  its station on a wide screen, without moving focus; on a phone at 390 ×
+  844 a tap on it selects it, scrolls the card fully into view (it started
+  below the screen), focuses its name, and the price tapped stays on screen.
+  The tag is found by its colour in a screenshot (the map is a canvas). Run
+  against production, the three tap checks fail ("nothing selected").
+- `check:a11y`: the first-paint matrix is six combinations (42 checks).
+
+### Library behaviour this relies on
+
+- **`queryRenderedFeatures` (MapLibre 6.16):** results topmost first, by
+  layer order and, within a layer, by drawing order. A point query on a
+  circle layer tests the drawn circle, stroke included. Symbol layers are
+  answered from the collision index: only placed symbols, both the
+  placement grid and the ignored grid, so a tag image fitted to its text
+  (`icon-ignore-placement`) counts as well as the text.
+- **`circle-sort-key`:** a higher key is drawn above; the bucket sorts
+  features by key before inserting them into the feature index, which is
+  what the query order follows.
+- **`scrollIntoView({ block: 'nearest', behavior })`:** no scroll when the
+  element is already fully in view; `smooth` is a hint browsers may ignore.
+- **`focus({ preventScroll: true })`** then the scroll: the focus move does
+  not jump the page before the smooth scroll starts.
+- **`:focus-visible` after a programmatic focus** follows the last input: a
+  tap or click does not show it, a key does (Chromium, Safari, Firefox).
+
+## 2026-10-25: Baseline (updated 4 November, round 17)
+
+The project as of round 17 (phone UX; first written for round 10's
+`d6dc135`, updated for rounds 11 to 16). Future work
 starts from here; this entry is the summary, and the rounds above have the
 reasons.
 
@@ -3174,14 +3331,18 @@ a suburb, a postcode or the visitor's rounded location, at 2, 5, 10 or 25 km.
 A list and a map (MapLibre, OpenFreeMap tiles, loaded only when shown), side
 by side on wide screens, a List/Map switch on phones. Without a GPU the wide
 map waits for "Show the map". On the map every station's dot is always
-drawn (prices make way for dots); a tap on empty map or Escape clears the
-selection, and drags, pinches and double-taps do not. A one-line summary
+drawn (prices make way for dots, the cheaper dot on top where dots
+overlap); a dot or its price selects a station, and on a phone the card
+under the map is brought into view with focus on its name; a tap on empty
+map or Escape clears the selection, and drags, pinches and double-taps do
+not. A one-line summary
 (cheapest, average, what the difference is worth on 50 L), sort by price or
 distance, brand and price-age filters, today's move per station, directions
 in the phone's maps app, the nearest stations up to 100 km when nothing is in
 range. Favourites on the device. Four months of daily history per station
 (FuelCheck's published files joined to our own snapshots), as a chart with a
-keyboard slider and a table. Light and dark themes. All state in the URL.
+keyboard slider and a table. Light by default, dark, or "Match device"
+(round 17). All state in the URL.
 
 **How it looks.** The Docket design (round 13): a station is one line, name,
 dotted leader, mono price, opening to its card; on a phone the search folds
@@ -3242,10 +3403,11 @@ never when over 25 minutes old (round 16).
 - UptimeRobot on `/api/status` every 15 minutes, emailing the owner.
 - Netlify's usage emails at 50, 75, 90 and 100% of each plan limit.
 - The API.NSW dashboard, the authority on the quota.
-- CI on every pull request: typecheck, lint, format, 1,014 tests, the build
-  and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (64
+- CI on every pull request: typecheck, lint, format, 1,030 tests, the build
+  and bundle budgets (JS, CSS and fonts); and `pnpm check:browser` (69
   checks, including CSP, CLS at desktop and phone size, touch gestures on
-  the map and the card's actions on one row at four phone widths) and `pnpm check:a11y` (40) against its deploy preview, about two
+  the map, a tap on a price, and the card's actions on one row at four
+  phone widths) and `pnpm check:a11y` (42) against its deploy preview, about two
   minutes. Both required. The same checks by hand against production.
 - PageSpeed Insights, a results page: desktop 99, mobile 99, CLS 0, and 100
   for accessibility, best practices and SEO (29 October, after round 14;
@@ -3332,6 +3494,14 @@ never when over 25 minutes old (round 16).
 - **A slow machine can time out a whole-app test.** The first test in a
   file renders the whole app cold (about 1 to 1.4 s alone); under heavy
   local load that has passed five seconds. CI has not seen it.
+- **Overlapping dots** (round 17): stations a street apart overlap at the
+  fitted zoom. The cheaper is drawn on top and each has its price to tap;
+  a tap on the overlap picks the top one. A "which station?" choice was
+  recommended, not built.
+- **A "Match device" chosen before round 17 is forgotten**: it was stored
+  as nothing, like a new visitor, so it is light until chosen again.
+- **The privacy and 404 pages follow the device**, not the stored choice:
+  they are static, with no script to read it.
 - **A tap on empty map clears the selection 300 ms later**, so a double-tap
   can zoom without clearing it. A double-tap slower than that both zooms and
   clears. A tap within 12 px of a dot picks that station instead, so in a

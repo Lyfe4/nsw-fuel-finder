@@ -138,6 +138,57 @@ async function tapNothing(page, canvas, tap) {
   return 0;
 }
 
+/**
+ * Where the cheapest price's tag is on the map, in page coordinates, or null.
+ * The map is a canvas with no elements to find, so this looks for the tag's
+ * fill, the accent colour, in a screenshot. The cheapest price is always
+ * drawn. The cheapest dots share the colour, so it takes the first run of it
+ * at least 30 px wide: a dot is at most 20.
+ */
+async function cheapestTag(page, canvas) {
+  const box = await canvas.boundingBox();
+  const png = await page.screenshot({ clip: box });
+  const found = await page.evaluate(async (data) => {
+    const accent = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-accent')
+      .trim();
+    const value = Number.parseInt(accent.slice(1), 16);
+    const [r, g, b] = [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+    const image = new Image();
+    image.src = `data:image/png;base64,${data}`;
+    await image.decode();
+    const drawn = document.createElement('canvas');
+    drawn.width = image.width;
+    drawn.height = image.height;
+    const context = drawn.getContext('2d');
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, drawn.width, drawn.height).data;
+    const isAccent = (x, y) => {
+      const i = (y * drawn.width + x) * 4;
+      return (
+        Math.abs(pixels[i] - r) <= 2 &&
+        Math.abs(pixels[i + 1] - g) <= 2 &&
+        Math.abs(pixels[i + 2] - b) <= 2
+      );
+    };
+    for (let y = 0; y < drawn.height; y += 1) {
+      let run = 0;
+      for (let x = 0; x <= drawn.width; x += 1) {
+        if (x < drawn.width && isAccent(x, y)) {
+          run += 1;
+        } else if (run >= 30) {
+          // The tag's top edge: its middle is about 8 px further down.
+          return [x - run / 2, y + 8];
+        } else {
+          run = 0;
+        }
+      }
+    }
+    return null;
+  }, png.toString('base64'));
+  return found ? [box.x + found[0], box.y + found[1]] : null;
+}
+
 /** Real touch input, through the DevTools protocol: Playwright itself can only tap. */
 function touchInput(session) {
   const send = (type, points) =>
@@ -219,6 +270,24 @@ try {
   );
   await page.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
   check('the "Loading map…" placeholder clears once the map has drawn', true);
+
+  // A price is as good as its dot (round 17): a click on the cheapest
+  // price's tag, away from its dot, selects that station.
+  await page.waitForTimeout(1000);
+  const wideTag = await cheapestTag(page, canvas);
+  if (wideTag) await page.mouse.click(...wideTag);
+  await page.waitForURL(/station=/, { timeout: 3000 }).catch(() => undefined);
+  const tagged = station(page.url());
+  check(
+    'a click on a price tag selects its station',
+    Boolean(tagged) &&
+      (await list.locator(`[data-station="${tagged}"]`).getByText('Cheapest').count()) > 0,
+    wideTag ? (tagged ?? 'nothing selected') : 'no tag found',
+  );
+  check(
+    'and on a wide screen focus is not moved',
+    await page.evaluate(() => document.activeElement?.tagName !== 'H3'),
+  );
 
   // Layout shift while the results load, at Lighthouse's desktop and mobile
   // sizes. The prices are held back a second and a half, as on a slow
@@ -638,6 +707,44 @@ try {
   check(
     'the phone stays on the map',
     new URL(mobile.url()).searchParams.get('view') === 'map' && (await phoneCanvas.isVisible()),
+  );
+
+  // A tap on a price, at 390 x 844 (round 17): it selects the station, and
+  // its card under the map, below the bottom of the screen until now, is
+  // brought into view with focus on its name. The price tapped stays on
+  // screen above it.
+  await mobile.setViewportSize({ width: 390, height: 844 });
+  await mobile.goto(`${BASE}/?fuel=U91&query=2250&view=map`);
+  await phoneCanvas.waitFor();
+  await mobile.getByText('Loading map…').waitFor({ state: 'detached', timeout: 30_000 });
+  await mobile.waitForTimeout(1000);
+  const scrolledBefore = await mobile.evaluate(() => window.scrollY);
+  const phoneTag = await cheapestTag(mobile, phoneCanvas);
+  if (phoneTag) await mobile.touchscreen.tap(...phoneTag);
+  await mobile.waitForURL(/station=/, { timeout: 3000 }).catch(() => undefined);
+  await mobile.waitForTimeout(1000);
+  const mapCard = mobile.locator('[data-card="map"]');
+  const cardBox = (await mapCard.count()) ? await mapCard.boundingBox() : null;
+  const scrolledBy = (await mobile.evaluate(() => window.scrollY)) - scrolledBefore;
+  check(
+    'on a phone, a tap on a price tag selects its station',
+    Boolean(station(mobile.url())) && (await mapCard.getByText('cheapest').count()) > 0,
+    phoneTag ? (station(mobile.url()) ?? 'nothing selected') : 'no tag found',
+  );
+  check(
+    'and brings its card, which started below the screen, fully into view',
+    cardBox !== null && scrolledBy > 0 && cardBox.y >= 0 && cardBox.y + cardBox.height <= 844,
+    cardBox
+      ? `scrolled ${String(scrolledBy)} px, card ${String(Math.round(cardBox.y))} to ${String(Math.round(cardBox.y + cardBox.height))}`
+      : 'no card',
+  );
+  check(
+    'with focus on the station’s name, and the price tapped still on screen',
+    (await mapCard.count()) > 0 &&
+      (await mapCard.evaluate(
+        (card) => document.activeElement?.tagName === 'H3' && card.contains(document.activeElement),
+      )) &&
+      (phoneTag?.[1] ?? 0) - scrolledBy > 0,
   );
 
   // The card's actions, [Directions] [Favourite] ... [x], on one row at
