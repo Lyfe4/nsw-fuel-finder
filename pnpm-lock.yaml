@@ -9,20 +9,20 @@ importers:
   .:
     dependencies:
       '@netlify/blobs':
-        specifier: ^11.1.6
-        version: 11.1.6
+        specifier: ^11.1.8
+        version: 11.1.8
       '@tabler/icons-react':
         specifier: ^3.50.0
         version: 3.50.0(react@19.3.1)
       '@tanstack/react-query':
-        specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.107.1
+        version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
       downshift:
-        specifier: ^9.4.0
-        version: 9.4.0(react@19.3.1)
+        specifier: ^9.4.1
+        version: 9.4.1(react@19.3.1)
       maplibre-gl:
-        specifier: 6.16.0
-        version: 6.16.0
+        specifier: 6.17.0
+        version: 6.17.0
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -380,8 +380,8 @@ packages:
   '@maplibre/geojson-vt@6.3.0':
     resolution: {integrity: sha512-3Zw2jsU9pIJG3G2CQFbLjWj2MlAHodhD7cSY+15iywUuLmmkgzcKRnueVRZ4AcC/5wOtfhidcJAAzBpoBNs3Xg==}
 
-  '@maplibre/maplibre-gl-style-spec@26.4.4':
-    resolution: {integrity: sha512-hG4RZR4PBd/+6A3ODdZ3AnQRF106ZQk1y3bhwDg8bH/A4Oz2tnRUJVVWs9BZa6gXZ1d3UKe89C+Mm+olGBELvA==}
+  '@maplibre/maplibre-gl-style-spec@26.5.1':
+    resolution: {integrity: sha512-9ufQ5LR+Ldn87SILPVyRNz4wVm/sBrM2ZRv9VfjLRKYKIGAcvC1VFw/DEkJLAHqfMV8m03zDz1DUNTIUj/GvdA==}
     hasBin: true
 
   '@maplibre/mlt@1.3.0':
@@ -397,20 +397,20 @@ packages:
       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
 
-  '@netlify/blobs@11.1.6':
-    resolution: {integrity: sha512-7CKpZs4WbMqMvHRxXpQw395X4YBw9keGy3yDr7+pXjAgHlDO7kdYv3chkBYRc78K6delj7Mrmn2NB1HK2E5DxQ==}
+  '@netlify/blobs@11.1.8':
+    resolution: {integrity: sha512-LgarLBv1r+Wi3vURGkecpwRiLwao8O2brsK/Kvc61T/LZ10xO0mfOiGMo436FFoi78D7LqdTBU5PzId6+9LlwA==}
     engines: {node: '>=22.12.0'}
 
-  '@netlify/dev-utils@6.0.4':
-    resolution: {integrity: sha512-VZgq2gqRLQual8P2v6B8/W1WgUNYJvVvgqCIbviPR/BcI6hKvxVBdAMjz+84eU3qpfMau1Bn2J70JDSQSNkNgg==}
+  '@netlify/dev-utils@6.0.5':
+    resolution: {integrity: sha512-lcXu4UXhrfpwClSc20f7ZJE7eWmr2PqHsWyRjcxSRum94W0zVzQZvb6y4mungas1TQgCOX4zF1p+arizS0dZ4g==}
     engines: {node: '>=22.12.0'}
 
-  '@netlify/otel@7.0.6':
-    resolution: {integrity: sha512-PUE0NwWiXU2xh64WNb2y5cFFjkn3CvMH5ReL1zL8M9cue3BmEpqpCb1VPdsnrMtZdatjqmGDND8ACmGdrR/THg==}
+  '@netlify/otel@7.0.7':
+    resolution: {integrity: sha512-mIvDPK8J8jgWex8t86/lZYXAWCJigBPsy6Cyt6LG2yy49BYsaEmhE62rODbPa3f9t8PLrNPixbZ05d/S5uAdng==}
     engines: {node: '>=22.12.0'}
 
-  '@netlify/runtime-utils@3.0.0':
-    resolution: {integrity: sha512-OHo40+V3QZkR+UrDjqhN+LekrAby/dSSJxsvyYs9i88E/mSl3goB/ysoL+VYROm190egxmQyRYlHK7vL4GeHBQ==}
+  '@netlify/runtime-utils@3.0.1':
+    resolution: {integrity: sha512-PythjseqdFTvaTK28IiRZ/w0YOZKgyBDxiXuCNEwCBxidnKZ7najsOMtstwwzmsRtfHbmXHOB5NLaGCnvnvBTg==}
     engines: {node: '>=22.12.0'}
 
   '@opentelemetry/api-logs@0.223.0':
@@ -579,11 +579,11 @@ packages:
   '@tabler/icons@3.50.0':
     resolution: {integrity: sha512-HflLxyrH1cqC7s7jzQGSjpsTAVIoaf7+/yHjbdM59rJQBMjliibp+LYhDPFxOMcwa1M8DNpOk6ENzQiWn9a1Dg==}
 
-  '@tanstack/query-core@5.104.5':
-    resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
+  '@tanstack/query-core@5.107.1':
+    resolution: {integrity: sha512-PSyAik11oQBEVOiVy5hjZWHmoUqOXqK1WYy4v55mcxozEfKaQgpUMsgnXhWjuESzSht8JfzqMS1m6M/9CpNgvg==}
 
-  '@tanstack/react-query@5.104.5':
-    resolution: {integrity: sha512-RORgFe052U+93weaNuqg7qHq7vNVNzXN/VrXqD4bbAuQCWUqOl2lV5Ui9flWk5CVvMyL/Bh27QWhzwH0aaOx9g==}
+  '@tanstack/react-query@5.107.1':
+    resolution: {integrity: sha512-udCOOLp3ZAheUrIHLCe+ZZge6nr2ZUrGMSWcCuXsjY1Bf2JeeE09oxst97PILiCY6N8xo/7bIo3Hvz13zh06FA==}
     peerDependencies:
       '@types/react': ^18 || ^19
       react: ^18 || ^19
@@ -1140,8 +1140,8 @@ packages:
     resolution: {integrity: sha512-1gxPBJpI/pcjQhKgIU91II6Wkay+dLcN3M6rf2uwP8hRur3HtQXjVrdAK3sjC0piaEuxzMwjXChcETiJl47lAQ==}
     engines: {node: '>=18'}
 
-  downshift@9.4.0:
-    resolution: {integrity: sha512-yIwyzRYzycKwMZhvOahsn4BmRr4Ffi0JymdWOtTDhR+LGDEXCZHTcwgUbNBC/oZLT6YrR46iwJe/BrQUS5ClQQ==}
+  downshift@9.4.1:
+    resolution: {integrity: sha512-Pvn0sG70zOFlWgZY+s//mIC6gDBVVpuF0LVhe964XsLTrQy+1v4q3BRyyrf3dgyzN9pUz40d9BaIQoHVBMEHHg==}
     peerDependencies:
       react: '>=16.12.0'
 
@@ -1736,8 +1736,8 @@ packages:
   magicast@0.5.5:
     resolution: {integrity: sha512-UicdXN8zQ3JHlxVq+28afMXPr1z7WNY6+7EJnzTdQWkTAlMLF5fNCCKxJHBQwGaNGR11581EiQmQzx73+MvszA==}
 
-  maplibre-gl@6.16.0:
-    resolution: {integrity: sha512-gApO66EMtoDZuio680RUBvskR7ahFd/NNhLN4tBAs+Y7FeT4gQV8zVFgYVMRmFxQznOEzecW19w6xOd9XjZjiA==}
+  maplibre-gl@6.17.0:
+    resolution: {integrity: sha512-2chIZwpLGenoUQOcnm9Pk4SLbA8ppNFq8jlpXiq9vcYm3Y1wJ3fc82FL0GLwBaPYJCLzPv/mC46KEupVov75rQ==}
     engines: {node: '>=16.14.0', npm: '>=8.1.0'}
 
   math-intrinsics@1.1.0:
@@ -2619,7 +2619,7 @@ snapshots:
     dependencies:
       kdbush: 4.1.0
 
-  '@maplibre/maplibre-gl-style-spec@26.4.4':
+  '@maplibre/maplibre-gl-style-spec@26.5.1':
     dependencies:
       '@mapbox/jsonlint-lines-primitives': 2.0.3
       '@mapbox/unitbezier': 1.0.0
@@ -2645,15 +2645,15 @@ snapshots:
       '@tybys/wasm-util': 0.10.4
     optional: true
 
-  '@netlify/blobs@11.1.6':
+  '@netlify/blobs@11.1.8':
     dependencies:
-      '@netlify/dev-utils': 6.0.4
-      '@netlify/otel': 7.0.6
-      '@netlify/runtime-utils': 3.0.0
+      '@netlify/dev-utils': 6.0.5
+      '@netlify/otel': 7.0.7
+      '@netlify/runtime-utils': 3.0.1
     transitivePeerDependencies:
       - supports-color
 
-  '@netlify/dev-utils@6.0.4':
+  '@netlify/dev-utils@6.0.5':
     dependencies:
       '@whatwg-node/server': 0.11.0
       ansis: 4.4.0
@@ -2667,7 +2667,7 @@ snapshots:
       parse-gitignore: 2.0.0
       semver: 7.8.5
 
-  '@netlify/otel@7.0.6':
+  '@netlify/otel@7.0.7':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/core': 2.12.0(@opentelemetry/api@1.9.1)
@@ -2677,7 +2677,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@netlify/runtime-utils@3.0.0': {}
+  '@netlify/runtime-utils@3.0.1': {}
 
   '@opentelemetry/api-logs@0.223.0':
     dependencies:
@@ -2789,11 +2789,11 @@ snapshots:
 
   '@tabler/icons@3.50.0': {}
 
-  '@tanstack/query-core@5.104.5': {}
+  '@tanstack/query-core@5.107.1': {}
 
-  '@tanstack/react-query@5.104.5(@types/react@19.3.0)(react@19.3.1)':
+  '@tanstack/react-query@5.107.1(@types/react@19.3.0)(react@19.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.104.5
+      '@tanstack/query-core': 5.107.1
       react: 19.3.1
     optionalDependencies:
       '@types/react': 19.3.0
@@ -3335,7 +3335,7 @@ snapshots:
     dependencies:
       type-fest: 4.41.0
 
-  downshift@9.4.0(react@19.3.1):
+  downshift@9.4.1(react@19.3.1):
     dependencies:
       '@babel/runtime': 7.29.10
       compute-scroll-into-view: 3.1.1
@@ -4009,14 +4009,14 @@ snapshots:
       '@babel/types': 7.29.8
       source-map-js: 1.2.2
 
-  maplibre-gl@6.16.0:
+  maplibre-gl@6.17.0:
     dependencies:
       '@mapbox/point-geometry': 1.1.0
       '@mapbox/tiny-sdf': 2.3.0
       '@mapbox/unitbezier': 1.0.0
       '@mapbox/vector-tile': 3.0.0
       '@maplibre/geojson-vt': 6.3.0
-      '@maplibre/maplibre-gl-style-spec': 26.4.4
+      '@maplibre/maplibre-gl-style-spec': 26.5.1
       '@maplibre/mlt': 1.3.0
       '@maplibre/vt-pbf': 4.3.3
       '@types/geojson': 7946.0.16
